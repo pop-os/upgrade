@@ -43,6 +43,7 @@ use crate::release::release;
 use crate::status::StatusExt;
 
 pub mod error {
+    use std::io;
     use super::recovery::RecoveryError;
     use super::release::ReleaseError;
 
@@ -51,7 +52,9 @@ pub mod error {
         #[error(display = "recovery subcommand failed: {}", _0)]
         Recovery(RecoveryError),
         #[error(display = "release subcommand failed: {}", _0)]
-        Release(ReleaseError)
+        Release(ReleaseError),
+        #[error(display = "failed to ensure requirements are met: {}", _0)]
+        Init(InitError)
     }
 
     impl From<RecoveryError> for Error {
@@ -65,11 +68,23 @@ pub mod error {
             Error::Release(why)
         }
     }
+
+    impl From<InitError> for Error {
+        fn from(why: InitError) -> Self {
+            Error::Init(why)
+        }
+    }
+
+    #[derive(Debug, Error)]
+    pub enum InitError {
+        #[error(display = "failure to create /var/cache/apt/archives/partial directories: {}", _0)]
+        AptCacheDirectories(io::Error)
+    }
 }
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 
-use self::error::Error;
+use self::error::{Error, InitError};
 
 pub fn main() {
     let matches = App::new("pop-upgrade")
@@ -150,6 +165,8 @@ pub fn main() {
 }
 
 fn main_(matches: &ArgMatches) -> Result<(), Error> {
+    init()?;
+
     match matches.subcommand() {
         ("recovery", Some(matches)) => recovery(matches)?,
         ("release", Some(matches)) => release(matches)?,
@@ -157,4 +174,9 @@ fn main_(matches: &ArgMatches) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+fn init() -> Result<(), InitError> {
+    ::std::fs::create_dir_all("/var/cache/apt/archives/partial/")
+        .map_err(InitError::AptCacheDirectories)
 }
