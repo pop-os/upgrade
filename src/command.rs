@@ -1,50 +1,45 @@
-// Source code taken from distinst.
-#![allow(dead_code)]
-#![allow(unused_imports)]
-
+use std::process::{self, Child, Stdio};
+use std::io::{self, BufRead, BufReader, Error, ErrorKind, Write};
 use std::ffi::OsStr;
-use std::io::{self, BufRead, BufReader, Error, ErrorKind};
-use std::process::{self, Stdio};
 use std::thread;
 
-pub struct Command(process::Command);
+/// Convenient wrapper around `process::Command` to make it easier to work with.
+pub struct Command<'a> {
+    cmd: process::Command,
+    stdin: Option<&'a str>,
+}
 
-impl Command {
-    pub fn new<S: AsRef<OsStr>>(program: S) -> Command {
-        Command(process::Command::new(program))
+impl<'a> Command<'a> {
+    pub fn new<S: AsRef<OsStr>>(program: S) -> Self {
+        Command { cmd: process::Command::new(program), stdin: None }
     }
 
-    pub fn arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Command {
-        self.0.arg(arg);
+    pub fn arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Command<'a> {
+        self.cmd.arg(arg);
         self
     }
 
-    pub fn args<S: AsRef<OsStr>, I: IntoIterator<Item = S>>(&mut self, args: I) -> &mut Command {
-        self.0.args(args);
+    pub fn args<S: AsRef<OsStr>, I: IntoIterator<Item = S>>(&mut self, args: I) -> &mut Command<'a> {
+        self.cmd.args(args);
         self
     }
 
-    pub fn env(&mut self, key: &str, value: &str) {
-        self.0.env(key, value);
+    pub fn env(&mut self, key: &str, value: &str) -> &mut Command<'a> {
+        self.cmd.env(key, value);
+        self
     }
 
     pub fn env_clear(&mut self) {
-        self.0.env_clear();
+        self.cmd.env_clear();
     }
 
-    pub fn stdin(&mut self, stdio: Stdio) {
-        self.0.stdin(stdio);
-    }
-    pub fn stderr(&mut self, stdio: Stdio) {
-        self.0.stderr(stdio);
-    }
-    pub fn stdout(&mut self, stdio: Stdio) {
-        self.0.stdout(stdio);
-    }
+    pub fn stdin(&mut self, stdio: Stdio) { self.cmd.stdin(stdio); }
+    pub fn stderr(&mut self, stdio: Stdio) { self.cmd.stderr(stdio); }
+    pub fn stdout(&mut self, stdio: Stdio) { self.cmd.stdout(stdio); }
 
     fn redirect<R: io::Read + Send + 'static, F: FnMut(&str) + Send + 'static>(
         reader: Option<R>,
-        mut writer: F,
+        mut writer: F
     ) {
         if let Some(reader) = reader {
             let mut reader = BufReader::new(reader);
@@ -54,71 +49,110 @@ impl Command {
                     buffer.clear();
                     match reader.read_line(buffer) {
                         Ok(0) | Err(_) => break,
-                        Ok(_) => writer(buffer.trim_right()),
+                        Ok(_) => writer(buffer.trim_right())
                     }
                 }
             });
         }
     }
 
+    /// Run the program, check the status, and get the output of `stdout`
+    pub fn stdin_input(mut self, input: &'a str) -> Self {
+        self.stdin = Some(input);
+        self.stdin(Stdio::piped());
+        self
+    }
+
+    pub fn stdin_redirect(&mut self, child: &mut Child) -> io::Result<()> {
+        match self.stdin {
+            Some(input) => child.stdin.as_mut().unwrap().write_all(input.as_bytes()),
+            None => Ok(())
+        }
+    }
+
     pub fn run_with_stdout(&mut self) -> io::Result<String> {
-        let cmd = format!("{:?}", self.0);
-        eprintln!("running {}", cmd);
+        let cmd = format!("{:?}", self.cmd);
+        info!("running {}", cmd);
 
-        self.0.stdout(Stdio::piped());
+        self.cmd.stdout(Stdio::piped());
 
-        let child = self.0.spawn().map_err(|why| {
-            Error::new(
-                ErrorKind::Other,
-                format!("chroot command failed to spawn: {}", why),
-            )
-        })?;
+        let mut child = self.cmd.spawn()
+            .map_err(|why| Error::new(
+                why.kind(),
+                format!("failed to spawn process {}: {}", cmd, why)
+            ))?;
 
-        child
-            .wait_with_output()
-            .map_err(|why| {
-                Error::new(
-                    ErrorKind::Other,
-                    format!("failed to get output of {}: {}", cmd, why),
-                )
-            })
+        self.stdin_redirect(&mut child)?;
+
+        child.wait_with_output()
+            .map_err(|why| Error::new(
+                why.kind(),
+                format!("failed to get output of {}: {}", cmd, why)
+            ))
             .and_then(|output| {
-                String::from_utf8(output.stdout).map_err(|why| {
-                    Error::new(
+                String::from_utf8(output.stdout)
+                    .map_err(|why| Error::new(
                         ErrorKind::Other,
-                        format!("command output has invalid UTF-8: {}", why),
-                    )
-                })
+                        format!("command output has invalid UTF-8: {}", why)
+                    ))
             })
     }
 
+    /// Run the program and check the status.
     pub fn run(&mut self) -> io::Result<()> {
-        eprintln!("running {:?}", self.0);
+        let cmd = format!("{:?}", self.cmd);
+        info!("running {}", cmd);
 
-        let mut child = self.0.spawn().map_err(|why| {
-            Error::new(
-                ErrorKind::Other,
-                format!("chroot command failed to spawn: {}", why),
-            )
-        })?;
+        let mut child = self.cmd.spawn()
+            .map_err(|why| Error::new(
+                why.kind(),
+                format!("failed to spawn process {}: {}", cmd, why)
+            ))?;
 
-        Self::redirect(child.stdout.take(), |msg| eprintln!("{}", msg));
-        Self::redirect(child.stderr.take(), |msg| eprintln!("{}", msg));
+        self.stdin_redirect(&mut child)?;
+        Self::redirect(child.stdout.take(), |msg| info!("{}", msg));
+        Self::redirect(child.stderr.take(), |msg| warn!("{}", msg));
 
-        let status = child.wait().map_err(|why| {
-            Error::new(
-                ErrorKind::Other,
-                format!("waiting on chroot child process failed: {}", why),
-            )
-        })?;
+        let status = child.wait()
+            .map_err(|why| Error::new(
+                why.kind(),
+                format!("failed to wait for process {}: {}", cmd, why)
+            ))?;
 
         if status.success() {
             Ok(())
+        } else if let Some(127) = status.code() {
+            Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("command {} was not found", cmd)
+            ))
         } else {
             Err(io::Error::new(
                 io::ErrorKind::Other,
-                format!("command failed with exit status: {}", status),
+                format!("command failed with exit status: {}", status)
             ))
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn command_not_found() {
+        assert!(Command::new("asdfasdf").run().unwrap_err().kind() == io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn command_with_output() {
+        assert_eq!(
+            Command::new("echo")
+                .arg("Hello, Command!")
+                .run_with_stdout()
+                .unwrap(),
+            "Hello, Command!\n".to_owned()
+        );
     }
 }

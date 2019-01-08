@@ -1,6 +1,3 @@
-mod checksum;
-mod external;
-
 use clap::ArgMatches;
 use disk_types::FileSystem;
 use distinst::Disks;
@@ -17,8 +14,8 @@ use tempfile::{tempdir, TempDir};
 use ::release_api::{ApiError, Release};
 use ::release_architecture::{detect_arch, ReleaseArchError};
 use ::release_version::{detect_version, ReleaseVersionError};
-use self::checksum::{ValidateError, validate_checksum};
-use self::external::{findmnt_uuid, rsync};
+use ::checksum::{ValidateError, validate_checksum};
+use ::external::{findmnt_uuid, rsync};
 use self::FileSystem::*;
 
 pub type RecResult<T> = Result<T, RecoveryError>;

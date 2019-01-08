@@ -1,3 +1,4 @@
+use atomic::Atomic;
 use command::Command;
 use std::io;
 use std::path::Path;

@@ -1,5 +1,7 @@
 extern crate apt_fetcher;
 extern crate apt_keyring;
+extern crate async_fetcher;
+extern crate atomic;
 extern crate clap;
 extern crate disk_types;
 extern crate distinst;
@@ -7,7 +9,9 @@ extern crate distinst;
 extern crate err_derive;
 extern crate futures;
 extern crate libc;
+#[macro_use]
 extern crate log;
+extern crate md5;
 extern crate os_release;
 extern crate parallel_getter;
 extern crate reqwest;
@@ -22,7 +26,10 @@ extern crate tempfile;
 extern crate tokio_process;
 extern crate tokio;
 
+mod apt_uris;
+mod checksum;
 mod command;
+mod external;
 mod misc;
 mod recovery;
 mod release;
