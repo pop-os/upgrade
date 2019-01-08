@@ -25,3 +25,6 @@ tokio = "0.1.13"
 tokio-process = "0.2.3"
 os-release = "0.1.0"
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
+atomic = "0.4.2"
+async-fetcher = { git = "https://github.com/pop-os/async-fetcher" }
+md-5 = "0.8.0"
