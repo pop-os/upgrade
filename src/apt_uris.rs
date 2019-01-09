@@ -29,7 +29,7 @@ pub fn apt_uris() -> Result<Vec<AptUri>, AptUriError> {
 
 #[derive(Debug, Error)]
 pub enum AptUriError {
-    #[error(display = "apt command failed to execute: {}", _0)]
+    #[error(display = "apt command failed: {}", _0)]
     Command(io::Error),
     #[error(display = "uri not found in output: {}", _0)]
     UriNotFound(String),

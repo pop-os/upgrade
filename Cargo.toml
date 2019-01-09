@@ -5,23 +5,24 @@ authors = ["Michael Aaron Murphy <mmstickman@gmail.com>"]
 
 [dependencies]
 apt-fetcher = { git = "https://github.com/pop-os/apt-fetcher" }
+# apt-fetcher = { path = "../apt-fetcher" }
 apt-keyring = { git = "https://github.com/pop-os/apt-keyring" }
 clap = "2.32.0"
 disk-types = "0.1.2"
 distinst = { git = "https://github.com/pop-os/distinst/", branch = "unused-fix" }
 err-derive = "0.1.5"
-futures = "0.1.25"
+futures = "=0.1.25"
 libc = "0.2.46"
 log = "0.4.6"
 parallel-getter = "0.2.0"
-reqwest = "0.9.5"
+reqwest = "=0.9.5"
 serde = "1.0.84"
 serde_derive = "1.0.84"
 serde_json = "1.0.34"
 sha2 = "0.8.0"
 sys-mount = "1.1.0"
 tempfile = "3.0.5"
-tokio = "0.1.13"
+tokio = "=0.1.14"
 tokio-process = "0.2.3"
 os-release = "0.1.0"
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
