@@ -1728,6 +1728,7 @@ dependencies = [
  "sha2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sys-mount 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sysfs-class 0.1.1 (git+https://github.com/pop-os/sysfs-class)",
+ "systemd-boot-conf 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempfile 3.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-process 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2400,6 +2401,15 @@ source = "git+https://github.com/pop-os/sysfs-class#35d6015da69e40e3354da0d95123
 name = "sysfs-class"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "systemd-boot-conf"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "err-derive 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "itertools 0.7.11 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "tempdir"
@@ -3130,6 +3140,7 @@ dependencies = [
 "checksum sys-mount 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e96422d1dbc3ef5590fc3997a04e41d026b747b7cfdcbd2a4ba67ea792097362"
 "checksum sysfs-class 0.1.1 (git+https://github.com/pop-os/sysfs-class)" = "<none>"
 "checksum sysfs-class 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "48eda022981a576eb4a94023ac833ef425be8d1237cef6515654347feaccf612"
+"checksum systemd-boot-conf 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d1277c9997f3c2a93ae6f61ed438a691ca7cdbb8d9afee9ff1d64fd5dd3a316d"
 "checksum tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "15f2b5fb00ccdf689e0149d1b1b3c03fead81c2b37735d812fa8bddbbf41b6d8"
 "checksum tempfile 3.0.5 (registry+https://github.com/rust-lang/crates.io-index)" = "7e91405c14320e5c79b3d148e1c86f40749a36e490642202a31689cb1a3452b2"
 "checksum tempfile-fast 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)" = "46df31c2a54038c3676540b0a29e1e1790526c74863e161b4bb0accf92b49d1c"

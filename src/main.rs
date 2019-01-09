@@ -22,6 +22,7 @@ extern crate serde_json;
 extern crate sha2;
 extern crate sys_mount;
 extern crate sysfs_class;
+extern crate systemd_boot_conf;
 extern crate tempfile;
 extern crate tokio_process;
 extern crate tokio;

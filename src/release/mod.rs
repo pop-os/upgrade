@@ -11,6 +11,7 @@ use std::time::Duration;
 use std::io;
 use std::process::Command;
 use status::StatusExt;
+use systemd_boot_conf::{SystemdBootConf, Error as SystemdBootConfError};
 
 use ::release_architecture::{detect_arch, ReleaseArchError};
 use ::release_version::{detect_version, ReleaseVersionError};
@@ -43,7 +44,11 @@ pub enum ReleaseError {
     #[error(display = "failed to perform apt upgrade of the current release: {}", _0)]
     Upgrade(io::Error),
     #[error(display = "failed to install core packages: {}", _0)]
-    InstallCore(io::Error)
+    InstallCore(io::Error),
+    #[error(display = "failed to load systemd-boot configuration: {}", _0)]
+    SystemdBootConf(SystemdBootConfError),
+    #[error(display = "recovery entry not found in systemd-boot loader config")]
+    MissingRecoveryEntry,
 }
 
 impl From<ReleaseVersionError> for ReleaseError {
@@ -151,15 +156,41 @@ fn do_upgrade(matches: &ArgMatches) -> RelResult<()> {
 
     // Update the source lists to the new release,
     // then fetch the packages required for the upgrade.
-    do_release_fetch(client)?;
+    fetch_new_release_packages(client)?;
+
+    // TODO: Handle the scenario where either systemd-boot or the recovery partition
+    // does not exist.
+    set_recovery_as_default_boot_option()?;
 
     Ok(())
+}
+
+/// Fetch the systemd-boot configuration, and designate the recovery partition as the default
+/// boot option.
+///
+/// It will be up to the recovery partition to revert this change once it has completed its job.
+fn set_recovery_as_default_boot_option() -> RelResult<()> {
+    let mut systemd_boot_conf = SystemdBootConf::new("/boot/efi")
+        .map_err(ReleaseError::SystemdBootConf)?;
+
+    {
+        let SystemdBootConf { ref entries, ref mut loader_conf, .. } = systemd_boot_conf;
+        let recovery_entry = entries
+            .iter()
+            .find(|e| e.title == "Pop!_OS Recovery")
+            .ok_or(ReleaseError::MissingRecoveryEntry)?;
+
+        loader_conf.default = Some(recovery_entry.filename.to_owned());
+    }
+
+    systemd_boot_conf.overwrite_loader_conf()
+        .map_err(ReleaseError::SystemdBootConf)
 }
 
 /// Update the release files and fetch packages for the new release.
 ///
 /// On failure, the original release files will be restored.
-fn do_release_fetch(client: Arc<Client>) -> RelResult<()> {
+fn fetch_new_release_packages(client: Arc<Client>) -> RelResult<()> {
     let (current, next) = detect_version()?;
     let mut upgrader = release_upgrade(client.clone(), &current, &next)?;
 
