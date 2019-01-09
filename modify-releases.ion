@@ -1,0 +1,9 @@
+#!/usr/bin/env ion
+
+# Ion shell script for modifying the apt releases, for testing purposes.
+
+for release in /etc/apt/sources.list.d/* /etc/apt/sources.list
+	if ends-with $release ".list"
+		sed -i "s/@args[1]/@args[2]/g" $release
+	end
+end
