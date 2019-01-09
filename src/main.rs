@@ -26,7 +26,6 @@ extern crate tempfile;
 extern crate tokio_process;
 extern crate tokio;
 
-mod apt_uris;
 mod checksum;
 mod command;
 mod external;
@@ -149,12 +148,8 @@ pub fn main() {
                         .about("check for a new distribution release")
                 )
                 .subcommand(
-                    SubCommand::with_name("fetch")
-                        .about("fetch all of the packages required for a distribution upgrade")
-                )
-                .subcommand(
                     SubCommand::with_name("upgrade")
-                        .about("fetch, reboot, and perform a release upgrade")
+                        .about("update the system, and fetch the packages for the next release")
                 )
         )
         .get_matches();
