@@ -127,6 +127,9 @@ fn do_upgrade(matches: &ArgMatches) -> RelResult<()> {
     // Must be root for this operation.
     check_root()?;
 
+    // Create the tokio runtime to share between requests.
+    let runtime = &mut Runtime::new().unwrap();
+
     // This client contains a thread pool for performing HTTP/s requests.
     let client = Arc::new(
         Client::builder()
@@ -139,10 +142,10 @@ fn do_upgrade(matches: &ArgMatches) -> RelResult<()> {
     apt_update().map_err(ReleaseError::CurrentUpdate)?;
 
     // Fetch required packages for upgrading the current release.
-    apt_fetch(client.clone(), &["full-upgrade"])?;
+    apt_fetch(runtime, client.clone(), &["full-upgrade"])?;
 
     // Also include the packages which we must have installed.
-    apt_fetch(client.clone(), &{
+    apt_fetch(runtime, client.clone(), &{
         let mut args = vec!["install"];
         args.extend_from_slice(CORE_PACKAGES);
         args
@@ -156,7 +159,7 @@ fn do_upgrade(matches: &ArgMatches) -> RelResult<()> {
 
     // Update the source lists to the new release,
     // then fetch the packages required for the upgrade.
-    fetch_new_release_packages(client)?;
+    fetch_new_release_packages(runtime, client)?;
 
     // TODO: Handle the scenario where either systemd-boot or the recovery partition
     // does not exist.
@@ -190,16 +193,16 @@ fn set_recovery_as_default_boot_option() -> RelResult<()> {
 /// Update the release files and fetch packages for the new release.
 ///
 /// On failure, the original release files will be restored.
-fn fetch_new_release_packages(client: Arc<Client>) -> RelResult<()> {
+fn fetch_new_release_packages(runtime: &mut Runtime, client: Arc<Client>) -> RelResult<()> {
     let (current, next) = detect_version()?;
     let mut upgrader = release_upgrade(client.clone(), &current, &next)?;
 
-    fn attempt_fetch(client: Arc<Client>) -> RelResult<()> {
+    fn attempt_fetch(runtime: &mut Runtime, client: Arc<Client>) -> RelResult<()> {
         apt_update().map_err(ReleaseError::ReleaseUpdate)?;
-        apt_fetch(client, &["full-upgrade"])
+        apt_fetch(runtime, client, &["full-upgrade"])
     }
 
-    match attempt_fetch(client) {
+    match attempt_fetch(runtime, client) {
         Ok(_) => println!("packages fetched successfully"),
         Err(why) => {
             eprintln!("failed to fetch packages: {}", why);
@@ -238,7 +241,7 @@ fn release_upgrade(client: Arc<Client>, current: &str, new: &str) -> Result<Upgr
 }
 
 /// Get a list of APT URIs to fetch for this operation, and then fetch them.
-fn apt_fetch(client: Arc<Client>, args: &[&str]) -> RelResult<()> {
+fn apt_fetch(runtime: &mut Runtime, client: Arc<Client>, args: &[&str]) -> RelResult<()> {
     let apt_uris = apt_uris(args).map_err(ReleaseError::AptList)?;
     let size: u64 = apt_uris.iter().map(|v| v.size).sum();
 
@@ -251,7 +254,7 @@ fn apt_fetch(client: Arc<Client>, args: &[&str]) -> RelResult<()> {
         .for_each(|v| Ok(()))
         .map_err(ReleaseError::PackageFetch);
 
-    Runtime::new().unwrap().block_on(buffered_stream)
+    runtime.block_on(buffered_stream)
 }
 
 /// Execute the apt command non-interactively, using whichever additional arguments are provided.
