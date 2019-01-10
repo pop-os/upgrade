@@ -195,7 +195,7 @@ fn set_recovery_as_default_boot_option() -> RelResult<()> {
 /// On failure, the original release files will be restored.
 fn fetch_new_release_packages(runtime: &mut Runtime, client: Arc<Client>) -> RelResult<()> {
     let (current, next) = detect_version()?;
-    let mut upgrader = release_upgrade(client.clone(), &current, &next)?;
+    let mut upgrader = release_upgrade(runtime, client.clone(), &current, &next)?;
 
     fn attempt_fetch(runtime: &mut Runtime, client: Arc<Client>) -> RelResult<()> {
         apt_update().map_err(ReleaseError::ReleaseUpdate)?;
@@ -221,7 +221,7 @@ fn fetch_new_release_packages(runtime: &mut Runtime, client: Arc<Client>) -> Rel
 /// Check if release files can be upgraded, and then overwrite them with the new release.
 ///
 /// On failure, the original release files will be restored.
-fn release_upgrade(client: Arc<Client>, current: &str, new: &str) -> Result<Upgrader, ReleaseError> {
+fn release_upgrade(runtime: &mut Runtime, client: Arc<Client>, current: &str, new: &str) -> Result<Upgrader, ReleaseError> {
     let current = UbuntuCodename::from_version(current).map_or(current, |c| c.as_codename());
     let new = UbuntuCodename::from_version(new).map_or(new, |c| c.as_codename());
 
@@ -229,7 +229,7 @@ fn release_upgrade(client: Arc<Client>, current: &str, new: &str) -> Result<Upgr
     let client = Arc::new(Client::new());
 
     println!("Checking if release can be upgraded from {} to {}", current, new);
-    let mut upgrade = UpgradeRequest::new(client, sources)
+    let mut upgrade = UpgradeRequest::new(client, sources, runtime)
         .send(current, new)
         .map_err(ReleaseError::Check)?;
 
