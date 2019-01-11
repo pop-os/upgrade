@@ -1,67 +1,28 @@
-use apt_fetcher::{DistUpgradeError, UpgradeRequest, Upgrader, SourcesList};
-use apt_fetcher::apt_uris::{apt_uris, AptUri, AptUriError};
-use apt_keyring::AptKeyring;
-use async_fetcher::FetchError;
+mod errors;
+
+use apt_fetcher::{UpgradeRequest, Upgrader, SourcesList};
+use apt_fetcher::apt_uris::apt_uris;
+use atty::{self, Stream as AttyStream};
 use clap::ArgMatches;
 use futures::{stream, Future, Stream};
+use promptly::prompt;
 use reqwest::r#async::Client;
-use tokio::runtime::Runtime;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
 use std::io;
+use std::path::Path;
 use std::process::Command;
-use status::StatusExt;
-use systemd_boot_conf::{SystemdBootConf, Error as SystemdBootConfError};
+use std::sync::Arc;
+use std::time::Duration;
+use systemd_boot_conf::SystemdBootConf;
+use tokio::runtime::Runtime;
 
-use ::release_architecture::{detect_arch, ReleaseArchError};
-use ::release_version::{detect_version, ReleaseVersionError};
-use ::release_api::{ApiError, Release};
+use ::release_version::{detect_version};
+use ::release_api::Release;
+use ::ubuntu_codename::UbuntuCodename;
+use ::status::StatusExt;
+
+pub use self::errors::{ReleaseError, RelResult};
 
 const CORE_PACKAGES: &[&str] = &["pop-desktop"];
-
-pub type RelResult<T> = Result<T, ReleaseError>;
-
-#[derive(Debug, Error)]
-pub enum ReleaseError {
-    #[error(display = "failed to fetch release architecture: {}", _0)]
-    ReleaseArch(ReleaseArchError),
-    #[error(display = "failed to fetch release versions: {}", _0)]
-    ReleaseVersion(ReleaseVersionError),
-    #[error(display = "failed to fetch apt URIs to fetch: {}", _0)]
-    AptList(AptUriError),
-    #[error(display = "unable to upgrade to next release: {}", _0)]
-    Check(DistUpgradeError),
-    #[error(display = "failure to overwrite release files: {}", _0)]
-    Overwrite(DistUpgradeError),
-    #[error(display = "root is required for this action: rerun with `sudo`")]
-    NotRoot,
-    #[error(display = "fetch of package failed: {}", _0)]
-    PackageFetch(FetchError),
-    #[error(display = "failed to update package lists for the current release: {}", _0)]
-    CurrentUpdate(io::Error),
-    #[error(display = "failed to update package lists for the new release: {}", _0)]
-    ReleaseUpdate(io::Error),
-    #[error(display = "failed to perform apt upgrade of the current release: {}", _0)]
-    Upgrade(io::Error),
-    #[error(display = "failed to install core packages: {}", _0)]
-    InstallCore(io::Error),
-    #[error(display = "failed to load systemd-boot configuration: {}", _0)]
-    SystemdBootConf(SystemdBootConfError),
-    #[error(display = "recovery entry not found in systemd-boot loader config")]
-    MissingRecoveryEntry,
-}
-
-impl From<ReleaseVersionError> for ReleaseError {
-    fn from(why: ReleaseVersionError) -> Self {
-        ReleaseError::ReleaseVersion(why)
-    }
-}
-
-impl From<ReleaseArchError> for ReleaseError {
-    fn from(why: ReleaseArchError) -> Self {
-        ReleaseError::ReleaseArch(why)
-    }
-}
 
 pub fn release(matches: &ArgMatches) -> RelResult<()> {
     match matches.subcommand() {
@@ -86,41 +47,6 @@ fn check_release() -> RelResult<()> {
     Ok(())
 }
 
-pub enum UbuntuCodename {
-    Bionic,
-    Cosmic,
-    Disco
-}
-
-impl UbuntuCodename {
-    pub fn from_version(version: &str) -> Option<Self> {
-        let release = match version {
-            "18.04" => UbuntuCodename::Bionic,
-            "18.10" => UbuntuCodename::Cosmic,
-            "19.04" => UbuntuCodename::Disco,
-            _ => return None
-        };
-
-        Some(release)
-    }
-
-    pub fn as_codename(self) -> &'static str {
-        match self {
-            UbuntuCodename::Bionic => "bionic",
-            UbuntuCodename::Cosmic => "cosmic",
-            UbuntuCodename::Disco => "disco"
-        }
-    }
-
-    pub fn as_version(self) -> &'static str {
-        match self {
-            UbuntuCodename::Bionic => "18.04",
-            UbuntuCodename::Cosmic => "18.10",
-            UbuntuCodename::Disco => "19.04"
-        }
-    }
-}
-
 /// Perform the release upgrade by updating release files, fetching packages required for the new
 /// release, and then setting the recovery partition as the default boot entry.
 fn do_upgrade(matches: &ArgMatches) -> RelResult<()> {
@@ -128,42 +54,89 @@ fn do_upgrade(matches: &ArgMatches) -> RelResult<()> {
     check_root()?;
 
     // Create the tokio runtime to share between requests.
-    let runtime = &mut Runtime::new().unwrap();
+    let runtime = &mut Runtime::new().expect("failed to initialize tokio runtime");
 
     // This client contains a thread pool for performing HTTP/s requests.
     let client = Arc::new(
         Client::builder()
             .timeout(Duration::from_secs(3))
             .build()
-            .unwrap()
+            .expect("failed to initialize reqwest client")
     );
 
     // Update the package lists for the current release.
+    info!("updating package lists for the current release");
     apt_update().map_err(ReleaseError::CurrentUpdate)?;
 
     // Fetch required packages for upgrading the current release.
-    apt_fetch(runtime, client.clone(), &["full-upgrade"])?;
+    info!("fetching updated packages for the current release");
+    let nupdates = apt_fetch(runtime, client.clone(), &["full-upgrade"])?;
 
     // Also include the packages which we must have installed.
-    apt_fetch(runtime, client.clone(), &{
+    let nfetched = apt_fetch(runtime, client.clone(), &{
         let mut args = vec!["install"];
         args.extend_from_slice(CORE_PACKAGES);
         args
     })?;
 
-    // Upgrade the current release to the latest packages.
-    apt_upgrade().map_err(ReleaseError::Upgrade)?;
+    if nupdates != 0 {
+        // Upgrade the current release to the latest packages.
+        info!("upgrading packages for the current release");
+        apt_upgrade().map_err(ReleaseError::Upgrade)?;
+    } else {
+        info!("no packages require upgrading -- ready to proceed");
+    }
 
-    // Install any packages that are deemed critical.
-    apt_install(CORE_PACKAGES).map_err(ReleaseError::InstallCore)?;
+    if nfetched != 0 {
+        // Install any packages that are deemed critical.
+        info!("ensuring that system-critical packages are installed");
+        apt_install(CORE_PACKAGES).map_err(ReleaseError::InstallCore)?;
+    } else {
+        info!("system-critical packages are installed -- ready to proceed");
+    }
 
     // Update the source lists to the new release,
     // then fetch the packages required for the upgrade.
-    fetch_new_release_packages(runtime, client)?;
+    let _upgrader = fetch_new_release_packages(runtime, client)?;
 
-    // TODO: Handle the scenario where either systemd-boot or the recovery partition
-    // does not exist.
-    set_recovery_as_default_boot_option()?;
+    const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
+    const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
+
+    enum Action {
+        Exit,
+        LiveUpgrade
+    }
+
+    let action = if matches.is_present("live") {
+        Action::LiveUpgrade
+    } else if Path::new(SYSTEMD_BOOT_LOADER).exists() && Path::new(SYSTEMD_BOOT_LOADER_PATH).exists() {
+        info!("found the systemd-boot loader and loader configuration directory");
+        match set_recovery_as_default_boot_option() {
+            Ok(()) => Action::Exit,
+            Err(ReleaseError::MissingRecoveryEntry) => {
+                warn!("an entry for the recovery partition was not found -- \
+                    asking to install upgrades without it");
+
+                Action::LiveUpgrade
+            }
+            Err(why) => return Err(why)
+        }
+    } else {
+        warn!("system is not configured with systemd-boot -- \
+            asking to install upgrades without it");
+
+        Action::LiveUpgrade
+    };
+
+    if let Action::LiveUpgrade = action {
+        let upgrade = atty::isnt(AttyStream::Stdout)
+            || prompt::<bool, &str>("Attempt live system upgrade? Ensure that you have backups");
+
+        if upgrade {
+            info!("attempting release upgrade");
+            apt_upgrade().map_err(ReleaseError::ReleaseUpgrade)?;
+        }
+    }
 
     Ok(())
 }
@@ -173,10 +146,12 @@ fn do_upgrade(matches: &ArgMatches) -> RelResult<()> {
 ///
 /// It will be up to the recovery partition to revert this change once it has completed its job.
 fn set_recovery_as_default_boot_option() -> RelResult<()> {
+    info!("gathering systemd-boot configuration information");
     let mut systemd_boot_conf = SystemdBootConf::new("/boot/efi")
         .map_err(ReleaseError::SystemdBootConf)?;
 
     {
+        info!("found the systemd-boot config -- searching for the recovery partition");
         let SystemdBootConf { ref entries, ref mut loader_conf, .. } = systemd_boot_conf;
         let recovery_entry = entries
             .iter()
@@ -186,54 +161,60 @@ fn set_recovery_as_default_boot_option() -> RelResult<()> {
         loader_conf.default = Some(recovery_entry.filename.to_owned());
     }
 
+    info!("found the recovery partition -- setting it as the default boot entry");
     systemd_boot_conf.overwrite_loader_conf()
-        .map_err(ReleaseError::SystemdBootConf)
+        .map_err(ReleaseError::SystemdBootConfOverwrite)
 }
 
 /// Update the release files and fetch packages for the new release.
 ///
 /// On failure, the original release files will be restored.
-fn fetch_new_release_packages(runtime: &mut Runtime, client: Arc<Client>) -> RelResult<()> {
+fn fetch_new_release_packages(runtime: &mut Runtime, client: Arc<Client>) -> RelResult<Upgrader> {
     let (current, next) = detect_version()?;
+    info!("attempting to upgrade to the new release");
     let mut upgrader = release_upgrade(runtime, client.clone(), &current, &next)?;
 
     fn attempt_fetch(runtime: &mut Runtime, client: Arc<Client>) -> RelResult<()> {
+        info!("updated the package lists for the new relaese");
         apt_update().map_err(ReleaseError::ReleaseUpdate)?;
-        apt_fetch(runtime, client, &["full-upgrade"])
+
+        info!("fetching packages for the new release");
+        apt_fetch(runtime, client, &["full-upgrade"])?;
+
+        Ok(())
     }
 
     match attempt_fetch(runtime, client) {
-        Ok(_) => println!("packages fetched successfully"),
+        Ok(_) => info!("packages fetched successfully"),
         Err(why) => {
-            eprintln!("failed to fetch packages: {}", why);
-            eprintln!("rolling back apt release files");
+            error!("failed to fetch packages: {}", why);
+            warn!("rolling back apt release files");
             if let Err(why) = upgrader.revert_apt_sources() {
-                eprintln!("failed to revert release name changes to source lists in /etc/apt/");
+                error!("failed to revert release name changes to source lists in /etc/apt/: {}", why);
             }
 
             ::std::process::exit(1);
         }
     }
 
-    Ok(())
+    Ok(upgrader)
 }
 
 /// Check if release files can be upgraded, and then overwrite them with the new release.
 ///
 /// On failure, the original release files will be restored.
 fn release_upgrade(runtime: &mut Runtime, client: Arc<Client>, current: &str, new: &str) -> Result<Upgrader, ReleaseError> {
-    let current = UbuntuCodename::from_version(current).map_or(current, |c| c.as_codename());
-    let new = UbuntuCodename::from_version(new).map_or(new, |c| c.as_codename());
+    let current = UbuntuCodename::from_version(current).map_or(current, |c| c.into_codename());
+    let new = UbuntuCodename::from_version(new).map_or(new, |c| c.into_codename());
 
     let sources = SourcesList::scan().unwrap();
-    let client = Arc::new(Client::new());
 
-    println!("Checking if release can be upgraded from {} to {}", current, new);
+    info!("checking if release can be upgraded from {} to {}", current, new);
     let mut upgrade = UpgradeRequest::new(client, sources, runtime)
         .send(current, new)
         .map_err(ReleaseError::Check)?;
 
-    println!("Upgrade is possible -- updating release files");
+    info!("upgrade is possible -- updating release files");
     upgrade.overwrite_apt_sources()
         .map_err(ReleaseError::Overwrite)?;
 
@@ -241,20 +222,20 @@ fn release_upgrade(runtime: &mut Runtime, client: Arc<Client>, current: &str, ne
 }
 
 /// Get a list of APT URIs to fetch for this operation, and then fetch them.
-fn apt_fetch(runtime: &mut Runtime, client: Arc<Client>, args: &[&str]) -> RelResult<()> {
+fn apt_fetch(runtime: &mut Runtime, client: Arc<Client>, args: &[&str]) -> RelResult<usize> {
     let apt_uris = apt_uris(args).map_err(ReleaseError::AptList)?;
     let size: u64 = apt_uris.iter().map(|v| v.size).sum();
+    let npackages = apt_uris.len();
 
-    println!("Fetching {} packages ({} MiB total)", apt_uris.len(), size / 1024 / 1024);
-
+    info!("fetching {} packages ({} MiB total)", npackages, size / 1024 / 1024);
     let stream_of_downloads = stream::iter_ok(apt_uris);
     let buffered_stream = stream_of_downloads
         .map(move |uri| uri.fetch(&client))
         .buffer_unordered(8)
-        .for_each(|v| Ok(()))
+        .for_each(|_| Ok(()))
         .map_err(ReleaseError::PackageFetch);
 
-    runtime.block_on(buffered_stream)
+    runtime.block_on(buffered_stream).map(|_| npackages)
 }
 
 /// Execute the apt command non-interactively, using whichever additional arguments are provided.

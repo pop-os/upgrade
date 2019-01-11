@@ -2,11 +2,13 @@ extern crate apt_fetcher;
 extern crate apt_keyring;
 extern crate async_fetcher;
 extern crate atomic;
+extern crate atty;
 extern crate clap;
 extern crate disk_types;
 extern crate distinst;
 #[macro_use]
 extern crate err_derive;
+extern crate fern;
 extern crate futures;
 extern crate libc;
 #[macro_use]
@@ -14,6 +16,7 @@ extern crate log;
 extern crate md5;
 extern crate os_release;
 extern crate parallel_getter;
+extern crate promptly;
 extern crate reqwest;
 extern crate serde;
 #[macro_use]
@@ -26,10 +29,12 @@ extern crate systemd_boot_conf;
 extern crate tempfile;
 extern crate tokio_process;
 extern crate tokio;
+extern crate yansi;
 
 mod checksum;
 mod command;
 mod external;
+mod logging;
 mod misc;
 mod recovery;
 mod release;
@@ -37,10 +42,11 @@ mod release_api;
 mod release_architecture;
 mod release_version;
 mod status;
+mod ubuntu_codename;
 
+use crate::logging::setup_logging;
 use crate::recovery::recovery;
 use crate::release::release;
-use crate::status::StatusExt;
 
 pub mod error {
     use std::io;
@@ -83,10 +89,12 @@ pub mod error {
 }
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
+use std::process::exit;
 
 use self::error::{Error, InitError};
 
 pub fn main() {
+    let _ = setup_logging(::log::LevelFilter::Debug);
     let matches = App::new("pop-upgrade")
         .about("Pop!_OS Upgrade Utility")
         .global_setting(AppSettings::ColoredHelp)
@@ -151,12 +159,18 @@ pub fn main() {
                 .subcommand(
                     SubCommand::with_name("upgrade")
                         .about("update the system, and fetch the packages for the next release")
+                        .arg(
+                            Arg::with_name("live")
+                                .help("forces the system to perform the upgrade live")
+                                .long("live")
+                        )
                 )
         )
         .get_matches();
 
     if let Err(why) = main_(&matches) {
         eprintln!("pop-upgrade: {}", why);
+        exit(1);
     }
 }
 
