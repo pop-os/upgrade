@@ -1,7 +1,10 @@
-use atomic::Atomic;
 use command::Command;
 use std::io;
 use std::path::Path;
+
+// pub fn update_initramfs() -> io::Result<()> {
+//     Command::new("update-initramfs").args(&["-ck", "all"]).run()
+// }
 
 pub fn rsync(src: &[&Path], target: &str, args: &[&str]) -> io::Result<()> {
     Command::new("rsync").args(args).args(src).arg(target).run()

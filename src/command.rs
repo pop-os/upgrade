@@ -24,18 +24,18 @@ impl<'a> Command<'a> {
         self
     }
 
-    pub fn env(&mut self, key: &str, value: &str) -> &mut Command<'a> {
-        self.cmd.env(key, value);
-        self
-    }
+    // pub fn env(&mut self, key: &str, value: &str) -> &mut Command<'a> {
+    //     self.cmd.env(key, value);
+    //     self
+    // }
 
-    pub fn env_clear(&mut self) {
-        self.cmd.env_clear();
-    }
+    // pub fn env_clear(&mut self) {
+    //     self.cmd.env_clear();
+    // }
 
-    pub fn stdin(&mut self, stdio: Stdio) { self.cmd.stdin(stdio); }
-    pub fn stderr(&mut self, stdio: Stdio) { self.cmd.stderr(stdio); }
-    pub fn stdout(&mut self, stdio: Stdio) { self.cmd.stdout(stdio); }
+    // pub fn stdin(&mut self, stdio: Stdio) { self.cmd.stdin(stdio); }
+    // pub fn stderr(&mut self, stdio: Stdio) { self.cmd.stderr(stdio); }
+    // pub fn stdout(&mut self, stdio: Stdio) { self.cmd.stdout(stdio); }
 
     fn redirect<R: io::Read + Send + 'static, F: FnMut(&str) + Send + 'static>(
         reader: Option<R>,
@@ -56,12 +56,12 @@ impl<'a> Command<'a> {
         }
     }
 
-    /// Run the program, check the status, and get the output of `stdout`
-    pub fn stdin_input(mut self, input: &'a str) -> Self {
-        self.stdin = Some(input);
-        self.stdin(Stdio::piped());
-        self
-    }
+    // /// Run the program, check the status, and get the output of `stdout`
+    // pub fn stdin_input(mut self, input: &'a str) -> Self {
+    //     self.stdin = Some(input);
+    //     self.stdin(Stdio::piped());
+    //     self
+    // }
 
     pub fn stdin_redirect(&mut self, child: &mut Child) -> io::Result<()> {
         match self.stdin {
