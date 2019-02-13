@@ -10,10 +10,7 @@ impl StatusExt for ExitStatus {
         if self.success() {
             Ok(())
         } else if let Some(127) = self.code() {
-            Err(io::Error::new(
-                io::ErrorKind::NotFound,
-                "command was not found",
-            ))
+            Err(io::Error::new(io::ErrorKind::NotFound, "command was not found"))
         } else {
             Err(io::Error::new(
                 io::ErrorKind::Other,

@@ -2,24 +2,30 @@
 name = "pop-upgrade"
 version = "0.1.0"
 authors = ["Michael Aaron Murphy <mmstickman@gmail.com>"]
+edition = "2018"
 
 [dependencies]
 apt-fetcher = { git = "https://github.com/pop-os/apt-fetcher" }
-# apt-fetcher = { path = "../apt-fetcher" }
 apt-keyring = { git = "https://github.com/pop-os/apt-keyring" }
+apt-sources-lists = { git = "https://github.com/pop-os/apt-sources-lists" }
 async-fetcher = { git = "https://github.com/pop-os/async-fetcher" }
-atomic = "0.4.2"
+atomic = "0.4.3"
 clap = "2.32.0"
+crossbeam-channel = "0.3.8"
+dbus = "0.6.4"
 disk-types = "0.1.2"
-distinst = { git = "https://github.com/pop-os/distinst/", branch = "unused-fix" }
+distinst-chroot = { git = "https://github.com/pop-os/distinst/", branch = "unused-fix" }
+distinst-disks = { git = "https://github.com/pop-os/distinst/", branch = "unused-fix" }
 err-derive = "0.1.5"
+fern = "0.5.7"
 futures = "0.1.25"
 libc = "0.2.46"
 log = "0.4.6"
 md-5 = "0.8.0"
 os-release = "0.1.0"
 parallel-getter = "0.2.0"
-reqwest = "=0.9.6"
+promptly = "0.1.5"
+reqwest = "0.9.10"
 serde = "1.0.84"
 serde_derive = "1.0.84"
 serde_json = "1.0.34"
@@ -30,7 +36,10 @@ systemd-boot-conf = "0.1.0"
 tempfile = "3.0.5"
 tokio = "0.1.14"
 tokio-process = "0.2.3"
-fern = "0.5.7"
 yansi = "0.5.0"
-promptly = "0.1.5"
-atty = "0.2.11"
+bitflags = "1.0.4"
+num-derive = "0.2.4"
+num-traits = "0.2.6"
+envfile = "0.2.1"
+proc-mounts = "0.2.2"
+partition-identity = "0.2.6"

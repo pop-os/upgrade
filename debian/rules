@@ -1,0 +1,21 @@
+#!/usr/bin/make -f
+
+export VENDORED = 1
+
+%:
+	dh $@ --with=systemd
+
+override_dh_auto_clean:
+	dh_auto_clean
+	if ! ischroot; then \
+		rm -rf .cargo vendor vendor.tar.xz; \
+		mkdir -p .cargo; \
+		cargo vendor | head -n -1 > .cargo/config; \
+		echo 'directory = "vendor"' >> .cargo/config; \
+		tar pcfJ vendor.tar.xz vendor; \
+		rm -rf vendor; \
+	fi
+
+override_dh_auto_build:
+	tar pxf vendor.tar.xz
+	dh_auto_build

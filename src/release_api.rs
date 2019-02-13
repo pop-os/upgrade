@@ -1,6 +1,6 @@
+use err_derive::Error;
 use reqwest::{self, Client};
 use serde_derive::Deserialize;
-use err_derive::Error;
 
 const BASE: &str = "https://api.pop-os.org/";
 
@@ -9,7 +9,7 @@ pub enum ApiError {
     #[error(display = "failed to GET release API: {}", _0)]
     Get(reqwest::Error),
     #[error(display = "failed to parse JSON response: {}", _0)]
-    Json(serde_json::Error)
+    Json(serde_json::Error),
 }
 
 #[derive(Debug, Deserialize)]
@@ -19,7 +19,7 @@ pub struct Release {
     pub size: u64,
     pub sha_sum: String,
     pub channel: String,
-    pub build: String
+    pub build: String,
 }
 
 impl Release {

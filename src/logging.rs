@@ -1,5 +1,5 @@
 use fern::{Dispatch, InitError};
-use log::{LevelFilter, Level};
+use log::{Level, LevelFilter};
 use std::io;
 use yansi::Color;
 
@@ -19,11 +19,7 @@ pub fn setup_logging(filter: LevelFilter) -> Result<(), InitError> {
                 Level::Info => Color::Green.style().bold(),
             };
 
-            out.finish(format_args!(
-                " {} {}",
-                color.paint(record.level()),
-                message
-            ))
+            out.finish(format_args!(" {} {}", color.paint(record.level()), message))
         })
         .chain(io::stderr())
         .apply()?;

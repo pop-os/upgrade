@@ -1,0 +1,1 @@
+/lib/systemd/system/pop-upgrade.service /lib/systemd/system/system-update.target.wants/pop-upgrade.service

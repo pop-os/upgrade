@@ -1,8 +1,7 @@
-use std::io::{self, Read};
-use std::fs::File;
-use sha2::{Digest, Sha256};
 use err_derive::Error;
-
+use sha2::{Digest, Sha256};
+use std::fs::File;
+use std::io::{self, Read};
 
 #[derive(Debug, Error)]
 pub enum ValidateError {
@@ -19,16 +18,15 @@ pub fn validate_checksum(file: &mut File, checksum: &str) -> Result<(), Validate
 
     loop {
         let read = file.read(&mut buffer).map_err(ValidateError::Io)?;
-        if read == 0 { break }
+        if read == 0 {
+            break;
+        }
         hasher.input(&buffer[..read]);
     }
 
     let found = format!("{:x}", hasher.result());
     if found != checksum {
-        return Err(ValidateError::Checksum {
-            expected: checksum.into(),
-            found: found
-        });
+        return Err(ValidateError::Checksum { expected: checksum.into(), found });
     }
 
     Ok(())
