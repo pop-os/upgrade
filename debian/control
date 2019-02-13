@@ -1,0 +1,24 @@
+Source: pop-upgrade
+Section: admin
+Priority: optional
+Maintainer: Michael Aaron Murphy <michael@system76.com>
+Build-Depends:
+  cargo (>=0.29),
+  clang,
+  debhelper (>=9),
+  dh-systemd,
+  libdbus-1-dev,
+  libparted-dev,
+  libparted-fs-resize0,
+  libssl-dev,
+  rustc (>=1.31)
+Standards-Version: 4.1.1
+Homepage: https://github.com/pop-os/upgrade
+
+Package: pop-upgrade
+Architecture: amd64
+Depends:
+  rsync,
+  ${misc:Depends},
+  ${shlib:Depends}
+Description: Utility for performing system upgrades on Pop!_OS

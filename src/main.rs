@@ -1,38 +1,19 @@
-extern crate apt_fetcher;
-extern crate apt_keyring;
-extern crate async_fetcher;
-extern crate atomic;
-extern crate atty;
-extern crate clap;
-extern crate disk_types;
-extern crate distinst;
+#![deny(clippy::all)]
+#![allow(clippy::new_ret_no_self)]
+#![allow(clippy::useless_attribute)]
+
+#[macro_use]
+extern crate bitflags;
 #[macro_use]
 extern crate err_derive;
-extern crate fern;
-extern crate futures;
-extern crate libc;
 #[macro_use]
 extern crate log;
-extern crate md5;
-extern crate os_release;
-extern crate parallel_getter;
-extern crate promptly;
-extern crate reqwest;
-extern crate serde;
 #[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-extern crate sha2;
-extern crate sys_mount;
-extern crate sysfs_class;
-extern crate systemd_boot_conf;
-extern crate tempfile;
-extern crate tokio_process;
-extern crate tokio;
-extern crate yansi;
+extern crate num_derive;
 
 mod checksum;
-mod command;
+mod client;
+mod daemon;
 mod external;
 mod logging;
 mod misc;
@@ -41,26 +22,50 @@ mod release;
 mod release_api;
 mod release_architecture;
 mod release_version;
+mod repair;
 mod status;
+mod system_environment;
 mod ubuntu_codename;
 
-use crate::logging::setup_logging;
-use crate::recovery::recovery;
-use crate::release::release;
+use self::client::Client;
+use self::daemon::Daemon;
+use self::logging::setup_logging;
+
+pub static DBUS_NAME: &'static str = "com.system76.PopUpgrade";
+pub static DBUS_PATH: &'static str = "/com/system76/PopUpgrade";
+pub static DBUS_IFACE: &'static str = "com.system76.PopUpgrade";
 
 pub mod error {
-    use std::io;
+    use super::client::ClientError;
+    use super::daemon::DaemonError;
     use super::recovery::RecoveryError;
     use super::release::ReleaseError;
+    use std::io;
 
     #[derive(Debug, Error)]
     pub enum Error {
+        #[error(display = "{}", _0)]
+        Client(ClientError),
+        #[error(display = "daemon initialization error: {}", _0)]
+        Daemon(DaemonError),
         #[error(display = "recovery subcommand failed: {}", _0)]
         Recovery(RecoveryError),
         #[error(display = "release subcommand failed: {}", _0)]
         Release(ReleaseError),
         #[error(display = "failed to ensure requirements are met: {}", _0)]
-        Init(InitError)
+        Init(InitError),
+    }
+
+    impl From<ClientError> for Error {
+        fn from(why: ClientError) -> Self {
+            Error::Client(why)
+        }
+    }
+
+    impl From<DaemonError> for Error {
+        fn from(why: DaemonError) -> Self {
+            Error::Daemon(why)
+        }
     }
 
     impl From<RecoveryError> for Error {
@@ -84,7 +89,7 @@ pub mod error {
     #[derive(Debug, Error)]
     pub enum InitError {
         #[error(display = "failure to create /var/cache/apt/archives/partial directories: {}", _0)]
-        AptCacheDirectories(io::Error)
+        AptCacheDirectories(io::Error),
     }
 }
 
@@ -95,12 +100,17 @@ use self::error::{Error, InitError};
 
 pub fn main() {
     let _ = setup_logging(::log::LevelFilter::Debug);
+
     let matches = App::new("pop-upgrade")
         .about("Pop!_OS Upgrade Utility")
         .global_setting(AppSettings::ColoredHelp)
         .global_setting(AppSettings::UnifiedHelpMessage)
         .setting(AppSettings::SubcommandRequiredElseHelp)
         // Recovery partition tools.
+        .subcommand(
+            SubCommand::with_name("daemon")
+                .about("launch a daemon for integration with control centers like GNOME's"),
+        )
         .subcommand(
             SubCommand::with_name("recovery")
                 .about("tools for managing the recovery partition")
@@ -112,8 +122,8 @@ pub fn main() {
                         .arg(
                             Arg::with_name("reboot")
                                 .help("immediately reboot the system into the recovery partition")
-                                .long("reboot")
-                        )
+                                .long("reboot"),
+                        ),
                 )
                 // Upgrade the recovery partition.
                 .subcommand(
@@ -125,17 +135,19 @@ pub fn main() {
                                 .about("update the recovery partition using a the Pop release API")
                                 .arg(
                                     Arg::with_name("VERSION")
-                                        .help("release version to fetch. IE: `18.04`")
+                                        .help("release version to fetch. IE: `18.04`"),
                                 )
                                 .arg(
                                     Arg::with_name("ARCH")
-                                        .help("release arch to fetch: IE: `nvidia` or `intel`")
+                                        .help("release arch to fetch: IE: `nvidia` or `intel`"),
                                 )
                                 .arg(
                                     Arg::with_name("next")
-                                        .help("fetches the next release's ISO if VERSION is not set")
-                                        .long("next")
-                                )
+                                        .help(
+                                            "fetches the next release's ISO if VERSION is not set",
+                                        )
+                                        .long("next"),
+                                ),
                         )
                         .subcommand(
                             SubCommand::with_name("from-file")
@@ -143,28 +155,41 @@ pub fn main() {
                                 .arg(
                                     Arg::with_name("PATH")
                                         .help("location to fetch the from file")
-                                        .required(true)
-                                )
-                        )
-                )
+                                        .required(true),
+                                ),
+                        ),
+                ),
         )
         // Distribution release tools
         .subcommand(
             SubCommand::with_name("release")
                 .about("check for new distribution releases, or upgrade to a new release")
                 .subcommand(
-                    SubCommand::with_name("check")
-                        .about("check for a new distribution release")
+                    SubCommand::with_name("check").about("check for a new distribution release"),
+                )
+                .subcommand(
+                    SubCommand::with_name("update")
+                        .about("fetch the latest updates for the current release"),
+                )
+                .subcommand(
+                    SubCommand::with_name("repair")
+                        .about("search for issues in the system, and repair them"),
                 )
                 .subcommand(
                     SubCommand::with_name("upgrade")
                         .about("update the system, and fetch the packages for the next release")
-                        .arg(
-                            Arg::with_name("live")
-                                .help("forces the system to perform the upgrade live")
-                                .long("live")
+                        .setting(AppSettings::SubcommandRequiredElseHelp)
+                        .subcommand(
+                            SubCommand::with_name("live")
+                                .about("forces the system to perform the upgrade live"),
                         )
-                )
+                        .subcommand(SubCommand::with_name("systemd").about(
+                            "apply system upgrades offline with systemd's offline-update service",
+                        ))
+                        .subcommand(SubCommand::with_name("recovery").about(
+                            "utilize the recovery partition for performing an offline update",
+                        )),
+                ),
         )
         .get_matches();
 
@@ -178,9 +203,18 @@ fn main_(matches: &ArgMatches) -> Result<(), Error> {
     init()?;
 
     match matches.subcommand() {
-        ("recovery", Some(matches)) => recovery(matches)?,
-        ("release", Some(matches)) => release(matches)?,
-        _ => unreachable!("clap argument parsing failed")
+        ("daemon", _) => Daemon::init()?,
+        (other, Some(matches)) => {
+            let client = Client::new()?;
+            let func = match other {
+                "recovery" => Client::recovery,
+                "release" => Client::release,
+                _ => unreachable!(),
+            };
+
+            func(&client, matches)?
+        }
+        _ => unreachable!("clap argument parsing failed"),
     }
 
     Ok(())
