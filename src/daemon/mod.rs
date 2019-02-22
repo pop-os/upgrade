@@ -258,20 +258,20 @@ impl Daemon {
             connection.incoming(1000).next();
 
             while let Ok(dbus_event) = receiver.try_recv() {
-                info!("{}", dbus_event);
-
                 Self::send_signal_message(
                     &connection,
-                    match dbus_event {
+                    match &dbus_event {
                         SignalEvent::FetchResult(result) => Self::signal_message(&fetch_result)
                             .append1(match result {
                                 Ok(_) => 0u8,
                                 Err(_) => 1,
                             }),
                         SignalEvent::Fetched(name, completed, total) => {
+                            info!("{}", dbus_event);
                             Self::signal_message(&fetched_package).append3(&name, completed, total)
                         }
                         SignalEvent::Fetching(name) => {
+                            info!("{}", dbus_event);
                             Self::signal_message(&fetching_package).append1(&name)
                         }
                         SignalEvent::RecoveryDownloadProgress(progress, total) => {
@@ -279,18 +279,22 @@ impl Daemon {
                                 .append2(progress, total)
                         }
                         SignalEvent::RecoveryUpgradeEvent(event) => {
-                            Self::signal_message(&recovery_event).append1(event as u8)
+                            info!("{}", dbus_event);
+                            Self::signal_message(&recovery_event).append1(*event as u8)
                         }
                         SignalEvent::RecoveryUpgradeResult(result) => {
+                            info!("{}", dbus_event);
                             Self::signal_message(&recovery_result).append1(match result {
                                 Ok(_) => 0u8,
                                 Err(_) => 1,
                             })
                         }
                         SignalEvent::ReleaseUpgradeEvent(event) => {
-                            Self::signal_message(&release_event).append1(event as u8)
+                            info!("{}", dbus_event);
+                            Self::signal_message(&release_event).append1(*event as u8)
                         }
                         SignalEvent::ReleaseUpgradeResult(result) => {
+                            info!("{}", dbus_event);
                             Self::signal_message(&release_result).append1(match result {
                                 Ok(_) => 0u8,
                                 Err(_) => 1,
