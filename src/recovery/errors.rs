@@ -1,7 +1,8 @@
-use ::checksum::ValidateError;
-use ::release_api::ApiError;
-use ::release_architecture::ReleaseArchError;
-use ::release_version::ReleaseVersionError;
+use crate::checksum::ValidateError;
+use crate::release_api::ApiError;
+use crate::release_architecture::ReleaseArchError;
+use crate::release_version::ReleaseVersionError;
+use crate::repair::RepairError;
 
 use std::io;
 use std::path::PathBuf;
@@ -26,14 +27,16 @@ pub enum RecoveryError {
     Checksum { path: PathBuf, why: ValidateError },
     #[error(display = "recovery partition was not found")]
     RecoveryNotFound,
+    #[error(display = "failed to apply system repair before recovery upgrade: {}", _0)]
+    Repair(RepairError),
     #[error(display = "EFI partition was not found")]
     EfiNotFound,
-    #[error(display = "failed to probe for recovery partition: {}", _0)]
-    Probe(io::Error),
     #[error(display = "failed to fetch release architecture: {}", _0)]
     ReleaseArch(ReleaseArchError),
     #[error(display = "failed to fetch release versions: {}", _0)]
-    ReleaseVersion(ReleaseVersionError)
+    ReleaseVersion(ReleaseVersionError),
+    #[error(display = "the recovery feature is limited to EFI installs")]
+    Unsupported,
 }
 
 impl From<io::Error> for RecoveryError {

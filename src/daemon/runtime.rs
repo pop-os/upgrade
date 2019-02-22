@@ -1,0 +1,23 @@
+use reqwest::r#async::Client;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::runtime::Runtime;
+
+pub struct DaemonRuntime<'a> {
+    pub runtime: &'a mut Runtime,
+    pub client: Arc<Client>,
+}
+
+impl<'a> DaemonRuntime<'a> {
+    pub fn new(runtime: &'a mut Runtime) -> Self {
+        // This client contains a thread pool for performing HTTP/s requests.
+        let client = Arc::new(
+            Client::builder()
+                .timeout(Duration::from_secs(3))
+                .build()
+                .expect("failed to initialize reqwest client"),
+        );
+
+        DaemonRuntime { runtime, client }
+    }
+}

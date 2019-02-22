@@ -1,7 +1,7 @@
 pub enum UbuntuCodename {
     Bionic,
     Cosmic,
-    Disco
+    Disco,
 }
 
 impl UbuntuCodename {
@@ -10,7 +10,7 @@ impl UbuntuCodename {
             "18.04" => UbuntuCodename::Bionic,
             "18.10" => UbuntuCodename::Cosmic,
             "19.04" => UbuntuCodename::Disco,
-            _ => return None
+            _ => return None,
         };
 
         Some(release)
@@ -20,7 +20,7 @@ impl UbuntuCodename {
         match self {
             UbuntuCodename::Bionic => "bionic",
             UbuntuCodename::Cosmic => "cosmic",
-            UbuntuCodename::Disco => "disco"
+            UbuntuCodename::Disco => "disco",
         }
     }
 
