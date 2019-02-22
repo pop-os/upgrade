@@ -217,7 +217,9 @@ impl Client {
     }
 
     fn event_listen_recovery_upgrade(&self) -> Result<(), ClientError> {
-        self.event_listen(DaemonStatus::RecoveryUpgrade, |_client, signal| {
+        let mut reset = false;
+
+        self.event_listen(DaemonStatus::RecoveryUpgrade, move |_client, signal| {
             match &*signal.member().unwrap() {
                 signals::RECOVERY_DOWNLOAD_PROGRESS => {
                     let (progress, total) =
@@ -233,10 +235,20 @@ impl Client {
                         .map(<&'static str>::from)
                         .unwrap_or("unknown event");
 
+                    if reset {
+                        reset = false;
+                        println!("");
+                    }
+
                     println!("recovery event: {}", message);
                 }
                 signals::RECOVERY_RESULT => {
                     let status = signal.read1::<u8>().map_err(ClientError::BadResponse)?;
+
+                    if reset {
+                        reset = false;
+                        println!("");
+                    }
 
                     println!("recovery upgrade complete: status was {}", status);
                     return Ok(Continue(false));
