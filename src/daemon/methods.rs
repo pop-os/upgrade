@@ -138,7 +138,7 @@ pub fn release_repair(
 ) -> Method<MTFn<()>, ()> {
     let daemon = daemon.clone();
 
-    let method = dbus_factory.method::<_, String>(RELEASE_UPGRADE, move |message| {
+    let method = dbus_factory.method::<_, String>(RELEASE_REPAIR, move |message| {
         let mut daemon = daemon.borrow_mut();
         daemon.release_repair()?;
         Ok(Vec::new())

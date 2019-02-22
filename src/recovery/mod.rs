@@ -62,10 +62,8 @@ where
         return Err(RecoveryError::Unsupported);
     }
 
-    let (current, _) = detect_version()?;
-
     // Check the system and perform any repairs necessary for success.
-    crate::repair::repair(&current).map_err(RecoveryError::Repair)?;
+    crate::repair::repair().map_err(RecoveryError::Repair)?;
 
     if !Path::new("/recovery").is_dir() {
         return Err(RecoveryError::RecoveryNotFound);

@@ -150,11 +150,8 @@ impl<'a> DaemonRuntime<'a> {
         // Must be root for this operation.
         check_root()?;
 
-        // Get the current version
-        let (current, _) = detect_version()?;
-
         // Check the system and perform any repairs necessary for success.
-        repair::repair(&current).map_err(ReleaseError::Repair)?;
+        repair::repair().map_err(ReleaseError::Repair)?;
 
         // Update the package lists for the current release.
         (*logger)(UpgradeEvent::UpdatingPackageLists);
