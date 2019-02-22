@@ -107,6 +107,7 @@ impl Client {
                 let (fetching, completed, total) =
                     message.read3::<bool, u32, u32>().map_err(ClientError::BadResponse)?;
 
+                eprintln!("{} {} {}", fetching, completed, total);
                 if !fetching || total == 0 {
                     println!("no updates available to fetch");
                 } else {

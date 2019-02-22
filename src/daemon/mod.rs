@@ -30,7 +30,6 @@ use crate::recovery::{
 };
 
 use crate::release::{self, FetchEvent, UpgradeEvent, UpgradeMethod as ReleaseUpgradeMethod};
-use crate::ubuntu_codename::UbuntuCodename;
 use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 
 #[derive(Debug)]
@@ -328,20 +327,21 @@ impl Daemon {
             .map_err(|why| format!("unable to fetch apt URIs: {}", why))
     }
 
-    fn fetch_updates(&mut self, additional_packages: &[String]) -> Result<bool, String> {
+    fn fetch_updates(&mut self, additional_packages: &[String]) -> Result<(bool, u32), String> {
         info!("fetching updates for the system, including {:?}", additional_packages);
 
         let apt_uris = Self::fetch_apt_uris(additional_packages)?;
 
         if apt_uris.is_empty() {
             info!("no updates available to fetch");
-            return Ok(false);
+            return Ok((false, 0));
         }
 
+        let npackages = apt_uris.len() as u32;
         let event = Event::FetchUpdates { apt_uris };
         self.submit_event(event)?;
 
-        Ok(true)
+        Ok((true, npackages))
     }
 
     fn recovery_upgrade_file(&mut self, path: &str) -> Result<(), String> {
