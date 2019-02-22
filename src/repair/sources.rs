@@ -22,7 +22,7 @@ impl From<SourceError> for SourcesError {
 
 const MAIN_SOURCES: &str = "/etc/apt/sources.list";
 
-const POP_PPAS: &[&str] = &["system76-pop"];
+const POP_PPAS: &[&str] = &["system76/pop"];
 
 pub fn repair(current_release: &str) -> Result<(), SourcesError> {
     if !Path::new(MAIN_SOURCES).exists() {

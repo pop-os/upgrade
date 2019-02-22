@@ -30,7 +30,7 @@ use crate::recovery::{
 };
 
 use crate::release::{self, FetchEvent, UpgradeEvent, UpgradeMethod as ReleaseUpgradeMethod};
-
+use crate::ubuntu_codename::UbuntuCodename;
 use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 
 #[derive(Debug)]
@@ -386,9 +386,7 @@ impl Daemon {
     }
 
     fn release_repair(&mut self) -> Result<(), String> {
-        let (current, _, _) = self.release_check()?;
-        info!("checking the current release for errors, and fixing them");
-        crate::repair::repair(&current).map_err(|why| format!("{}", why))
+        crate::repair::repair().map_err(|why| format!("{}", why))
     }
 
     fn send_signal_message(connection: &Connection, message: Message) {

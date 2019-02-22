@@ -24,11 +24,11 @@ impl UbuntuCodename {
         }
     }
 
-    // pub fn into_version(self) -> &'static str {
-    //     match self {
-    //         UbuntuCodename::Bionic => "18.04",
-    //         UbuntuCodename::Cosmic => "18.10",
-    //         UbuntuCodename::Disco => "19.04"
-    //     }
-    // }
+    pub fn into_version(self) -> &'static str {
+        match self {
+            UbuntuCodename::Bionic => "18.04",
+            UbuntuCodename::Cosmic => "18.10",
+            UbuntuCodename::Disco => "19.04"
+        }
+    }
 }
