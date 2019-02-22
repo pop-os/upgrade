@@ -25,7 +25,7 @@ pub fn fetch_updates(
                 let value = message.get1();
                 daemon
                     .fetch_updates(&value.unwrap_or_else(Vec::new))
-                    .map(|x| vec![x.into(), 0u32.into(), 0u32.into()])
+                    .map(|(x, t)| vec![x.into(), 0u32.into(), t.into()])
             }
         })
     });
