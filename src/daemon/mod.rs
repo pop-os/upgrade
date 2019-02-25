@@ -29,7 +29,9 @@ use crate::recovery::{
     self, ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
 };
 
-use crate::release::{self, FetchEvent, UpgradeEvent, UpgradeMethod as ReleaseUpgradeMethod, ReleaseError};
+use crate::release::{
+    self, FetchEvent, ReleaseError, UpgradeEvent, UpgradeMethod as ReleaseUpgradeMethod,
+};
 use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 
 #[derive(Debug)]
@@ -115,10 +117,12 @@ impl Daemon {
 
                             prog_state.store((0, 0), Ordering::SeqCst);
 
-                            let result = result.and_then(|_| if download_only {
-                                Ok(())
-                            } else {
-                                release::apt_upgrade().map_err(ReleaseError::Upgrade)
+                            let result = result.and_then(|_| {
+                                if download_only {
+                                    Ok(())
+                                } else {
+                                    release::apt_upgrade().map_err(ReleaseError::Upgrade)
+                                }
                             });
 
                             let _ = dbus_tx.send(SignalEvent::FetchResult(result.map(|_| ())));

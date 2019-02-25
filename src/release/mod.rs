@@ -14,9 +14,9 @@ use systemd_boot_conf::SystemdBootConf;
 
 use crate::daemon::DaemonRuntime;
 use crate::release_api::Release;
-use crate::ubuntu_version::{Codename, Version};
 use crate::repair;
 use crate::status::StatusExt;
+use crate::ubuntu_version::{Codename, Version};
 
 pub use self::errors::{RelResult, ReleaseError};
 
@@ -122,13 +122,13 @@ impl<'a> DaemonRuntime<'a> {
     ///
     /// On failure, the original release files will be restored.
     pub fn release_upgrade(&mut self, current: &str, new: &str) -> Result<Upgrader, ReleaseError> {
-        let current = current.parse::<Version>()
+        let current = current
+            .parse::<Version>()
             .map(|c| <&'static str>::from(Codename::from(c)))
             .unwrap_or(current);
 
-        let new = new.parse::<Version>()
-            .map(|c| <&'static str>::from(Codename::from(c)))
-            .unwrap_or(new);
+        let new =
+            new.parse::<Version>().map(|c| <&'static str>::from(Codename::from(c))).unwrap_or(new);
 
         let sources = SourcesList::scan().unwrap();
 

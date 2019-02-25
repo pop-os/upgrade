@@ -18,9 +18,7 @@ pub enum RepairError {
 }
 
 pub fn repair() -> Result<(), RepairError> {
-    let codename: Codename = Version::detect()
-        .map_err(RepairError::ReleaseVersion)?
-        .into();
+    let codename: Codename = Version::detect().map_err(RepairError::ReleaseVersion)?.into();
 
     fstab::repair().map_err(RepairError::Fstab)?;
     sources::repair(codename).map_err(RepairError::Sources)?;

@@ -1,8 +1,8 @@
 use crate::checksum::ValidateError;
 use crate::release_api::ApiError;
 use crate::release_architecture::ReleaseArchError;
-use crate::ubuntu_version::VersionError;
 use crate::repair::RepairError;
+use crate::ubuntu_version::VersionError;
 
 use std::io;
 use std::path::PathBuf;
