@@ -102,8 +102,9 @@ impl Client {
                     current, next, available
                 );
             }
-            ("update", _) => {
-                let message = self.call_method(methods::FETCH_UPDATES, iter::empty())?;
+            ("update", Some(matches)) => {
+                let args = iter::once(matches.is_present("download-only").into());
+                let message = self.call_method(methods::FETCH_UPDATES, args)?;
                 let (fetching, completed, total) =
                     message.read3::<bool, u32, u32>().map_err(ClientError::BadResponse)?;
 

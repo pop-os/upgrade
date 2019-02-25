@@ -29,12 +29,12 @@ use crate::recovery::{
     self, ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
 };
 
-use crate::release::{self, FetchEvent, UpgradeEvent, UpgradeMethod as ReleaseUpgradeMethod};
+use crate::release::{self, FetchEvent, UpgradeEvent, UpgradeMethod as ReleaseUpgradeMethod, ReleaseError};
 use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 
 #[derive(Debug)]
 pub enum Event {
-    FetchUpdates { apt_uris: Vec<AptUri> },
+    FetchUpdates { apt_uris: Vec<AptUri>, download_only: bool },
     RecoveryUpgrade(RecoveryUpgradeMethod),
     ReleaseUpgrade { how: ReleaseUpgradeMethod, from: String, to: String },
 }
@@ -106,7 +106,7 @@ impl Daemon {
 
                 while let Ok(event) = event_rx.recv() {
                     match event {
-                        Event::FetchUpdates { apt_uris } => {
+                        Event::FetchUpdates { apt_uris, download_only } => {
                             info!("fetching packages for {:?}", apt_uris);
                             let npackages = apt_uris.len() as u32;
                             prog_state.store((0, u64::from(npackages)), Ordering::SeqCst);
@@ -114,6 +114,13 @@ impl Daemon {
                             let result = runtime.apt_fetch(apt_uris, fetch_closure.clone());
 
                             prog_state.store((0, 0), Ordering::SeqCst);
+
+                            let result = result.and_then(|_| if download_only {
+                                Ok(())
+                            } else {
+                                release::apt_upgrade().map_err(ReleaseError::Upgrade)
+                            });
+
                             let _ = dbus_tx.send(SignalEvent::FetchResult(result.map(|_| ())));
                         }
                         Event::RecoveryUpgrade(action) => {
@@ -327,7 +334,11 @@ impl Daemon {
             .map_err(|why| format!("unable to fetch apt URIs: {}", why))
     }
 
-    fn fetch_updates(&mut self, additional_packages: &[String]) -> Result<(bool, u32), String> {
+    fn fetch_updates(
+        &mut self,
+        additional_packages: &[String],
+        download_only: bool,
+    ) -> Result<(bool, u32), String> {
         info!("fetching updates for the system, including {:?}", additional_packages);
 
         let apt_uris = Self::fetch_apt_uris(additional_packages)?;
@@ -338,7 +349,7 @@ impl Daemon {
         }
 
         let npackages = apt_uris.len() as u32;
-        let event = Event::FetchUpdates { apt_uris };
+        let event = Event::FetchUpdates { apt_uris, download_only };
         self.submit_event(event)?;
 
         Ok((true, npackages))
