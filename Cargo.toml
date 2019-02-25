@@ -43,3 +43,6 @@ num-traits = "0.2.6"
 envfile = "0.2.1"
 proc-mounts = "0.2.2"
 partition-identity = "0.2.6"
+
+[patch.crates-io]
+sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
