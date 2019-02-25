@@ -1,7 +1,7 @@
 //! All code responsible for validating sources.
 
 use crate::ubuntu_version::Codename;
-use apt_sources_lists::{SourceEntry, SourceError, SourcesList};
+use apt_sources_lists::{SourceEntry, SourceError, SourcesFile, SourcesList};
 use distinst_chroot::Command;
 use std::{fs, io, path::Path};
 
@@ -11,6 +11,8 @@ pub enum SourcesError {
     ListCreation(io::Error),
     #[error(display = "failed to read sources: {}", _0)]
     ListRead(SourceError),
+    #[error(display = "failed to overwrite a source list: {}", _0)]
+    ListWrite(io::Error),
     #[error(display = "failed to add missing PPA from Launchpad: {}", _0)]
     PpaAdd(io::Error),
 }
@@ -41,6 +43,11 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
         current_release,
         &["main"],
     )?;
+
+    sources_list.iter_mut()
+        .map(SourcesFile::write_sync)
+        .collect::<io::Result<()>>()
+        .map_err(SourcesError::ListWrite)?;
 
     for ppa in POP_PPAS {
         info!("adding PPA: {}", ppa);
