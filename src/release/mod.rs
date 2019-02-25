@@ -14,10 +14,9 @@ use systemd_boot_conf::SystemdBootConf;
 
 use crate::daemon::DaemonRuntime;
 use crate::release_api::Release;
-use crate::release_version::detect_version;
+use crate::ubuntu_version::{Codename, Version};
 use crate::repair;
 use crate::status::StatusExt;
-use crate::ubuntu_codename::UbuntuCodename;
 
 pub use self::errors::{RelResult, ReleaseError};
 
@@ -26,7 +25,9 @@ const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
 const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
 
 pub fn check() -> RelResult<(String, String, bool)> {
-    let (current, next) = detect_version()?;
+    let current = Version::detect()?;
+    let next = format!("{}", current.next());
+    let current = format!("{}", current);
     let available = Release::get_release(&next, "intel").is_ok();
     Ok((current, next, available))
 }
@@ -121,8 +122,13 @@ impl<'a> DaemonRuntime<'a> {
     ///
     /// On failure, the original release files will be restored.
     pub fn release_upgrade(&mut self, current: &str, new: &str) -> Result<Upgrader, ReleaseError> {
-        let current = UbuntuCodename::from_version(current).map_or(current, |c| c.into_codename());
-        let new = UbuntuCodename::from_version(new).map_or(new, |c| c.into_codename());
+        let current = current.parse::<Version>()
+            .map(|c| <&'static str>::from(Codename::from(c)))
+            .unwrap_or(current);
+
+        let new = new.parse::<Version>()
+            .map(|c| <&'static str>::from(Codename::from(c)))
+            .unwrap_or(new);
 
         let sources = SourcesList::scan().unwrap();
 
