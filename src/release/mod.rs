@@ -99,6 +99,7 @@ impl<'a> DaemonRuntime<'a> {
         uris: Vec<AptUri>,
         func: Arc<Fn(FetchEvent) + Send + Sync>,
     ) -> RelResult<()> {
+        (*func)(FetchEvent::Init(uris.len()));
         let func2 = func.clone();
 
         let client = self.client.clone();
@@ -350,6 +351,7 @@ fn set_recovery_as_default_boot_option() -> RelResult<()> {
 pub enum FetchEvent {
     Fetching(AptUri),
     Fetched(AptUri),
+    Init(usize)
 }
 
 /// Execute the apt command non-interactively, using whichever additional arguments are provided.
