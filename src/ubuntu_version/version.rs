@@ -16,7 +16,7 @@ pub enum VersionError {
     #[error(display = "minor version does not exist")]
     NoMinor,
     #[error(display = "release version is empty")]
-    NoVersion
+    NoVersion,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -33,11 +33,7 @@ impl Version {
     }
 
     pub fn next(self) -> Self {
-        let (major, minor) = if self.minor == 10 {
-            (self.major + 1, 4)
-        } else {
-            (self.major, 10)
-        };
+        let (major, minor) = if self.minor == 10 { (self.major + 1, 4) } else { (self.major, 10) };
 
         Version { major, minor, patch: 0 }
     }
@@ -60,21 +56,19 @@ impl FromStr for Version {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let version = input.split_whitespace().next().ok_or(VersionError::NoVersion)?;
-        if version.is_empty() { return Err(VersionError::NoVersion); }
+        if version.is_empty() {
+            return Err(VersionError::NoVersion);
+        }
 
         let mut iter = version.split('.');
 
-        let major = iter.next()
-            .ok_or(VersionError::NoMajor)?;
+        let major = iter.next().ok_or(VersionError::NoMajor)?;
 
-        let major = major.parse::<u16>()
-            .map_err(|_| VersionError::VersionNaN(major.to_owned()))?;
+        let major = major.parse::<u16>().map_err(|_| VersionError::VersionNaN(major.to_owned()))?;
 
-        let minor = iter.next()
-            .ok_or(VersionError::NoMinor)?;
+        let minor = iter.next().ok_or(VersionError::NoMinor)?;
 
-        let minor = minor.parse::<u8>()
-            .map_err(|_| VersionError::VersionNaN(minor.to_owned()))?;
+        let minor = minor.parse::<u8>().map_err(|_| VersionError::VersionNaN(minor.to_owned()))?;
 
         let patch = iter.next().and_then(|p| p.parse::<u8>().ok()).unwrap_or(0);
 
@@ -104,10 +98,7 @@ mod tests {
 
     #[test]
     pub fn non_lts_parse() {
-        assert_eq!(
-            Version { major: 18, minor: 10, patch: 0 },
-            "18.10".parse::<Version>().unwrap()
-        )
+        assert_eq!(Version { major: 18, minor: 10, patch: 0 }, "18.10".parse::<Version>().unwrap())
     }
 
     #[test]

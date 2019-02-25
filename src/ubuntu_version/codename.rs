@@ -3,7 +3,7 @@ use std::str::FromStr;
 #[derive(Debug, Error)]
 pub enum CodenameParseError {
     #[error(display = "unknown codename string")]
-    NotFound
+    NotFound,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]

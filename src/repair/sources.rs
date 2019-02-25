@@ -1,9 +1,9 @@
 //! All code responsible for validating sources.
 
+use crate::ubuntu_version::Codename;
 use apt_sources_lists::{SourceEntry, SourceError, SourcesList};
 use distinst_chroot::Command;
 use std::{fs, io, path::Path};
-use crate::ubuntu_version::Codename;
 
 #[derive(Debug, Error)]
 pub enum SourcesError {

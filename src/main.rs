@@ -21,10 +21,10 @@ mod recovery;
 mod release;
 mod release_api;
 mod release_architecture;
-mod ubuntu_version;
 mod repair;
 mod status;
 mod system_environment;
+mod ubuntu_version;
 
 use self::client::Client;
 use self::daemon::Daemon;

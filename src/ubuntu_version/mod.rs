@@ -1,8 +1,8 @@
-mod version;
 mod codename;
+mod version;
 
-pub use self::version::*;
 pub use self::codename::*;
+pub use self::version::*;
 
 impl From<Version> for Codename {
     fn from(version: Version) -> Codename {
@@ -10,7 +10,7 @@ impl From<Version> for Codename {
             (18, 4) => Codename::Bionic,
             (18, 10) => Codename::Cosmic,
             (19, 4) => Codename::Disco,
-            _ => panic!("unsupported ubuntu version")
+            _ => panic!("unsupported ubuntu version"),
         }
     }
 }
