@@ -346,7 +346,7 @@ fn apt_update() -> io::Result<()> {
 }
 
 /// apt-get upgrade
-fn apt_upgrade() -> io::Result<()> {
+pub fn apt_upgrade() -> io::Result<()> {
     apt_noninteractive(|cmd| cmd.arg("full-upgrade"))
 }
 

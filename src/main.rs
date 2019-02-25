@@ -169,7 +169,15 @@ pub fn main() {
                 )
                 .subcommand(
                     SubCommand::with_name("update")
-                        .about("fetch the latest updates for the current release"),
+                        .about("fetch the latest updates for the current release")
+                        .arg(
+                            Arg::with_name("download-only")
+                                .help(
+                                    "instruct the daemon to fetch updates, without installing them",
+                                )
+                                .short("d")
+                                .long("download-only"),
+                        ),
                 )
                 .subcommand(
                     SubCommand::with_name("repair")

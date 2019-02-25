@@ -28,7 +28,7 @@ impl UbuntuCodename {
         match self {
             UbuntuCodename::Bionic => "18.04",
             UbuntuCodename::Cosmic => "18.10",
-            UbuntuCodename::Disco => "19.04"
+            UbuntuCodename::Disco => "19.04",
         }
     }
 }

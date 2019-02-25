@@ -22,9 +22,11 @@ pub fn fetch_updates(
                 let total = total as u32;
                 Ok(vec![true.into(), completed.into(), total.into()])
             } else {
-                let value = message.get1();
+                let (value, download_only): (Vec<String>, bool) =
+                    message.read2().map_err(|why| format!("{}: expected a ((ss)(b))", why))?;
+
                 daemon
-                    .fetch_updates(&value.unwrap_or_else(Vec::new))
+                    .fetch_updates(&value, download_only)
                     .map(|(x, t)| vec![x.into(), 0u32.into(), t.into()])
             }
         })
@@ -32,6 +34,7 @@ pub fn fetch_updates(
 
     method
         .inarg::<Vec<String>>("additional_packages")
+        .inarg::<bool>("download_only")
         .outarg::<bool>("updates_available")
         .outarg::<u32>("completed")
         .outarg::<u32>("total")
