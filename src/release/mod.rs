@@ -156,6 +156,11 @@ impl<'a> DaemonRuntime<'a> {
         // Must be root for this operation.
         check_root()?;
 
+        // When performing a systemd-based upgrade, ensure that the prereq files exist.
+        if let UpgradeMethod::Systemd = action {
+            Self::systemd_upgrade_prereq_check()?;
+        }
+
         // Check the system and perform any repairs necessary for success.
         repair::repair().map_err(ReleaseError::Repair)?;
 
@@ -165,17 +170,20 @@ impl<'a> DaemonRuntime<'a> {
 
         // Fetch required packages for upgrading the current release.
         (*logger)(UpgradeEvent::FetchingPackages);
-        let uris = apt_uris(&["full-upgrade"]).map_err(ReleaseError::AptList)?;
-        let nupdates = uris.len();
+        let mut uris = apt_uris(&["full-upgrade"]).map_err(ReleaseError::AptList)?;
 
         // Also include the packages which we must have installed.
-        let uris = apt_uris(&{
+        let uris2 = apt_uris(&{
             let mut args = vec!["install"];
             args.extend_from_slice(CORE_PACKAGES);
             args
         })
         .map_err(ReleaseError::AptList)?;
+
+        let nupdates = uris.len();
         let nfetched = uris.len();
+        uris.extend_from_slice(&uris2);
+
         self.apt_fetch(uris, fetch.clone())?;
 
         if nupdates != 0 {
@@ -204,7 +212,6 @@ impl<'a> DaemonRuntime<'a> {
             }
             UpgradeMethod::Systemd => {
                 (*logger)(UpgradeEvent::AttemptingSystemdUnit);
-                Self::systemd_upgrade_prereq_check()?;
                 Self::systemd_upgrade_set()?;
             }
             UpgradeMethod::Recovery => {
@@ -353,12 +360,12 @@ fn apt_update() -> io::Result<()> {
 
 /// apt-get upgrade
 pub fn apt_upgrade() -> io::Result<()> {
-    apt_noninteractive(|cmd| cmd.arg("full-upgrade"))
+    apt_noninteractive(|cmd| cmd.args(&["full-upgrade", "-y"]))
 }
 
 /// apt-get install
 fn apt_install(packages: &[&str]) -> io::Result<()> {
-    apt_noninteractive(move |cmd| cmd.arg("install").args(packages))
+    apt_noninteractive(move |cmd| cmd.args(&["install", "-y"]).args(packages))
 }
 
 fn check_root() -> RelResult<()> {
