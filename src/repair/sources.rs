@@ -3,6 +3,7 @@
 use apt_sources_lists::{SourceEntry, SourceError, SourcesList};
 use distinst_chroot::Command;
 use std::{fs, io, path::Path};
+use crate::ubuntu_version::Codename;
 
 #[derive(Debug, Error)]
 pub enum SourcesError {
@@ -24,7 +25,8 @@ const MAIN_SOURCES: &str = "/etc/apt/sources.list";
 
 const POP_PPAS: &[&str] = &["system76/pop"];
 
-pub fn repair(current_release: &str) -> Result<(), SourcesError> {
+pub fn repair(codename: Codename) -> Result<(), SourcesError> {
+    let current_release = <&'static str>::from(codename);
     if !Path::new(MAIN_SOURCES).exists() {
         info!("/etc/apt/sources.list did not exist: creating a new one");
         return create_new_sources_list(current_release).map_err(SourcesError::ListCreation);

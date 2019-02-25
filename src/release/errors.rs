@@ -1,5 +1,5 @@
 use crate::release_architecture::ReleaseArchError;
-use crate::release_version::ReleaseVersionError;
+use crate::ubuntu_version::VersionError;
 use crate::repair::RepairError;
 use apt_fetcher::{apt_uris::AptUriError, DistUpgradeError};
 use async_fetcher::FetchError;
@@ -35,7 +35,7 @@ pub enum ReleaseError {
     #[error(display = "failed to perform release upgrade: {}", _0)]
     ReleaseUpgrade(io::Error),
     #[error(display = "failed to fetch release versions: {}", _0)]
-    ReleaseVersion(ReleaseVersionError),
+    ReleaseVersion(VersionError),
     #[error(display = "failed to apply system repair before upgrade: {}", _0)]
     Repair(RepairError),
     #[error(display = "files required for systemd upgrade are missing: {:?}", _0)]
@@ -62,8 +62,8 @@ pub enum ReleaseError {
     MissingRecoveryEntry,
 }
 
-impl From<ReleaseVersionError> for ReleaseError {
-    fn from(why: ReleaseVersionError) -> Self {
+impl From<VersionError> for ReleaseError {
+    fn from(why: VersionError) -> Self {
         ReleaseError::ReleaseVersion(why)
     }
 }

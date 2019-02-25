@@ -1,7 +1,7 @@
 use crate::checksum::ValidateError;
 use crate::release_api::ApiError;
 use crate::release_architecture::ReleaseArchError;
-use crate::release_version::ReleaseVersionError;
+use crate::ubuntu_version::VersionError;
 use crate::repair::RepairError;
 
 use std::io;
@@ -34,7 +34,7 @@ pub enum RecoveryError {
     #[error(display = "failed to fetch release architecture: {}", _0)]
     ReleaseArch(ReleaseArchError),
     #[error(display = "failed to fetch release versions: {}", _0)]
-    ReleaseVersion(ReleaseVersionError),
+    ReleaseVersion(VersionError),
     #[error(display = "the recovery feature is limited to EFI installs")]
     Unsupported,
 }
@@ -45,8 +45,8 @@ impl From<io::Error> for RecoveryError {
     }
 }
 
-impl From<ReleaseVersionError> for RecoveryError {
-    fn from(why: ReleaseVersionError) -> Self {
+impl From<VersionError> for RecoveryError {
+    fn from(why: VersionError) -> Self {
         RecoveryError::ReleaseVersion(why)
     }
 }
