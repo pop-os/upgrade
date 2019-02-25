@@ -103,6 +103,9 @@ impl Daemon {
                         FetchEvent::Fetching(uri) => {
                             let _ = dbus_tx.send(SignalEvent::Fetching(uri.name));
                         }
+                        FetchEvent::Init(total) => {
+                            prog_state_.store((0, total as u64), Ordering::SeqCst);
+                        }
                     }
                 });
 
