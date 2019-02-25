@@ -1,9 +1,9 @@
 //! All code responsible for validating sources.
 
-use crate::ubuntu_version::Codename;
 use apt_sources_lists::{SourceEntry, SourceError, SourcesFile, SourcesList};
 use distinst_chroot::Command;
 use std::{fs, io, path::Path};
+use ubuntu_version::Codename;
 
 #[derive(Debug, Error)]
 pub enum SourcesError {
@@ -44,7 +44,8 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
         &["main"],
     )?;
 
-    sources_list.iter_mut()
+    sources_list
+        .iter_mut()
         .map(SourcesFile::write_sync)
         .collect::<io::Result<()>>()
         .map_err(SourcesError::ListWrite)?;
