@@ -15,7 +15,7 @@ use crate::external::{findmnt_uuid, rsync};
 use crate::release_api::Release;
 use crate::release_architecture::detect_arch;
 use crate::system_environment::SystemEnvironment;
-use crate::ubuntu_version::Version;
+use ubuntu_version::Version;
 
 pub use self::errors::{RecResult, RecoveryError};
 
@@ -157,7 +157,8 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
         Some(ref version) => version,
         None => {
             let current = Version::detect()?;
-            let version = if flags.contains(ReleaseFlags::NEXT) { current.next() } else { current };
+            let version =
+                if flags.contains(ReleaseFlags::NEXT) { current.next_release() } else { current };
 
             version_ = format!("{}", version);
             &version_

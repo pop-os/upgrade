@@ -1,10 +1,10 @@
 use crate::release_architecture::ReleaseArchError;
 use crate::repair::RepairError;
-use crate::ubuntu_version::VersionError;
 use apt_fetcher::{apt_uris::AptUriError, DistUpgradeError};
 use async_fetcher::FetchError;
 use std::io;
 use systemd_boot_conf::Error as SystemdBootConfError;
+use ubuntu_version::VersionError;
 
 pub type RelResult<T> = Result<T, ReleaseError>;
 

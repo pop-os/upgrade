@@ -24,7 +24,6 @@ mod release_architecture;
 mod repair;
 mod status;
 mod system_environment;
-mod ubuntu_version;
 
 use self::client::Client;
 use self::daemon::Daemon;

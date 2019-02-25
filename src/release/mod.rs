@@ -16,7 +16,7 @@ use crate::daemon::DaemonRuntime;
 use crate::release_api::Release;
 use crate::repair;
 use crate::status::StatusExt;
-use crate::ubuntu_version::{Codename, Version};
+use ubuntu_version::{Codename, Version};
 
 pub use self::errors::{RelResult, ReleaseError};
 
@@ -26,7 +26,7 @@ const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
 
 pub fn check() -> RelResult<(String, String, bool)> {
     let current = Version::detect()?;
-    let next = format!("{}", current.next());
+    let next = format!("{}", current.next_release());
     let current = format!("{}", current);
     let available = Release::get_release(&next, "intel").is_ok();
     Ok((current, next, available))
@@ -164,7 +164,7 @@ impl<'a> DaemonRuntime<'a> {
         match action {
             UpgradeMethod::Recovery => Self::recovery_upgrade_prereq_check()?,
             UpgradeMethod::Systemd => Self::systemd_upgrade_prereq_check()?,
-            _ => ()
+            _ => (),
         }
 
         // Update the package lists for the current release.
@@ -351,7 +351,7 @@ fn set_recovery_as_default_boot_option() -> RelResult<()> {
 pub enum FetchEvent {
     Fetching(AptUri),
     Fetched(AptUri),
-    Init(usize)
+    Init(usize),
 }
 
 /// Execute the apt command non-interactively, using whichever additional arguments are provided.

@@ -3,7 +3,7 @@ pub mod sources;
 
 use self::fstab::FstabError;
 use self::sources::SourcesError;
-use crate::ubuntu_version::{Codename, Version, VersionError};
+use ubuntu_version::{Codename, Version, VersionError};
 
 #[derive(Debug, Error)]
 pub enum RepairError {
