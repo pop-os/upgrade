@@ -156,13 +156,15 @@ impl<'a> DaemonRuntime<'a> {
         // Must be root for this operation.
         check_root()?;
 
-        // When performing a systemd-based upgrade, ensure that the prereq files exist.
-        if let UpgradeMethod::Systemd = action {
-            Self::systemd_upgrade_prereq_check()?;
-        }
-
         // Check the system and perform any repairs necessary for success.
         repair::repair().map_err(ReleaseError::Repair)?;
+
+        // Ensure that prerequest files and mounts are available.
+        match action {
+            UpgradeMethod::Recovery => Self::recovery_upgrade_prereq_check()?,
+            UpgradeMethod::Systemd => Self::systemd_upgrade_prereq_check()?,
+            _ => ()
+        }
 
         // Update the package lists for the current release.
         (*logger)(UpgradeEvent::UpdatingPackageLists);
@@ -221,6 +223,22 @@ impl<'a> DaemonRuntime<'a> {
         }
 
         (*logger)(UpgradeEvent::Success);
+        Ok(())
+    }
+
+    fn recovery_upgrade_prereq_check() -> RelResult<()> {
+        if !Path::new(SYSTEMD_BOOT_LOADER).exists() {
+            return Err(ReleaseError::SystemdBootLoaderNotFound);
+        }
+
+        if !Path::new(SYSTEMD_BOOT_LOADER_PATH).exists() {
+            return Err(ReleaseError::SystemdBootEfiPathNotFound);
+        }
+
+        if !Path::new("/recovery").exists() {
+            return Err(ReleaseError::RecoveryNotFound);
+        }
+
         Ok(())
     }
 
@@ -304,18 +322,6 @@ impl<'a> DaemonRuntime<'a> {
 /// It will be up to the recovery partition to revert this change once it has completed its job.
 fn set_recovery_as_default_boot_option() -> RelResult<()> {
     info!("gathering systemd-boot configuration information");
-
-    if !Path::new(SYSTEMD_BOOT_LOADER).exists() {
-        return Err(ReleaseError::SystemdBootLoaderNotFound);
-    }
-
-    if !Path::new(SYSTEMD_BOOT_LOADER_PATH).exists() {
-        return Err(ReleaseError::SystemdBootEfiPathNotFound);
-    }
-
-    if !Path::new("/recovery").exists() {
-        return Err(ReleaseError::RecoveryNotFound);
-    }
 
     let mut systemd_boot_conf =
         SystemdBootConf::new("/boot/efi").map_err(ReleaseError::SystemdBootConf)?;
