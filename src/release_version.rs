@@ -11,12 +11,17 @@ pub enum ReleaseVersionError {
     InvalidMinorVersion(u8),
     #[error(display = "minor version does not exist in {}", _0)]
     NoMinor(String),
+    #[error(display = "release version is empty")]
+    NoVersion
 }
 
 pub fn detect_version() -> Result<(String, String), ReleaseVersionError> {
     let release = OsRelease::new().map_err(ReleaseVersionError::OsRelease)?;
 
-    let (major, minor) = match release.version.find('.') {
+    let version = release.version.split_whitespace().next().ok_or(ReleaseVersionError::NoVersion)?;
+    if version.is_empty() { return Err(ReleaseVersionError::NoVersion); }
+
+    let (major, minor) = match version.find(".") {
         Some(position) => {
             let (major, mut minor) = release.version.split_at(position);
             minor = &minor[1..];
