@@ -1,11 +1,9 @@
 [Unit]
-Description=Execute system updates early in the boot process
-DefaultDependencies=no
-Requires=sysinit.target dbus.socket
-After=sysinit.target dbus.socket systemd-journald.socket
-Before=shutdown.target system-update.target
+Description=Pop Upgrade Daemon
 
 [Service]
-Type=oneshot
-ExecStart=/usr/lib/pop-upgrade/upgrade.sh
-FailureAction=reboot
+ExecStart=/usr/bin/pop-upgrade daemon
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

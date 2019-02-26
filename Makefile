@@ -8,7 +8,6 @@ datarootdir = $(prefix)/share
 datadir = $(datarootdir)
 
 BIN=pop-upgrade
-SERVICE=$(BIN).service
 TARGET = debug
 
 DEBUG ?= 0
@@ -32,8 +31,9 @@ clean:
 install: all
 	install -Dm04755 "target/$(TARGET)/$(BIN)" "$(DESTDIR)$(bindir)/$(BIN)"
 	install -Dm04755 "data/$(BIN).sh" "$(DESTDIR)$(libdir)/$(BIN)/upgrade.sh"
-	install -Dm0644 "data/$(SERVICE)" "$(DESTDIR)/lib/systemd/system/$(SERVICE)"
+	install -Dm0644 "data/$(SERVICE)" "$(DESTDIR)/lib/systemd/system/$(BIN).service"
+	install -Dm0644 "data/$(SERVICE)" "$(DESTDIR)/lib/systemd/system/$(BIN)-init.service"
 	install -Dm0644 "data/$(BIN).conf" "$(DESTDIR)$(sysconfdir)/dbus-1/system.d/$(BIN).conf"
 
-target/$(TARGET)/$(BIN): Cargo.lock Cargo.toml src/**/*.rs
+target/$(TARGET)/$(BIN): Cargo.lock Cargo.toml src/* src/*/*
 	cargo build $(ARGS)
