@@ -118,8 +118,7 @@ impl Client {
             }
             ("upgrade", Some(matches)) => {
                 let method = match matches.subcommand() {
-                    ("live", _) => UpgradeMethod::Live,
-                    ("systemd", _) => UpgradeMethod::Systemd,
+                    ("offline", _) => UpgradeMethod::Offline,
                     ("recovery", _) => UpgradeMethod::Recovery,
                     _ => unreachable!(),
                 };

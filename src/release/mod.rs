@@ -4,7 +4,7 @@ use apt_fetcher::apt_uris::{apt_uris, AptUri};
 use apt_fetcher::{SourcesList, UpgradeRequest, Upgrader};
 use envfile::EnvFile;
 use futures::{stream, Future, Stream};
-use std::fs::File;
+use std::fs::{self, File};
 use std::io;
 use std::os::unix::fs::symlink;
 use std::path::Path;
@@ -21,6 +21,7 @@ use ubuntu_version::{Codename, Version};
 pub use self::errors::{RelResult, ReleaseError};
 
 const CORE_PACKAGES: &[&str] = &["pop-desktop"];
+const RELEASE_FETCH_FILE: &str = "/release_fetch_in_progress";
 const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
 const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
 
@@ -35,16 +36,14 @@ pub fn check() -> RelResult<(String, String, bool)> {
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, FromPrimitive, PartialEq)]
 pub enum UpgradeMethod {
-    Live = 1,
-    Systemd = 2,
-    Recovery = 3,
+    Offline = 1,
+    Recovery = 2,
 }
 
 impl From<UpgradeMethod> for &'static str {
     fn from(action: UpgradeMethod) -> Self {
         match action {
-            UpgradeMethod::Live => "live, in-place upgrade",
-            UpgradeMethod::Systemd => "systemd oneshot",
+            UpgradeMethod::Offline => "offline upgrade",
             UpgradeMethod::Recovery => "recovery partition",
         }
     }
@@ -138,6 +137,10 @@ impl<'a> DaemonRuntime<'a> {
             .send(current, new)
             .map_err(ReleaseError::Check)?;
 
+        // In case the system abruptly shuts down after this point, create a file to signal
+        // that packages were being fetched for a new release.
+        File::create(RELEASE_FETCH_FILE).map_err(ReleaseError::ReleaseFetchFile)?;
+
         info!("upgrade is possible -- updating release files");
         upgrade.overwrite_apt_sources().map_err(ReleaseError::Overwrite)?;
 
@@ -163,8 +166,7 @@ impl<'a> DaemonRuntime<'a> {
         // Ensure that prerequest files and mounts are available.
         match action {
             UpgradeMethod::Recovery => Self::recovery_upgrade_prereq_check()?,
-            UpgradeMethod::Systemd => Self::systemd_upgrade_prereq_check()?,
-            _ => (),
+            UpgradeMethod::Offline => Self::systemd_upgrade_prereq_check()?,
         }
 
         // Update the package lists for the current release.
@@ -203,28 +205,33 @@ impl<'a> DaemonRuntime<'a> {
 
         // Update the source lists to the new release,
         // then fetch the packages required for the upgrade.
-        let _upgrader = self.fetch_new_release_packages(logger, fetch, from, to)?;
+        let mut upgrader = self.fetch_new_release_packages(logger, fetch, from, to)?;
+        let result = self.perform_action(logger, action);
 
+        // Removing this will signal that we
+        let _ = fs::remove_file(RELEASE_FETCH_FILE);
+
+        if let Err(ref why) = result {
+            (*logger)(UpgradeEvent::Failure);
+            rollback(&mut upgrader, why);
+        } else {
+            (*logger)(UpgradeEvent::Success);
+        }
+
+        result
+    }
+
+    fn perform_action(&mut self, logger: &dyn Fn(UpgradeEvent), action: UpgradeMethod) -> RelResult<()> {
         match action {
-            UpgradeMethod::Live => {
-                (*logger)(UpgradeEvent::AttemptingLiveUpgrade);
-                apt_upgrade().map_err(ReleaseError::ReleaseUpgrade)?;
-
-                (*logger)(UpgradeEvent::SuccessLive);
-                return Ok(());
-            }
-            UpgradeMethod::Systemd => {
+            UpgradeMethod::Offline => {
                 (*logger)(UpgradeEvent::AttemptingSystemdUnit);
-                Self::systemd_upgrade_set()?;
+                Self::systemd_upgrade_set()
             }
             UpgradeMethod::Recovery => {
                 (*logger)(UpgradeEvent::AttemptingRecovery);
-                set_recovery_as_default_boot_option()?;
+                set_recovery_as_default_boot_option()
             }
         }
-
-        (*logger)(UpgradeEvent::Success);
-        Ok(())
     }
 
     fn recovery_upgrade_prereq_check() -> RelResult<()> {
@@ -300,20 +307,24 @@ impl<'a> DaemonRuntime<'a> {
         match self.attempt_fetch(fetch) {
             Ok(_) => info!("packages fetched successfully"),
             Err(why) => {
-                error!("failed to fetch packages: {}", why);
-                warn!("attempting to roll back apt release files");
-                if let Err(why) = upgrader.revert_apt_sources() {
-                    error!(
-                        "failed to revert release name changes to source lists in /etc/apt/: {}",
-                        why
-                    );
-                }
+                rollback(&mut upgrader, &why);
 
                 return Err(why);
             }
         }
 
         Ok(upgrader)
+    }
+}
+
+fn rollback<E: ::std::fmt::Display>(upgrader: &mut Upgrader, why: &E) {
+    error!("failed to fetch packages: {}", why);
+    warn!("attempting to roll back apt release files");
+    if let Err(why) = upgrader.revert_apt_sources() {
+        error!(
+            "failed to revert release name changes to source lists in /etc/apt/: {}",
+            why
+        );
     }
 }
 
