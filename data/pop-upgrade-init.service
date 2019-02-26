@@ -8,4 +8,3 @@ Before=shutdown.target system-update.target
 [Service]
 Type=oneshot
 ExecStart=/usr/lib/pop-upgrade/upgrade.sh
-FailureAction=reboot
