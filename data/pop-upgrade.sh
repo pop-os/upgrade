@@ -12,16 +12,21 @@ message () {
     }
 }
 
-message -i "performing system upgrade"
-if apt full-upgrade -y --allow-downgrades; then
+upgrade () {
+    apt-get full-upgrade -y --allow-downgrades
+}
+
+attempt_repair () {
+    dpkg --configure -a
+    upgrade
+}
+
+message -i "Performing system upgrade. The system will restart once complete."
+if upgrade || attempt_repair; then
     rm /pop-upgrade /system-update
-    message -i "upgrade complete, rebooting the system"
+    message -i "Upgrade complete, now rebooting the system"
     systemctl reboot
 else
-    message -f "upgrade failed; dropping to a shell for recovery:"
-    echo "  * type `reboot` and enter to restart the machine."
-    echo "  * type `journalctl pop-upgrade-script` to step through upgrade logs"
-    echo "  * System76 customers may create support tickets for help"
-    echo "  * Community support is also available at https://chat.pop-os.org/"
+    message -f "Upgrade failed. Dropping to a shell for recovery"
     systemctl rescue
 fi
