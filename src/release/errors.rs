@@ -30,6 +30,8 @@ pub enum ReleaseError {
     RecoveryNotFound,
     #[error(display = "failed to fetch release architecture: {}", _0)]
     ReleaseArch(ReleaseArchError),
+    #[error(display = "failed to create release fetch file: {}", _0)]
+    ReleaseFetchFile(io::Error),
     #[error(display = "failed to update package lists for the new release: {}", _0)]
     ReleaseUpdate(io::Error),
     #[error(display = "failed to perform release upgrade: {}", _0)]

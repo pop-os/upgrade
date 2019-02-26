@@ -185,11 +185,7 @@ pub fn main() {
                     SubCommand::with_name("upgrade")
                         .about("update the system, and fetch the packages for the next release")
                         .setting(AppSettings::SubcommandRequiredElseHelp)
-                        .subcommand(
-                            SubCommand::with_name("live")
-                                .about("forces the system to perform the upgrade live"),
-                        )
-                        .subcommand(SubCommand::with_name("systemd").about(
+                        .subcommand(SubCommand::with_name("offline").about(
                             "apply system upgrades offline with systemd's offline-update service",
                         ))
                         .subcommand(SubCommand::with_name("recovery").about(

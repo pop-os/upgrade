@@ -174,12 +174,6 @@ impl Daemon {
                             let result =
                                 runtime.upgrade(how, &from, &to, &progress, fetch_closure.clone());
 
-                            if result.is_err() {
-                                let event = UpgradeEvent::Failure;
-                                let _ = dbus_tx.send(SignalEvent::ReleaseUpgradeEvent(event));
-                                sub_status.store(event as u8, Ordering::SeqCst);
-                            }
-
                             let _ = dbus_tx.send(SignalEvent::ReleaseUpgradeResult(result));
                         }
                     }
