@@ -44,10 +44,7 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
         &["main"],
     )?;
 
-    sources_list
-        .iter_mut()
-        .map(SourcesFile::write_sync)
-        .collect::<io::Result<()>>()
+    sources_list.write_sync()
         .map_err(SourcesError::ListWrite)?;
 
     for ppa in POP_PPAS {
@@ -80,7 +77,7 @@ fn insert_entry<P: AsRef<Path>>(
             options: None,
             url: url.to_owned(),
             suite: suite.to_owned(),
-            components: components.into_iter().cloned().map(String::from).collect(),
+            components: components.iter().cloned().map(String::from).collect(),
         },
     )?;
 

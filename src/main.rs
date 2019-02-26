@@ -197,6 +197,10 @@ pub fn main() {
                         )),
                 ),
         )
+        .subcommand(
+            SubCommand::with_name("status")
+                .about("get the status of the pop upgrade daemon")
+        )
         .get_matches();
 
     if let Err(why) = main_(&matches) {
@@ -215,6 +219,7 @@ fn main_(matches: &ArgMatches) -> Result<(), Error> {
             let func = match other {
                 "recovery" => Client::recovery,
                 "release" => Client::release,
+                "status" => Client::status,
                 _ => unreachable!(),
             };
 
