@@ -31,8 +31,8 @@ clean:
 install: all
 	install -Dm04755 "target/$(TARGET)/$(BIN)" "$(DESTDIR)$(bindir)/$(BIN)"
 	install -Dm04755 "data/$(BIN).sh" "$(DESTDIR)$(libdir)/$(BIN)/upgrade.sh"
-	install -Dm0644 "data/$(SERVICE)" "$(DESTDIR)/lib/systemd/system/$(BIN).service"
-	install -Dm0644 "data/$(SERVICE)" "$(DESTDIR)/lib/systemd/system/$(BIN)-init.service"
+	install -Dm0644 "data/$(BIN).service" "$(DESTDIR)/lib/systemd/system/$(BIN).service"
+	install -Dm0644 "data/$(BIN)-init.service" "$(DESTDIR)/lib/systemd/system/$(BIN)-init.service"
 	install -Dm0644 "data/$(BIN).conf" "$(DESTDIR)$(sysconfdir)/dbus-1/system.d/$(BIN).conf"
 
 target/$(TARGET)/$(BIN): Cargo.lock Cargo.toml src/* src/*/*
