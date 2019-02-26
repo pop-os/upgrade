@@ -139,7 +139,8 @@ impl<'a> DaemonRuntime<'a> {
 
         // In case the system abruptly shuts down after this point, create a file to signal
         // that packages were being fetched for a new release.
-        File::create(RELEASE_FETCH_FILE).map_err(ReleaseError::ReleaseFetchFile)?;
+        fs::write(RELEASE_FETCH_FILE, &format!("{} {}", current, new))
+            .map_err(ReleaseError::ReleaseFetchFile)?;
 
         info!("upgrade is possible -- updating release files");
         upgrade.overwrite_apt_sources().map_err(ReleaseError::Overwrite)?;
@@ -392,5 +393,20 @@ fn check_root() -> RelResult<()> {
         Err(ReleaseError::NotRoot)
     } else {
         Ok(())
+    }
+}
+
+pub fn release_fetch_cleanup() {
+    if let Ok(data) = fs::read_to_string(RELEASE_FETCH_FILE) {
+        let mut iter = data.split(' ');
+        if let (Some(current), Some(next)) = (iter.next(), iter.next()) {
+            if let Ok(mut lists) = SourcesList::scan() {
+                lists.dist_replace(next, current);
+                let _ = lists.write_sync();
+            }
+        }
+
+        let _ = fs::remove_file(RELEASE_FETCH_FILE);
+        let _ = apt_update();
     }
 }

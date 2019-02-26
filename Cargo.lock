@@ -79,7 +79,7 @@ dependencies = [
 [[package]]
 name = "apt-sources-lists"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/apt-sources-lists#a3cfd083993c32546a04c8da6686ae50fa0e206d"
+source = "git+https://github.com/pop-os/apt-sources-lists#e6da744aa64e61e57afd04ea38487868bc4287ee"
 dependencies = [
  "err-derive 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

@@ -18,7 +18,7 @@ use dbus::tree::{Factory, Signal};
 use dbus::{self, BusType, Connection, Message, NameFlag};
 use num_traits::FromPrimitive;
 use std::cell::RefCell;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -260,6 +260,8 @@ impl Daemon {
         connection.add_handler(tree);
 
         info!("daemon registered -- listening for new events");
+
+        release::release_fetch_cleanup();
 
         loop {
             connection.incoming(1000).next();
