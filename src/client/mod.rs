@@ -144,6 +144,39 @@ impl Client {
         Ok(())
     }
 
+    pub fn status(&self, _matches: &ArgMatches) -> Result<(), ClientError> {
+        let message = self.call_method(methods::STATUS, iter::empty())?;
+        let (status, sub_status) = message.read2::<u8, u8>().map_err(ClientError::BadResponse)?;
+
+        let (status, sub_status) = match DaemonStatus::from_u8(status) {
+            Some(status) => {
+                let x = <&'static str>::from(status);
+                let y = match status {
+                    DaemonStatus::ReleaseUpgrade => match UpgradeEvent::from_u8(sub_status) {
+                        Some(sub) => <&'static str>::from(sub),
+                        None => "unknown sub_status"
+                    }
+                    DaemonStatus::RecoveryUpgrade => match RecoveryEvent::from_u8(sub_status) {
+                        Some(sub) => <&'static str>::from(sub),
+                        None => "unknown sub_status"
+                    }
+                    _ => ""
+                };
+
+                (x, y)
+            }
+            None => ("unknown status", "")
+        };
+
+        if sub_status.is_empty() {
+            println!("{}", status);
+        } else {
+            println!("{}: {}", status, sub_status);
+        }
+
+        Ok(())
+    }
+
     fn release_check<'a>(
         &self,
         message: &'a mut Option<Message>,

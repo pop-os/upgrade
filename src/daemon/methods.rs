@@ -156,9 +156,12 @@ pub fn status(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method
     let daemon = daemon.clone();
 
     let method = dbus_factory.method::<_, String>(STATUS, move |_| {
-        let status = daemon.borrow_mut().status.load(Ordering::SeqCst) as u8;
-        Ok(vec![status.into()])
+        let daemon = daemon.borrow_mut();
+        let status = daemon.status.load(Ordering::SeqCst) as u8;
+        let sub_status = daemon.sub_status.load(Ordering::SeqCst) as u8;
+
+        Ok(vec![status.into(), sub_status.into()])
     });
 
-    method.outarg::<&str>("status").consume()
+    method.outarg::<u8>("status").outarg::<u8>("sub_status").consume()
 }
