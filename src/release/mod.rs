@@ -356,7 +356,7 @@ pub enum FetchEvent {
 
 /// Execute the apt command non-interactively, using whichever additional arguments are provided.
 fn apt_noninteractive<F: FnMut(&mut Command) -> &mut Command>(mut func: F) -> io::Result<()> {
-    func(Command::new("apt-get").env("DEBIAN_FRONTEND", "noninteractive"))
+    func(Command::new("apt-get").env("DEBIAN_FRONTEND", "noninteractive").args(&["-y", "--allow-downgrades"]))
         .status()
         .and_then(StatusExt::as_result)
 }
@@ -368,12 +368,12 @@ fn apt_update() -> io::Result<()> {
 
 /// apt-get upgrade
 pub fn apt_upgrade() -> io::Result<()> {
-    apt_noninteractive(|cmd| cmd.args(&["full-upgrade", "-y", "--allow-downgrades"]))
+    apt_noninteractive(|cmd| cmd.arg("full-upgrade"))
 }
 
 /// apt-get install
 fn apt_install(packages: &[&str]) -> io::Result<()> {
-    apt_noninteractive(move |cmd| cmd.args(&["install", "-y", "--allow-downgrades"]).args(packages))
+    apt_noninteractive(move |cmd| cmd.arg("install").args(packages))
 }
 
 fn check_root() -> RelResult<()> {
