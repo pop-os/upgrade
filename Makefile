@@ -10,9 +10,14 @@ datadir = $(datarootdir)
 BIN=pop-upgrade
 TARGET = debug
 
+TESTING ?= 0
+ifeq ($(TESTING),1)
+	ARGS += --features testing
+endif
+
 DEBUG ?= 0
 ifeq ($(DEBUG),0)
-	ARGS = "--release"
+	ARGS += "--release"
 	TARGET = release
 endif
 
@@ -35,5 +40,5 @@ install: all
 	install -Dm0644 "data/$(BIN)-init.service" "$(DESTDIR)/lib/systemd/system/$(BIN)-init.service"
 	install -Dm0644 "data/$(BIN).conf" "$(DESTDIR)$(sysconfdir)/dbus-1/system.d/$(BIN).conf"
 
-target/$(TARGET)/$(BIN): Cargo.lock Cargo.toml src/* src/*/*
+target/$(TARGET)/$(BIN): Makefile Cargo.lock Cargo.toml src/* src/*/*
 	cargo build $(ARGS)
