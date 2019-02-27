@@ -16,9 +16,10 @@ use atomic::Atomic;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use dbus::tree::{Factory, Signal};
 use dbus::{self, BusType, Connection, Message, NameFlag};
+use logind_dbus::LoginManager;
 use num_traits::FromPrimitive;
 use std::cell::RefCell;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -30,7 +31,7 @@ use crate::recovery::{
 };
 
 use crate::release::{
-    self, FetchEvent, ReleaseError, UpgradeEvent, UpgradeMethod as ReleaseUpgradeMethod,
+    self, FetchEvent, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod,
 };
 use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 
@@ -82,6 +83,14 @@ impl Daemon {
 
             info!("spawning background event thread");
             thread::spawn(move || {
+                let mut logind = match LoginManager::new() {
+                    Ok(logind) => Some(logind),
+                    Err(why) => {
+                        error!("failed to connect to logind: {}", why);
+                        None
+                    }
+                };
+
                 // Create the tokio runtime to share between requests.
                 let runtime = &mut Runtime::new().expect("failed to initialize tokio runtime");
                 let mut runtime = DaemonRuntime::new(runtime);
@@ -110,6 +119,16 @@ impl Daemon {
                 });
 
                 while let Ok(event) = event_rx.recv() {
+                    let _suspend_lock = logind.as_mut().and_then(|logind| {
+                        match logind.connect().inhibit_suspend("pop-upgrade", "performing upgrade event") {
+                            Ok(lock) => Some(lock),
+                            Err(why) => {
+                                error!("failed to inhibit suspension: {}", why);
+                                None
+                            }
+                        }
+                    });
+
                     match event {
                         Event::FetchUpdates { apt_uris, download_only } => {
                             info!("fetching packages for {:?}", apt_uris);

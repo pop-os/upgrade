@@ -1,6 +1,6 @@
 //! All code responsible for validating sources.
 
-use apt_sources_lists::{SourceEntry, SourceError, SourcesFile, SourcesList};
+use apt_sources_lists::{SourceEntry, SourceError, SourcesList};
 use distinst_chroot::Command;
 use std::{fs, io, path::Path};
 use ubuntu_version::Codename;
