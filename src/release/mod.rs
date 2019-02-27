@@ -161,6 +161,8 @@ impl<'a> DaemonRuntime<'a> {
         // Must be root for this operation.
         check_root()?;
 
+        // Inhibit suspension and shutdown
+
         // Check the system and perform any repairs necessary for success.
         repair::repair().map_err(ReleaseError::Repair)?;
 

@@ -1104,6 +1104,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "logind-dbus"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "cascade 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dbus 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "loopdev"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1610,6 +1619,7 @@ dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.49 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "logind-dbus 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "md-5 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-derive 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2909,6 +2919,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum lock_api 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "62ebf1391f6acad60e5c8b43706dde4582df75c06698ab44511d15016bc2442c"
 "checksum log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)" = "e19e8d5c34a3e0e2223db8e060f9e8264aeeb5c5fc64a4ee9965c062211c024b"
 "checksum log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)" = "c84ec4b527950aa83a329754b01dbe3f58361d1c5efacd1f6d68c494d08a17c6"
+"checksum logind-dbus 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "da250ebd784c9cad97c3d33abc56886148846b52da7a30d2b86a9f14e65b9f6b"
 "checksum loopdev 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ac9e35cfb6646d67059f2ca8913a90e6c60633053c103df423975297f33d6fcc"
 "checksum lz4 1.23.1 (registry+https://github.com/rust-lang/crates.io-index)" = "43c94a9f09a60017f373020cc93d4291db4cd92b0db64ff25927f27d09dc23d5"
 "checksum lz4-sys 1.8.3 (registry+https://github.com/rust-lang/crates.io-index)" = "20ab022822e9331c58d373acdd6b98085bace058ac6837b8266f213a2fccdafe"

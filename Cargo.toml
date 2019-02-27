@@ -44,6 +44,7 @@ envfile = "0.2.1"
 proc-mounts = "0.2.2"
 partition-identity = "0.2.6"
 ubuntu-version = "0.1.1"
+logind-dbus = "0.1.1"
 
 [patch.crates-io]
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
