@@ -211,6 +211,7 @@ impl Daemon {
                     }
 
                     status.store(DaemonStatus::Inactive, Ordering::SeqCst);
+                    info!("event processed");
                 }
             });
         }

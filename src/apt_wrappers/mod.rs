@@ -31,10 +31,12 @@ fn apt_noninteractive_callback<F: FnMut(&mut Command) -> &mut Command, C: Fn(&st
             .args(&["-y", "--allow-downgrades"]),
     )
     .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
     .spawn()?;
 
     let mut buffer = String::new();
     let mut stdout = child.stdout.take().map(BufReader::new);
+    let mut stderr = child.stderr.take().map(BufReader::new);
 
     loop {
         match child.try_wait()? {
@@ -43,6 +45,17 @@ fn apt_noninteractive_callback<F: FnMut(&mut Command) -> &mut Command, C: Fn(&st
                 if let Some(ref mut stdout) = stdout {
                     if let Ok(read) = stdout.read_line(&mut buffer) {
                         if read != 0 {
+                            eprintln!("stdout: {}", buffer);
+                            callback(&buffer);
+                            buffer.clear();
+                        }
+                    }
+                }
+
+                if let Some(ref mut stderr) = stderr {
+                    if let Ok(read) = stderr.read_line(&mut buffer) {
+                        if read != 0 {
+                            eprintln!("stderr: {}", buffer);
                             callback(&buffer);
                             buffer.clear();
                         }

@@ -1,10 +1,12 @@
+use crate::apt_wrappers::AptUpgradeEvent;
 use crate::daemon::*;
 use crate::recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags};
 use crate::release::{UpgradeEvent, UpgradeMethod};
 use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 use clap::ArgMatches;
-use dbus::{self, BusType, Connection, ConnectionItem, Message, MessageItem};
+use dbus::{self, BusType, Connection, ConnectionItem, Message, MessageItem, MessageItemArray, Signature};
 use num_traits::FromPrimitive;
+use std::collections::HashMap;
 use std::io::{self, Write};
 use std::iter;
 
@@ -45,6 +47,7 @@ impl Client {
             add_match(&bus, signals::PACKAGE_FETCH_RESULT)?;
             add_match(&bus, signals::PACKAGE_FETCHED)?;
             add_match(&bus, signals::PACKAGE_FETCHING)?;
+            add_match(&bus, signals::PACKAGE_UPGRADE)?;
             add_match(&bus, signals::RECOVERY_DOWNLOAD_PROGRESS)?;
             add_match(&bus, signals::RECOVERY_RESULT)?;
             add_match(&bus, signals::RECOVERY_EVENT)?;
@@ -103,7 +106,16 @@ impl Client {
                 );
             }
             ("update", Some(matches)) => {
-                let args = iter::once(matches.is_present("download-only").into());
+                let packages = MessageItemArray::new(
+                    Vec::<String>::new()
+                        .into_iter()
+                        .map(MessageItem::from)
+                        .collect(),
+                    Signature::from_slice(b"as\0").unwrap()
+                ).unwrap();
+
+                let args = iter::once(MessageItem::Array(packages))
+                    .chain(iter::once(matches.is_present("download-only").into()));
                 let message = self.call_method(methods::FETCH_UPDATES, args)?;
                 let (fetching, completed, total) =
                     message.read3::<bool, u32, u32>().map_err(ClientError::BadResponse)?;
@@ -176,22 +188,6 @@ impl Client {
         Ok(())
     }
 
-    #[cfg(features = "testing")]
-    pub fn testing(&self, matches: &ArgMatches) -> Result<(), ClientError> {
-        match matches.subcommand() {
-            ("upgrade", _) => {
-                self.call_method(methods::PACKAGE_UPGRADE, iter::empty())?;
-                self.event_listen_test();
-            }
-            _ => unreachable!()
-        }
-    }
-
-    #[cfg(not(features = "testing"))]
-    pub fn testing(&self, _matches: &ArgMatches) -> Result<(), ClientError> {
-        Ok(())
-    }
-
     fn release_check<'a>(
         &self,
         message: &'a mut Option<Message>,
@@ -258,6 +254,16 @@ impl Client {
                     let name = signal.read1::<&str>().map_err(ClientError::BadResponse)?;
 
                     println!("fetching {}", name);
+                }
+                signals::PACKAGE_UPGRADE => {
+                    let event = signal.read1::<HashMap<&str, String>>()
+                        .map_err(ClientError::BadResponse)?;
+
+                    if let Ok(event) = AptUpgradeEvent::from_dbus_map(event) {
+                        println!("{}", event);
+                    } else {
+                        eprintln!("failed to unpack the upgrade event");
+                    }
                 }
                 _ => (),
             }
@@ -344,22 +350,6 @@ impl Client {
                         .unwrap_or("unknown event");
 
                     println!("release upgrade event: {}", message);
-                }
-                _ => (),
-            }
-
-            Ok(Continue(true))
-        })
-    }
-
-    #[cfg(features = "testing")]
-    fn event_listen_release_test(&self) -> Result<(), ClientError> {
-        self.event_listen(DaemonStatus::PackageUpgrade, |_client, signal| {
-            match &*signal.member().unwrap() {
-                signals::PACKAGE_UPGRADE => {
-                    let event = signal.read1::<HashMap<&str, String>>().map_err(ClientError::BadResponse)?;
-                    println!("PACKAGE_UPGRADE: {:?}", event);
-                    return Ok(Continue(false));
                 }
                 _ => (),
             }

@@ -23,7 +23,7 @@ pub fn fetch_updates(
                 Ok(vec![true.into(), completed.into(), total.into()])
             } else {
                 let (value, download_only): (Vec<String>, bool) =
-                    message.read2().map_err(|why| format!("{}: expected a ((ss)(b))", why))?;
+                    message.read2().map_err(|why| format!("{}", why))?;
 
                 daemon
                     .fetch_updates(&value, download_only)
