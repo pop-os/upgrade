@@ -165,3 +165,24 @@ pub fn status(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method
 
     method.outarg::<u8>("status").outarg::<u8>("sub_status").consume()
 }
+
+pub const PACKAGE_UPGRADE: &str = "UpgradePackages";
+
+pub fn package_upgrade(
+    daemon: Rc<RefCell<Daemon>>,
+    dbus_factory: &DbusFactory,
+) -> Method<MTFn<()>, ()> {
+    let daemon = daemon.clone();
+
+    let method = dbus_factory.method::<_, String>(PACKAGE_UPGRADE, move |_| {
+        daemon.borrow_mut().set_status(DaemonStatus::PackageUpgrade, move |daemon, active| {
+            if !active {
+                daemon.package_upgrade()?;
+            }
+
+            Ok(Vec::new())
+        })
+    });
+
+    method.consume()
+}

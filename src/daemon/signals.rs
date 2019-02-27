@@ -1,3 +1,4 @@
+use crate::apt_wrappers::AptUpgradeEvent;
 use crate::recovery::{RecoveryError, RecoveryEvent};
 use crate::release::{ReleaseError, UpgradeEvent};
 use std::fmt::{self, Display, Formatter};
@@ -6,6 +7,8 @@ use std::fmt::{self, Display, Formatter};
 pub const PACKAGE_FETCH_RESULT: &str = "PackageFetchResult";
 pub const PACKAGE_FETCHING: &str = "PackageFetching";
 pub const PACKAGE_FETCHED: &str = "PackageFetched";
+
+pub const PACKAGE_UPGRADE: &str = "PackageUpgrade";
 
 pub const RECOVERY_DOWNLOAD_PROGRESS: &str = "RecoveryDownloadProgress";
 pub const RECOVERY_EVENT: &str = "RecoveryUpgradeEvent";
@@ -24,6 +27,7 @@ pub enum SignalEvent {
     RecoveryUpgradeResult(Result<(), RecoveryError>),
     ReleaseUpgradeEvent(UpgradeEvent),
     ReleaseUpgradeResult(Result<(), ReleaseError>),
+    Upgrade(AptUpgradeEvent),
 }
 
 impl Display for SignalEvent {
@@ -46,6 +50,7 @@ impl Display for SignalEvent {
                 write!(fmt, "release upgrade: {}", <&'static str>::from(*event))
             }
             ReleaseUpgradeResult(result) => write!(fmt, "release upgrade result: {:?}", result),
+            Upgrade(event) => write!(fmt, "package upgrade: {}", event),
         }
     }
 }

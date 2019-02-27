@@ -48,3 +48,6 @@ logind-dbus = "0.1.1"
 
 [patch.crates-io]
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
+
+[features]
+testing = []

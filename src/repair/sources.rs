@@ -44,8 +44,7 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
         &["main"],
     )?;
 
-    sources_list.write_sync()
-        .map_err(SourcesError::ListWrite)?;
+    sources_list.write_sync().map_err(SourcesError::ListWrite)?;
 
     for ppa in POP_PPAS {
         info!("adding PPA: {}", ppa);

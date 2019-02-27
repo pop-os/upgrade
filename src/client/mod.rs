@@ -153,18 +153,18 @@ impl Client {
                 let y = match status {
                     DaemonStatus::ReleaseUpgrade => match UpgradeEvent::from_u8(sub_status) {
                         Some(sub) => <&'static str>::from(sub),
-                        None => "unknown sub_status"
-                    }
+                        None => "unknown sub_status",
+                    },
                     DaemonStatus::RecoveryUpgrade => match RecoveryEvent::from_u8(sub_status) {
                         Some(sub) => <&'static str>::from(sub),
-                        None => "unknown sub_status"
-                    }
-                    _ => ""
+                        None => "unknown sub_status",
+                    },
+                    _ => "",
                 };
 
                 (x, y)
             }
-            None => ("unknown status", "")
+            None => ("unknown status", ""),
         };
 
         if sub_status.is_empty() {
@@ -173,6 +173,22 @@ impl Client {
             println!("{}: {}", status, sub_status);
         }
 
+        Ok(())
+    }
+
+    #[cfg(features = "testing")]
+    pub fn testing(&self, matches: &ArgMatches) -> Result<(), ClientError> {
+        match matches.subcommand() {
+            ("upgrade", _) => {
+                self.call_method(methods::PACKAGE_UPGRADE, iter::empty())?;
+                self.event_listen_test();
+            }
+            _ => unreachable!()
+        }
+    }
+
+    #[cfg(not(features = "testing"))]
+    pub fn testing(&self, _matches: &ArgMatches) -> Result<(), ClientError> {
         Ok(())
     }
 
@@ -328,6 +344,22 @@ impl Client {
                         .unwrap_or("unknown event");
 
                     println!("release upgrade event: {}", message);
+                }
+                _ => (),
+            }
+
+            Ok(Continue(true))
+        })
+    }
+
+    #[cfg(features = "testing")]
+    fn event_listen_release_test(&self) -> Result<(), ClientError> {
+        self.event_listen(DaemonStatus::PackageUpgrade, |_client, signal| {
+            match &*signal.member().unwrap() {
+                signals::PACKAGE_UPGRADE => {
+                    let event = signal.read1::<HashMap<&str, String>>().map_err(ClientError::BadResponse)?;
+                    println!("PACKAGE_UPGRADE: {:?}", event);
+                    return Ok(Continue(false));
                 }
                 _ => (),
             }

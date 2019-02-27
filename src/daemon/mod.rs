@@ -19,6 +19,7 @@ use dbus::{self, BusType, Connection, Message, NameFlag};
 use logind_dbus::LoginManager;
 use num_traits::FromPrimitive;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
@@ -26,18 +27,18 @@ use std::sync::Arc;
 use std::thread;
 use tokio::runtime::Runtime;
 
+use crate::apt_wrappers::apt_upgrade;
 use crate::recovery::{
     self, ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
 };
 
-use crate::release::{
-    self, FetchEvent, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod,
-};
+use crate::release::{self, FetchEvent, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod};
 use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 
 #[derive(Debug)]
 pub enum Event {
     FetchUpdates { apt_uris: Vec<AptUri>, download_only: bool },
+    PackageUpgrade,
     RecoveryUpgrade(RecoveryUpgradeMethod),
     ReleaseUpgrade { how: ReleaseUpgradeMethod, from: String, to: String },
 }
@@ -120,7 +121,10 @@ impl Daemon {
 
                 while let Ok(event) = event_rx.recv() {
                     let _suspend_lock = logind.as_mut().and_then(|logind| {
-                        match logind.connect().inhibit_suspend("pop-upgrade", "performing upgrade event") {
+                        match logind
+                            .connect()
+                            .inhibit_suspend("pop-upgrade", "performing upgrade event")
+                        {
                             Ok(lock) => Some(lock),
                             Err(why) => {
                                 error!("failed to inhibit suspension: {}", why);
@@ -143,11 +147,20 @@ impl Daemon {
                                 if download_only {
                                     Ok(())
                                 } else {
-                                    release::apt_upgrade().map_err(ReleaseError::Upgrade)
+                                    apt_upgrade(&mut |event| {
+                                        let _ = dbus_tx.send(SignalEvent::Upgrade(event));
+                                    })
+                                    .map_err(ReleaseError::Upgrade)
                                 }
                             });
 
                             let _ = dbus_tx.send(SignalEvent::FetchResult(result.map(|_| ())));
+                        }
+                        Event::PackageUpgrade => {
+                            info!("upgrading packages");
+                            runtime.package_upgrade(|event| {
+                                let _ = dbus_tx.send(SignalEvent::Upgrade(event));
+                            });
                         }
                         Event::RecoveryUpgrade(action) => {
                             info!("attempting recovery upgrade with {:?}", action);
@@ -249,21 +262,30 @@ impl Daemon {
         let release_result =
             Arc::new(dbus_factory.signal(signals::RELEASE_RESULT).sarg::<u8>("result").consume());
 
+        let upgrade_event = Arc::new(
+            dbus_factory
+                .signal(signals::PACKAGE_UPGRADE)
+                .sarg::<HashMap<&str, String>>("event")
+                .consume(),
+        );
+
         let interface = factory
             .interface(DBUS_IFACE, ())
             .add_m(methods::fetch_updates(daemon.clone(), &dbus_factory))
+            .add_m(methods::package_upgrade(daemon.clone(), &dbus_factory))
             .add_m(methods::recovery_upgrade_file(daemon.clone(), &dbus_factory))
             .add_m(methods::recovery_upgrade_release(daemon.clone(), &dbus_factory))
             .add_m(methods::release_check(daemon.clone(), &dbus_factory))
-            .add_m(methods::release_upgrade(daemon.clone(), &dbus_factory))
             .add_m(methods::release_repair(daemon.clone(), &dbus_factory))
+            .add_m(methods::release_upgrade(daemon.clone(), &dbus_factory))
             .add_m(methods::status(daemon.clone(), &dbus_factory))
             .add_s(fetch_result.clone())
             .add_s(fetched_package.clone())
             .add_s(fetching_package.clone())
             .add_s(recovery_download_progress.clone())
             .add_s(recovery_event.clone())
-            .add_s(recovery_result.clone());
+            .add_s(recovery_result.clone())
+            .add_s(upgrade_event.clone());
 
         let (connection, receiver) = {
             let daemon = daemon.borrow();
@@ -328,6 +350,10 @@ impl Daemon {
                                 Err(_) => 1,
                             })
                         }
+                        SignalEvent::Upgrade(event) => {
+                            info!("{}", dbus_event);
+                            Self::signal_message(&upgrade_event).append1(event.clone().to_dbus_map())
+                        }
                     },
                 )
             }
@@ -375,6 +401,13 @@ impl Daemon {
         self.submit_event(event)?;
 
         Ok((true, npackages))
+    }
+
+    fn package_upgrade(&mut self) -> Result<(), String> {
+        info!("upgrading packages for the release");
+
+        self.submit_event(Event::PackageUpgrade)?;
+        Ok(())
     }
 
     fn recovery_upgrade_file(&mut self, path: &str) -> Result<(), String> {

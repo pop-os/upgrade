@@ -5,17 +5,15 @@ use apt_fetcher::{SourcesList, UpgradeRequest, Upgrader};
 use envfile::EnvFile;
 use futures::{stream, Future, Stream};
 use std::fs::{self, File};
-use std::io;
 use std::os::unix::fs::symlink;
 use std::path::Path;
-use std::process::Command;
 use std::sync::Arc;
 use systemd_boot_conf::SystemdBootConf;
 
+use crate::apt_wrappers::*;
 use crate::daemon::DaemonRuntime;
 use crate::release_api::Release;
 use crate::repair;
-use crate::status::StatusExt;
 use ubuntu_version::{Codename, Version};
 
 pub use self::errors::{RelResult, ReleaseError};
@@ -148,6 +146,18 @@ impl<'a> DaemonRuntime<'a> {
         Ok(upgrade)
     }
 
+    /// Performs a live release upgrade via the daemon, with a callback for tracking progress.
+    pub fn package_upgrade<C: Fn(AptUpgradeEvent)>(&mut self, mut callback: C) -> RelResult<()> {
+        let callback = &mut callback;
+        // If the first upgrade attempt fails, try to dpkg --configure -a and try again.
+        if apt_upgrade(callback).is_err() {
+            dpkg_configure_all().map_err(ReleaseError::DpkgConfigure)?;
+            apt_upgrade(callback).map_err(ReleaseError::Upgrade)?;
+        }
+
+        Ok(())
+    }
+
     /// Perform the release upgrade by updating release files, fetching packages required for the new
     /// release, and then setting the recovery partition as the default boot entry.
     pub fn upgrade(
@@ -197,7 +207,7 @@ impl<'a> DaemonRuntime<'a> {
         if nupdates != 0 {
             // Upgrade the current release to the latest packages.
             (*logger)(UpgradeEvent::UpgradingPackages);
-            apt_upgrade().map_err(ReleaseError::Upgrade)?;
+            apt_upgrade(&mut |_| {}).map_err(ReleaseError::Upgrade)?;
         }
 
         if nfetched != 0 {
@@ -224,7 +234,11 @@ impl<'a> DaemonRuntime<'a> {
         result
     }
 
-    fn perform_action(&mut self, logger: &dyn Fn(UpgradeEvent), action: UpgradeMethod) -> RelResult<()> {
+    fn perform_action(
+        &mut self,
+        logger: &dyn Fn(UpgradeEvent),
+        action: UpgradeMethod,
+    ) -> RelResult<()> {
         match action {
             UpgradeMethod::Offline => {
                 (*logger)(UpgradeEvent::AttemptingSystemdUnit);
@@ -324,10 +338,7 @@ fn rollback<E: ::std::fmt::Display>(upgrader: &mut Upgrader, why: &E) {
     error!("failed to fetch packages: {}", why);
     warn!("attempting to roll back apt release files");
     if let Err(why) = upgrader.revert_apt_sources() {
-        error!(
-            "failed to revert release name changes to source lists in /etc/apt/: {}",
-            why
-        );
+        error!("failed to revert release name changes to source lists in /etc/apt/: {}", why);
     }
 }
 
@@ -366,28 +377,6 @@ pub enum FetchEvent {
     Fetching(AptUri),
     Fetched(AptUri),
     Init(usize),
-}
-
-/// Execute the apt command non-interactively, using whichever additional arguments are provided.
-fn apt_noninteractive<F: FnMut(&mut Command) -> &mut Command>(mut func: F) -> io::Result<()> {
-    func(Command::new("apt-get").env("DEBIAN_FRONTEND", "noninteractive").args(&["-y", "--allow-downgrades"]))
-        .status()
-        .and_then(StatusExt::as_result)
-}
-
-/// apt-get update
-fn apt_update() -> io::Result<()> {
-    apt_noninteractive(|cmd| cmd.arg("update"))
-}
-
-/// apt-get upgrade
-pub fn apt_upgrade() -> io::Result<()> {
-    apt_noninteractive(|cmd| cmd.arg("full-upgrade"))
-}
-
-/// apt-get install
-fn apt_install(packages: &[&str]) -> io::Result<()> {
-    apt_noninteractive(move |cmd| cmd.arg("install").args(packages))
 }
 
 fn check_root() -> RelResult<()> {
