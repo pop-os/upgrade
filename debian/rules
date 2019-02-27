@@ -1,12 +1,16 @@
 #!/usr/bin/make -f
 
-export VENDORED = 1
+VENDORED ?= 1
+CLEAN ?= 1
 
 %:
 	dh $@ --with=systemd
 
 override_dh_auto_clean:
+ifeq ($(CLEAN),1)
 	dh_auto_clean
+endif
+ifeq ($(VENDORED),1)
 	if ! ischroot; then \
 		rm -rf .cargo vendor vendor.tar.xz; \
 		mkdir -p .cargo; \
@@ -15,7 +19,10 @@ override_dh_auto_clean:
 		tar pcfJ vendor.tar.xz vendor; \
 		rm -rf vendor; \
 	fi
+endif
 
 override_dh_auto_build:
+ifeq ($(VENDORED),1)
 	tar pxf vendor.tar.xz
+endif
 	dh_auto_build
