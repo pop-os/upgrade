@@ -5,6 +5,7 @@ pub enum DaemonStatus {
     FetchingPackages = 1,
     RecoveryUpgrade = 2,
     ReleaseUpgrade = 3,
+    PackageUpgrade = 4,
 }
 
 impl From<DaemonStatus> for &'static str {
@@ -14,6 +15,7 @@ impl From<DaemonStatus> for &'static str {
             DaemonStatus::FetchingPackages => "fetching package updates",
             DaemonStatus::RecoveryUpgrade => "upgrading recovery partition",
             DaemonStatus::ReleaseUpgrade => "upgrading distribution release",
+            DaemonStatus::PackageUpgrade => "upgrading packages",
         }
     }
 }

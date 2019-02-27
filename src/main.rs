@@ -11,6 +11,7 @@ extern crate log;
 #[macro_use]
 extern crate num_derive;
 
+mod apt_wrappers;
 mod checksum;
 mod client;
 mod daemon;
@@ -99,7 +100,7 @@ use self::error::{Error, InitError};
 pub fn main() {
     let _ = setup_logging(::log::LevelFilter::Debug);
 
-    let matches = App::new("pop-upgrade")
+    let mut clap = App::new("pop-upgrade")
         .about("Pop!_OS Upgrade Utility")
         .global_setting(AppSettings::ColoredHelp)
         .global_setting(AppSettings::UnifiedHelpMessage)
@@ -175,7 +176,7 @@ pub fn main() {
                                 )
                                 .short("d")
                                 .long("download-only"),
-                        ),
+                        )
                 )
                 .subcommand(
                     SubCommand::with_name("repair")
@@ -194,12 +195,17 @@ pub fn main() {
                 ),
         )
         .subcommand(
-            SubCommand::with_name("status")
-                .about("get the status of the pop upgrade daemon")
-        )
-        .get_matches();
+            SubCommand::with_name("status").about("get the status of the pop upgrade daemon"),
+        );
 
-    if let Err(why) = main_(&matches) {
+    if cfg!(feature = "testing") {
+        clap = clap.subcommand(
+            SubCommand::with_name("testing")
+                .subcommand(SubCommand::with_name("upgrade"))
+        );
+    }
+
+    if let Err(why) = main_(&clap.get_matches()) {
         eprintln!("pop-upgrade: {}", why);
         exit(1);
     }
@@ -216,6 +222,7 @@ fn main_(matches: &ArgMatches) -> Result<(), Error> {
                 "recovery" => Client::recovery,
                 "release" => Client::release,
                 "status" => Client::status,
+                "testing" => Client::testing,
                 _ => unreachable!(),
             };
 

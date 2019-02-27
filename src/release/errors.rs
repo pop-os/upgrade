@@ -16,6 +16,8 @@ pub enum ReleaseError {
     Check(DistUpgradeError),
     #[error(display = "failed to update package lists for the current release: {}", _0)]
     CurrentUpdate(io::Error),
+    #[error(display = "failed to execute `dpkg --configure -a`: {}", _0)]
+    DpkgConfigure(io::Error),
     #[error(display = "failure to overwrite release files: {}", _0)]
     Overwrite(DistUpgradeError),
     #[error(display = "root is required for this action: rerun with `sudo`")]
