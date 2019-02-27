@@ -33,6 +33,24 @@ impl AptUpgradeEvent {
 
         map
     }
+
+    pub fn from_dbus_map(mut map: HashMap<&str, String>) -> Result<Self, ()> {
+        if let Some(package) = map.remove(&"processing_package") {
+            Ok(AptUpgradeEvent::Processing { package })
+        } else if let Some(percent) = map.remove(&"percent") {
+            let percent = percent.parse::<u8>().map_err(|_| ())?;
+            Ok(AptUpgradeEvent::Progress { percent })
+        } else if let Some(package) = map.remove(&"setting_up") {
+            Ok(AptUpgradeEvent::SettingUp { package })
+        } else if let Some(over) = map.remove(&"over") {
+            match (map.remove(&"version"), map.remove(&"unpacking")) {
+                (Some(version), Some(package)) => Ok(AptUpgradeEvent::Unpacking { package, version, over }),
+                _ => Err(())
+            }
+        } else {
+            Err(())
+        }
+    }
 }
 
 impl Display for AptUpgradeEvent {
@@ -89,5 +107,28 @@ impl FromStr for AptUpgradeEvent {
         }
 
         Err(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn apt_upgrade_event_progress() {
+        assert_eq!(
+            AptUpgradeEvent::Progress { percent: 1 },
+            "Progress: [  1%]".parse::<AptUpgradeEvent>().unwrap()
+        );
+
+        assert_eq!(
+            AptUpgradeEvent::Progress { percent: 25 },
+            "Progress: [ 25%]".parse::<AptUpgradeEvent>().unwrap()
+        );
+
+        assert_eq!(
+            AptUpgradeEvent::Progress { percent: 100 },
+            "Progress: [100%]".parse::<AptUpgradeEvent>().unwrap()
+        );
     }
 }

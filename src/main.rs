@@ -198,13 +198,6 @@ pub fn main() {
             SubCommand::with_name("status").about("get the status of the pop upgrade daemon"),
         );
 
-    if cfg!(feature = "testing") {
-        clap = clap.subcommand(
-            SubCommand::with_name("testing")
-                .subcommand(SubCommand::with_name("upgrade"))
-        );
-    }
-
     if let Err(why) = main_(&clap.get_matches()) {
         eprintln!("pop-upgrade: {}", why);
         exit(1);
@@ -222,7 +215,6 @@ fn main_(matches: &ArgMatches) -> Result<(), Error> {
                 "recovery" => Client::recovery,
                 "release" => Client::release,
                 "status" => Client::status,
-                "testing" => Client::testing,
                 _ => unreachable!(),
             };
 
