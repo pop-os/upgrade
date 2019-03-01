@@ -1,10 +1,14 @@
 mod upgrade_event;
 
+use std::fs::File;
+use std::os::unix::io::{IntoRawFd, FromRawFd};
 pub use self::upgrade_event::AptUpgradeEvent;
 
 use crate::status::StatusExt;
+use libc;
 use std::io;
-use std::process::Command;
+use std::io::{BufRead, BufReader};
+use std::process::{Command, Stdio};
 
 /// Execute the apt command non-interactively, using whichever additional arguments are provided.
 fn apt_noninteractive<F: FnMut(&mut Command) -> &mut Command>(mut func: F) -> io::Result<()> {
@@ -17,49 +21,61 @@ fn apt_noninteractive<F: FnMut(&mut Command) -> &mut Command>(mut func: F) -> io
     .and_then(StatusExt::as_result)
 }
 
+fn non_blocking<F: IntoRawFd>(fd: F) -> File {
+    let fd = fd.into_raw_fd();
+    unsafe {
+        let flags = libc::fcntl(fd, libc::F_GETFL, 0);
+        libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK);
+        File::from_raw_fd(fd)
+    }
+}
+
+fn non_blocking_line_reading<B: BufRead, F: Fn(&str)>(which: &str, reader: &mut B, buffer: &mut String, callback: F) -> io::Result<()> {
+    loop {
+        match reader.read_line(buffer) {
+            Ok(0) => break,
+            Ok(_read) => {
+                eprintln!("{}: {}", which, buffer);
+                callback(&buffer);
+                buffer.clear();
+            }
+            Err(ref why) if why.kind() == io::ErrorKind::WouldBlock => {
+                break
+            }
+            Err(why) => return Err(why)
+        }
+    }
+
+    Ok(())
+}
+
 /// Same as `apt_noninteractive`, but also has a callback for handling lines of output.
 fn apt_noninteractive_callback<F: FnMut(&mut Command) -> &mut Command, C: Fn(&str)>(
     mut func: F,
     callback: C,
 ) -> io::Result<()> {
-    use std::io::{BufRead, BufReader};
-    use std::process::Stdio;
+
 
     let mut child = func(
         Command::new("apt-get")
             .env("DEBIAN_FRONTEND", "noninteractive")
+            .env("LANG", "C")
             .args(&["-y", "--allow-downgrades"]),
     )
     .stdout(Stdio::piped())
-    .stderr(Stdio::piped())
     .spawn()?;
 
-    let mut buffer = String::new();
-    let mut stdout = child.stdout.take().map(BufReader::new);
-    let mut stderr = child.stderr.take().map(BufReader::new);
+    let mut stdout_buffer = String::new();
+    let mut stdout = child.stdout.take()
+        .map(non_blocking)
+        .map(BufReader::new);
 
     loop {
         match child.try_wait()? {
             Some(status) => return status.as_result(),
             None => {
                 if let Some(ref mut stdout) = stdout {
-                    if let Ok(read) = stdout.read_line(&mut buffer) {
-                        if read != 0 {
-                            eprintln!("stdout: {}", buffer);
-                            callback(&buffer);
-                            buffer.clear();
-                        }
-                    }
-                }
-
-                if let Some(ref mut stderr) = stderr {
-                    if let Ok(read) = stderr.read_line(&mut buffer) {
-                        if read != 0 {
-                            eprintln!("stderr: {}", buffer);
-                            callback(&buffer);
-                            buffer.clear();
-                        }
-                    }
+                    non_blocking_line_reading("stdout", stdout, &mut stdout_buffer, &callback)?;
                 }
             }
         }

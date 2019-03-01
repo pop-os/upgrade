@@ -4,7 +4,9 @@ use crate::recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags};
 use crate::release::{UpgradeEvent, UpgradeMethod};
 use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 use clap::ArgMatches;
-use dbus::{self, BusType, Connection, ConnectionItem, Message, MessageItem, MessageItemArray, Signature};
+use dbus::{
+    self, BusType, Connection, ConnectionItem, Message, MessageItem, MessageItemArray, Signature,
+};
 use num_traits::FromPrimitive;
 use std::collections::HashMap;
 use std::io::{self, Write};
@@ -107,12 +109,10 @@ impl Client {
             }
             ("update", Some(matches)) => {
                 let packages = MessageItemArray::new(
-                    Vec::<String>::new()
-                        .into_iter()
-                        .map(MessageItem::from)
-                        .collect(),
-                    Signature::from_slice(b"as\0").unwrap()
-                ).unwrap();
+                    Vec::<String>::new().into_iter().map(MessageItem::from).collect(),
+                    Signature::from_slice(b"as\0").unwrap(),
+                )
+                .unwrap();
 
                 let args = iter::once(MessageItem::Array(packages))
                     .chain(iter::once(matches.is_present("download-only").into()));
@@ -256,7 +256,8 @@ impl Client {
                     println!("fetching {}", name);
                 }
                 signals::PACKAGE_UPGRADE => {
-                    let event = signal.read1::<HashMap<&str, String>>()
+                    let event = signal
+                        .read1::<HashMap<&str, String>>()
                         .map_err(ClientError::BadResponse)?;
 
                     if let Ok(event) = AptUpgradeEvent::from_dbus_map(event) {
@@ -323,7 +324,6 @@ impl Client {
                     let status = signal.read1::<u8>().map_err(ClientError::BadResponse)?;
 
                     println!("package fetching complete: status was {}", status);
-                    return Ok(Continue(false));
                 }
                 signals::PACKAGE_FETCHED => {
                     let (name, completed, total) =
@@ -350,6 +350,17 @@ impl Client {
                         .unwrap_or("unknown event");
 
                     println!("release upgrade event: {}", message);
+                }
+                signals::PACKAGE_UPGRADE => {
+                    let event = signal
+                        .read1::<HashMap<&str, String>>()
+                        .map_err(ClientError::BadResponse)?;
+
+                    if let Ok(event) = AptUpgradeEvent::from_dbus_map(event) {
+                        println!("{}", event);
+                    } else {
+                        eprintln!("failed to unpack the upgrade event");
+                    }
                 }
                 _ => (),
             }

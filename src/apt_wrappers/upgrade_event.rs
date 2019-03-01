@@ -11,7 +11,7 @@ pub enum AptUpgradeEvent {
 }
 
 impl AptUpgradeEvent {
-    pub fn to_dbus_map(self) -> HashMap<&'static str, String> {
+    pub fn into_dbus_map(self) -> HashMap<&'static str, String> {
         let mut map = HashMap::new();
 
         match self {
@@ -44,8 +44,10 @@ impl AptUpgradeEvent {
             Ok(AptUpgradeEvent::SettingUp { package })
         } else if let Some(over) = map.remove(&"over") {
             match (map.remove(&"version"), map.remove(&"unpacking")) {
-                (Some(version), Some(package)) => Ok(AptUpgradeEvent::Unpacking { package, version, over }),
-                _ => Err(())
+                (Some(version), Some(package)) => {
+                    Ok(AptUpgradeEvent::Unpacking { package, version, over })
+                }
+                _ => Err(()),
             }
         } else {
             Err(())
@@ -59,7 +61,7 @@ impl Display for AptUpgradeEvent {
             AptUpgradeEvent::Processing { package } => {
                 write!(fmt, "processing triggers for {}", package)
             }
-            AptUpgradeEvent::Progress { percent } => write!(fmt, "progress: [{:03}%]", percent),
+            AptUpgradeEvent::Progress { percent } => write!(fmt, "progress: [{:>3}%]", percent),
             AptUpgradeEvent::SettingUp { package } => write!(fmt, "setting up {}", package),
             AptUpgradeEvent::Unpacking { package, version, over } => {
                 write!(fmt, "unpacking {} ({}) over ({})", package, version, over)
@@ -75,6 +77,7 @@ impl FromStr for AptUpgradeEvent {
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         if input.starts_with("Progress: [") {
             let (_, progress) = input.split_at(11);
+            let progress = progress.trim_right();
             if progress.len() == 5 {
                 if let Ok(percent) = progress[..progress.len() - 2].trim_left().parse::<u8>() {
                     return Ok(AptUpgradeEvent::Progress { percent });
@@ -123,7 +126,7 @@ mod tests {
 
         assert_eq!(
             AptUpgradeEvent::Progress { percent: 25 },
-            "Progress: [ 25%]".parse::<AptUpgradeEvent>().unwrap()
+            "Progress: [ 25%] ".parse::<AptUpgradeEvent>().unwrap()
         );
 
         assert_eq!(

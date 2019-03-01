@@ -167,6 +167,7 @@ impl<'a> DaemonRuntime<'a> {
         to: &str,
         logger: &dyn Fn(UpgradeEvent),
         fetch: Arc<Fn(FetchEvent) + Send + Sync>,
+        upgrade: &mut dyn Fn(AptUpgradeEvent),
     ) -> RelResult<()> {
         // Must be root for this operation.
         check_root()?;
@@ -207,7 +208,7 @@ impl<'a> DaemonRuntime<'a> {
         if nupdates != 0 {
             // Upgrade the current release to the latest packages.
             (*logger)(UpgradeEvent::UpgradingPackages);
-            apt_upgrade(&mut |_| {}).map_err(ReleaseError::Upgrade)?;
+            apt_upgrade(upgrade).map_err(ReleaseError::Upgrade)?;
         }
 
         if nfetched != 0 {
