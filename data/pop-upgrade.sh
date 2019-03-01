@@ -1,7 +1,6 @@
 #!/bin/sh
 
 export DEBIAN_FRONTEND="noninteractive"
-export LANG=C
 
 message () {
     echo "$2"
@@ -17,7 +16,7 @@ message () {
 
 upgrade () {
     # Watch progress of an update, and report it to the splash screen
-    apt-get full-upgrade -y --allow-downgrades --show-progress \
+    LANG=C apt-get full-upgrade -y --allow-downgrades --show-progress \
         | while read -r line; do
             if test "Progress: [" = "$(echo ${line} | cut -c-11)"; then
                 percent=$(echo ${line} | cut -c12-14)
@@ -37,12 +36,31 @@ attempt_repair () {
     upgrade
 }
 
-message -i "Installing Updates (0%): The system will restart once complete."
-if upgrade || attempt_repair; then
-    rm /pop-upgrade /system-update
-    message -i "Upgrade complete, now rebooting the system"
-    systemctl reboot
+attempt_upgrade () {
+    message -i "Installing Updates (0%). The system will restart once complete."
+    touch $1
+    if upgrade || attempt_repair; then
+        rm /pop-upgrade /system-update
+        message -i "Upgrade complete, now rebooting the system"
+        systemctl reboot
+    else
+        message -f "Upgrade failed. Dropping to a shell for recovery"
+        systemctl rescue
+    fi
+}
+
+FIRST_ATTEMPT=/upgrade-attempt1
+SECOND_ATTEMPT=/upgrade-attempt2
+
+if test -f $FIRST_ATTEMPT; then
+    message -i "System rebooted without completing the uprade. Trying a second time"
+    rm $FIRST_ATTEMPT
+    sleep 6
+    perform_upgrade $SECOND_ATTEMPT
+else if test -f $SECOND_ATTEMPT; then
+    message -i "System failed to upgrade. Bailing on upgrade attempt."
+    rm /pop-upgrade /system-update $SECOND_ATTEMPT
+    sleep 6
 else
-    message -f "Upgrade failed. Dropping to a shell for recovery"
-    systemctl rescue
+    attempt_upgrade $FIRST_ATTEMPT
 fi
