@@ -1,5 +1,6 @@
 #!/bin/sh
 
+export DEBIAN_FRONTEND="noninteractive"
 export LANG=C
 
 message () {
