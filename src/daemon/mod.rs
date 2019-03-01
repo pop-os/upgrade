@@ -203,8 +203,16 @@ impl Daemon {
                                 }
                             };
 
-                            let result =
-                                runtime.upgrade(how, &from, &to, &progress, fetch_closure.clone());
+                            let result = runtime.upgrade(
+                                how,
+                                &from,
+                                &to,
+                                &progress,
+                                fetch_closure.clone(),
+                                &mut |event| {
+                                    let _ = dbus_tx.send(SignalEvent::Upgrade(event));
+                                },
+                            );
 
                             let _ = dbus_tx.send(SignalEvent::ReleaseUpgradeResult(result));
                         }
@@ -353,7 +361,8 @@ impl Daemon {
                         }
                         SignalEvent::Upgrade(event) => {
                             info!("{}", dbus_event);
-                            Self::signal_message(&upgrade_event).append1(event.clone().to_dbus_map())
+                            Self::signal_message(&upgrade_event)
+                                .append1(event.clone().into_dbus_map())
                         }
                     },
                 )

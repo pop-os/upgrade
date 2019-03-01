@@ -100,7 +100,7 @@ use self::error::{Error, InitError};
 pub fn main() {
     let _ = setup_logging(::log::LevelFilter::Debug);
 
-    let mut clap = App::new("pop-upgrade")
+    let clap = App::new("pop-upgrade")
         .about("Pop!_OS Upgrade Utility")
         .global_setting(AppSettings::ColoredHelp)
         .global_setting(AppSettings::UnifiedHelpMessage)
@@ -176,7 +176,7 @@ pub fn main() {
                                 )
                                 .short("d")
                                 .long("download-only"),
-                        )
+                        ),
                 )
                 .subcommand(
                     SubCommand::with_name("repair")
