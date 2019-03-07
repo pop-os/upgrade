@@ -27,7 +27,7 @@ use std::sync::Arc;
 use std::thread;
 use tokio::runtime::Runtime;
 
-use crate::apt_wrappers::apt_upgrade;
+use apt_cli_wrappers::apt_upgrade;
 use crate::recovery::{
     self, ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
 };
@@ -147,7 +147,7 @@ impl Daemon {
                                 if download_only {
                                     Ok(())
                                 } else {
-                                    apt_upgrade(&mut |event| {
+                                    apt_upgrade(|event| {
                                         let _ = dbus_tx.send(SignalEvent::Upgrade(event));
                                     })
                                     .map_err(ReleaseError::Upgrade)

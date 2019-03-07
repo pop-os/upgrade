@@ -45,6 +45,7 @@ proc-mounts = "0.2.2"
 partition-identity = "0.2.6"
 ubuntu-version = "0.1.1"
 logind-dbus = "0.1.1"
+apt-cli-wrappers = { git = "https://github.com/pop-os/apt-cli-wrappers" }
 
 [patch.crates-io]
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }

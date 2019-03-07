@@ -10,7 +10,7 @@ use std::path::Path;
 use std::sync::Arc;
 use systemd_boot_conf::SystemdBootConf;
 
-use crate::apt_wrappers::*;
+use apt_cli_wrappers::*;
 use crate::daemon::DaemonRuntime;
 use crate::release_api::Release;
 use crate::repair;
@@ -148,7 +148,7 @@ impl<'a> DaemonRuntime<'a> {
 
     /// Performs a live release upgrade via the daemon, with a callback for tracking progress.
     pub fn package_upgrade<C: Fn(AptUpgradeEvent)>(&mut self, mut callback: C) -> RelResult<()> {
-        let callback = &mut callback;
+        let callback = &callback;
         // If the first upgrade attempt fails, try to dpkg --configure -a and try again.
         if apt_upgrade(callback).is_err() {
             dpkg_configure_all().map_err(ReleaseError::DpkgConfigure)?;
@@ -167,7 +167,7 @@ impl<'a> DaemonRuntime<'a> {
         to: &str,
         logger: &dyn Fn(UpgradeEvent),
         fetch: Arc<Fn(FetchEvent) + Send + Sync>,
-        upgrade: &mut dyn Fn(AptUpgradeEvent),
+        upgrade: &dyn Fn(AptUpgradeEvent),
     ) -> RelResult<()> {
         // Must be root for this operation.
         check_root()?;
@@ -358,7 +358,7 @@ fn set_recovery_as_default_boot_option() -> RelResult<()> {
         let SystemdBootConf { ref entries, ref mut loader_conf, .. } = systemd_boot_conf;
         let recovery_entry = entries
             .iter()
-            .find(|e| e.title == "Pop!_OS Recovery")
+            .find(|e| e.title.to_lowercase() == "pop!_os recovery")
             .ok_or(ReleaseError::MissingRecoveryEntry)?;
 
         loader_conf.default = Some(recovery_entry.filename.to_owned());

@@ -13,7 +13,6 @@ following details:
 - Name: `com.system76.PopUpgrade`
 - Path: `/com/system76/PopUpgrade`
 
-
 ### DBus Methods
 
 - `FetchUpdates (additional_strings: as, download_only: b) -> (updates_available: b, completed: s, total: s)`
