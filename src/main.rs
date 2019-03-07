@@ -11,7 +11,6 @@ extern crate log;
 #[macro_use]
 extern crate num_derive;
 
-mod apt_wrappers;
 mod checksum;
 mod client;
 mod daemon;
@@ -23,7 +22,6 @@ mod release;
 mod release_api;
 mod release_architecture;
 mod repair;
-mod status;
 mod system_environment;
 
 use self::client::Client;

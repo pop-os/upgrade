@@ -1,4 +1,4 @@
-use crate::apt_wrappers::AptUpgradeEvent;
+use apt_cli_wrappers::AptUpgradeEvent;
 use crate::daemon::*;
 use crate::recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags};
 use crate::release::{UpgradeEvent, UpgradeMethod};
