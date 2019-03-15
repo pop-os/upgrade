@@ -38,14 +38,24 @@ following details:
     - The `from` defines which suite to upgrade from.
     - The `to` defines the suite to upgrade to.
     - The upgrade method performed is determined by the `how`.
-        - `1` will perform the upgrade in place, at the user's peril.
-        - `2` will create a oneshot systemd init script.
-        - `3` will set up Pop's recovery partition.
+        - `1` will use systemd to perform an offline upgrade.
+        - `2` will use the recovery partition to perform an offline upgrade.
         - Any other value will result in an error.
 - `ReleaseRepair ()`
   - Performs automatic repairs of any issues found which may impact system operation
     - The `/etc/fstab` file will be corrected if certain mounts are missing or are mounting by the wrong ID
     - Source lists will also be parsed and corrected if they are missing any critical repositories
+- `Status () -> (status: q, sub_status: q)`
+    - Reports the current status of the daemon, where zero indicates inactivity.
+    - If that `status` has a `sub_status`, it will be set to a non-zero value.
+    - The available statuses for the main status are:
+        - `0`: Inactive,
+        - `1`: Fetching Packages,
+        - `2`: Recovery Upgrade,
+        - `3`: Release Upgrade,
+        - `4`: Package Upgrade
+- `UpgradePackages ()`
+    - Upgrades packages for the current release, similar to performing a non-interactive upgrade normally.
 
 ### DBus Signals
 
@@ -58,7 +68,9 @@ following details:
   - `completed` and `total` can be used to track the progress of the task.
 - `PackageFetching (package: s)`
   - An event that is triggered when a `FetchUpdates` task has begun fetching a new package.
-  - `package` refers to the name of the package that was fetched.
+  - `package` refers to the name of the package that was fetched
+- `PackageUpgrade (event: a{ss})`
+    - The ADT is represented as a map of field-value pairs.
 - `RecoveryDownloadProgress (progress: t, total: t)`
   - Tracks the progress of the recovery files being fetched
 - `RecoveryUpgradeEvent (event: q)`
