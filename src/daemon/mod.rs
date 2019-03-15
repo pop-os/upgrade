@@ -27,10 +27,10 @@ use std::sync::Arc;
 use std::thread;
 use tokio::runtime::Runtime;
 
-use apt_cli_wrappers::apt_upgrade;
 use crate::recovery::{
     self, ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
 };
+use apt_cli_wrappers::apt_upgrade;
 
 use crate::release::{self, FetchEvent, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod};
 use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};

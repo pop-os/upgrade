@@ -1,8 +1,8 @@
-use apt_cli_wrappers::AptUpgradeEvent;
 use crate::daemon::*;
 use crate::recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags};
 use crate::release::{UpgradeEvent, UpgradeMethod};
 use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
+use apt_cli_wrappers::AptUpgradeEvent;
 use clap::ArgMatches;
 use dbus::{
     self, BusType, Connection, ConnectionItem, Message, MessageItem, MessageItemArray, Signature,
