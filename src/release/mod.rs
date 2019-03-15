@@ -12,9 +12,9 @@ use systemd_boot_conf::SystemdBootConf;
 
 use apt_cli_wrappers::*;
 use crate::daemon::DaemonRuntime;
-use crate::release_api::Release;
+use crate::release_api::{ApiError, Release};
 use crate::repair;
-use ubuntu_version::{Codename, Version};
+use ubuntu_version::{Codename, Version, VersionError};
 
 pub use self::errors::{RelResult, ReleaseError};
 
@@ -24,11 +24,11 @@ const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
 const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
 
 pub fn check() -> RelResult<(String, String, bool)> {
-    let current = Version::detect()?;
-    let next = format!("{}", current.next_release());
-    let current = format!("{}", current);
-    let available = Release::get_release(&next, "intel").is_ok();
-    Ok((current, next, available))
+    fn release_exists(current: &str, iso: &str) -> bool {
+        Release::get_release(current, iso).is_ok()
+    }
+
+    find_next_release(Version::detect, release_exists)
 }
 
 #[repr(u8)]
@@ -71,20 +71,20 @@ impl From<UpgradeEvent> for &'static str {
             UpgradeEvent::FetchingPackages => "fetching updated packages for the current release",
             UpgradeEvent::UpgradingPackages => "upgrading packages for the current release",
             UpgradeEvent::InstallingPackages => {
-                "ensuring that system-critical packages are isntalled"
+                "ensuring that system-critical packages are installed"
             }
             UpgradeEvent::UpdatingSourceLists => "updating the source lists to the new release",
             UpgradeEvent::FetchingPackagesForNewRelease => "fetching packages for the new release",
             UpgradeEvent::AttemptingLiveUpgrade => "attempting live upgrade to the new release",
             UpgradeEvent::AttemptingSystemdUnit => {
-                "creating a systemd unit for installing the new release"
+                "setting up the system to perform an offline upgrade on the next boot"
             }
             UpgradeEvent::AttemptingRecovery => {
                 "setting up the recovery partition to install the new release"
             }
             UpgradeEvent::Success => "new release is ready to install",
             UpgradeEvent::SuccessLive => "new release was successfully installed",
-            UpgradeEvent::Failure => "an error occurred while setting up the upgrade",
+            UpgradeEvent::Failure => "an error occurred while setting up the release upgrade",
         }
     }
 }
@@ -400,5 +400,76 @@ pub fn release_fetch_cleanup() {
 
         let _ = fs::remove_file(RELEASE_FETCH_FILE);
         let _ = apt_update();
+    }
+}
+
+fn format_version(version: Version) -> String {
+    format!("{}.{:02}", version.major, version.minor)
+}
+
+fn find_next_release(
+    version_detect: fn() -> Result<Version, VersionError>,
+    release_exists: fn(&str, &str) -> bool,
+) -> RelResult<(String, String, bool)> {
+    let current = version_detect()?;
+    let mut next = current.next_release();
+    let mut next_str = format_version(next);
+    let available = release_exists(&next_str, "intel");
+
+    if available {
+        let mut next_next = next.next_release();
+        let mut next_next_str = format_version(next_next);
+        while release_exists(&next_next_str, "intel") {
+            next = next_next;
+            next_str = next_next_str;
+            next_next = next.next_release();
+            next_next_str = format_version(next_next);
+        }
+    }
+
+    Ok((format_version(current), next_str, available))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ubuntu_version::{Version, VersionError};
+
+    fn v1804() -> Result<Version, VersionError> {
+        Ok(Version { major: 18, minor: 4, patch: 0 })
+    }
+
+    fn v1810() -> Result<Version, VersionError> {
+        Ok(Version { major: 18, minor: 10, patch: 0 })
+    }
+
+    fn v1904() -> Result<Version, VersionError> {
+        Ok(Version { major: 19, minor: 4, patch: 0 })
+    }
+
+    fn releases_up_to_1904(release: &str, _kind: &str) -> bool {
+        match release {
+            "18.04" | "18.10" | "19.04" => true,
+            _ => false
+        }
+    }
+
+    fn releases_up_to_1910(release: &str, kind: &str) -> bool {
+        releases_up_to_1904(release, kind) || release == "19.10"
+    }
+
+    #[test]
+    fn release_check() {
+        let (current, next, available) = find_next_release(v1804, releases_up_to_1910).unwrap();
+        assert!("19.10" == next.as_str() && available);
+
+        let (current, next, available) = find_next_release(v1810, releases_up_to_1910).unwrap();
+        assert!("19.10" == next.as_str() && available);
+
+        let (current, next, available) = find_next_release(v1810, releases_up_to_1904).unwrap();
+        assert!("19.04" == next.as_str() && available);
+
+        let (current, next, available) = find_next_release(v1904, releases_up_to_1904).unwrap();
+        assert!("19.10" == next.as_str() && !available);
     }
 }
