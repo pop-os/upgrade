@@ -10,10 +10,10 @@ use std::path::Path;
 use std::sync::Arc;
 use systemd_boot_conf::SystemdBootConf;
 
-use apt_cli_wrappers::*;
 use crate::daemon::DaemonRuntime;
 use crate::release_api::{ApiError, Release};
 use crate::repair;
+use apt_cli_wrappers::*;
 use ubuntu_version::{Codename, Version, VersionError};
 
 pub use self::errors::{RelResult, ReleaseError};
@@ -450,7 +450,7 @@ mod tests {
     fn releases_up_to_1904(release: &str, _kind: &str) -> bool {
         match release {
             "18.04" | "18.10" | "19.04" => true,
-            _ => false
+            _ => false,
         }
     }
 
