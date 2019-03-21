@@ -192,7 +192,7 @@ impl Client {
     fn release_check<'a>(
         &self,
         message: &'a mut Option<Message>,
-        flags: u8
+        flags: u8,
     ) -> Result<(&'a str, &'a str, bool), ClientError> {
         *message = Some(self.call_method(methods::RELEASE_CHECK, iter::once(flags.into()))?);
         message.as_mut().unwrap().read3::<&str, &str, bool>().map_err(ClientError::BadResponse)
