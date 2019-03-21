@@ -11,8 +11,14 @@ pub use self::signals::SignalEvent;
 pub use self::status::DaemonStatus;
 
 use self::dbus_helper::DbusFactory;
+use apt_cli_wrappers::apt_upgrade;
 use apt_fetcher::apt_uris::{apt_uris, AptUri};
 use atomic::Atomic;
+use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH, signal_handler};
+use crate::release::{self, FetchEvent, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod};
+use crate::recovery::{
+    self, ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
+};
 use crossbeam_channel::{bounded, Receiver, Sender};
 use dbus::tree::{Factory, Signal};
 use dbus::{self, BusType, Connection, Message, NameFlag};
@@ -26,14 +32,6 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::thread;
 use tokio::runtime::Runtime;
-
-use crate::recovery::{
-    self, ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
-};
-use apt_cli_wrappers::apt_upgrade;
-
-use crate::release::{self, FetchEvent, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod};
-use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 
 #[derive(Debug)]
 pub enum Event {
@@ -229,6 +227,8 @@ impl Daemon {
 
     pub fn init() -> Result<(), DaemonError> {
         info!("initializing daemon");
+        // TODO: Enable when ready
+        // signal_handler::init();
         let factory = Factory::new_fn::<()>();
 
         let dbus_factory = DbusFactory::new(&factory);
