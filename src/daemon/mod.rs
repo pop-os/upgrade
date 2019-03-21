@@ -11,14 +11,14 @@ pub use self::signals::SignalEvent;
 pub use self::status::DaemonStatus;
 
 use self::dbus_helper::DbusFactory;
-use apt_cli_wrappers::apt_upgrade;
-use apt_fetcher::apt_uris::{apt_uris, AptUri};
-use atomic::Atomic;
-use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH, signal_handler};
-use crate::release::{self, FetchEvent, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod};
 use crate::recovery::{
     self, ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
 };
+use crate::release::{self, FetchEvent, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod};
+use crate::{signal_handler, DBUS_IFACE, DBUS_NAME, DBUS_PATH};
+use apt_cli_wrappers::apt_upgrade;
+use apt_fetcher::apt_uris::{apt_uris, AptUri};
+use atomic::Atomic;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use dbus::tree::{Factory, Signal};
 use dbus::{self, BusType, Connection, Message, NameFlag};
