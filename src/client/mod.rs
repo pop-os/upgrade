@@ -100,7 +100,7 @@ impl Client {
         match matches.subcommand() {
             ("check", _) => {
                 let mut message = None;
-                let (current, next, available) = self.release_check(&mut message)?;
+                let (current, next, available) = self.release_check(&mut message, 0)?;
 
                 println!(
                     "      Current Release: {}\n         Next Release: {}\nNew Release Available: {}",
@@ -135,8 +135,9 @@ impl Client {
                     _ => unreachable!(),
                 };
 
+                let flags = if matches.is_present("force-next") { 1u8 } else { 0 };
                 let mut message = None;
-                let (current, next, available) = self.release_check(&mut message)?;
+                let (current, next, available) = self.release_check(&mut message, flags)?;
 
                 if available {
                     let args = vec![(method as u8).into(), current.into(), next.into()];
@@ -191,8 +192,9 @@ impl Client {
     fn release_check<'a>(
         &self,
         message: &'a mut Option<Message>,
+        flags: u8
     ) -> Result<(&'a str, &'a str, bool), ClientError> {
-        *message = Some(self.call_method(methods::RELEASE_CHECK, iter::empty())?);
+        *message = Some(self.call_method(methods::RELEASE_CHECK, iter::once(flags.into()))?);
         message.as_mut().unwrap().read3::<&str, &str, bool>().map_err(ClientError::BadResponse)
     }
 

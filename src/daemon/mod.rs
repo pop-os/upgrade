@@ -447,10 +447,11 @@ impl Daemon {
         Ok(())
     }
 
-    fn release_check(&mut self) -> Result<(String, String, bool), String> {
+    fn release_check(&mut self, flags: u8) -> Result<(String, String, bool), String> {
         info!("performing a release check");
 
-        release::check().map_err(|why| format!("{}", why))
+        let (current, next, available) = release::check().map_err(|why| format!("{}", why))?;
+        Ok((current, next, flags & 1 != 0 || available))
     }
 
     fn release_upgrade(&mut self, how: u8, from: &str, to: &str) -> Result<(), String> {

@@ -100,10 +100,12 @@ pub fn release_check(
 ) -> Method<MTFn<()>, ()> {
     let daemon = daemon.clone();
 
-    let method = dbus_factory.method(RELEASE_CHECK, move |_message| {
+    let method = dbus_factory.method(RELEASE_CHECK, move |message| {
+        let flags = message.read1().map_err(|why| format!("{}", why))?;
+
         daemon
             .borrow_mut()
-            .release_check()
+            .release_check(flags)
             .map(|(current, next, available)| vec![current.into(), next.into(), available.into()])
     });
 

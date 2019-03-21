@@ -185,6 +185,13 @@ pub fn main() {
                     SubCommand::with_name("upgrade")
                         .about("update the system, and fetch the packages for the next release")
                         .setting(AppSettings::SubcommandRequiredElseHelp)
+                        .arg(
+                            Arg::with_name("force-next")
+                                .help("Attempt to upgrade to the next release, even if it is not released")
+                                .short("f")
+                                .long("force-next")
+                                .global(true)
+                        )
                         .subcommand(SubCommand::with_name("offline").about(
                             "apply system upgrades offline with systemd's offline-update service",
                         ))
