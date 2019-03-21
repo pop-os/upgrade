@@ -129,9 +129,9 @@ impl Client {
                 }
             }
             ("upgrade", Some(matches)) => {
-                let method = match matches.subcommand() {
-                    ("offline", _) => UpgradeMethod::Offline,
-                    ("recovery", _) => UpgradeMethod::Recovery,
+                let (method, matches) = match matches.subcommand() {
+                    ("offline", Some(matches)) => (UpgradeMethod::Offline, matches),
+                    ("recovery", Some(matches)) => (UpgradeMethod::Recovery, matches),
                     _ => unreachable!(),
                 };
 
