@@ -29,7 +29,9 @@ pub enum FstabError {
     DiskProbe(io::Error),
     #[error(display = "source in fstab has an invalid ID: '{}", _0)]
     InvalidSourceId(String),
-    #[error(display = "failed to mount devices: {}", _0)]
+    #[error(display = "failed to create missing directory at {}: {}", path, why)]
+    MissingDirCreation { path: &'static str, why: io::Error },
+    #[error(display = "failed to mount devices with `mount -a`: {}", _0)]
     MountFailure(io::Error),
     #[error(display = "failed to parse the fstab file: {}", _0)]
     Parse(io::Error),
@@ -71,6 +73,13 @@ pub fn repair() -> Result<(), FstabError> {
 
     const EFI: &str = "/boot/efi";
     const RECOVERY: &str = "/recovery";
+
+    // Create missing mount directories, if the mounts are missing.
+    for path in &[EFI, RECOVERY] {
+        if !Path::new(*path).exists() {
+            fs::create_dir(*path).map_err(|why| FstabError::MissingDirCreation { path: *path, why })?;
+        }
+    }
 
     let (root_id, (found_efi, efi_id), (found_recovery, recovery_id)) = {
         let mut root = None;
