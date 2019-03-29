@@ -450,7 +450,14 @@ impl Daemon {
     fn release_check(&mut self) -> Result<(String, String, bool), String> {
         info!("performing a release check");
 
-        release::check().map_err(|why| format!("{}", why))
+        let (current, next, available) = release::check().map_err(|why| format!("{}", why))?;
+
+        info!(
+            "Release {{ current: \"{}\", next: \"{}\", available: {} }}",
+            current, next, available
+        );
+
+        Ok((current, next, available))
     }
 
     fn release_upgrade(&mut self, how: u8, from: &str, to: &str) -> Result<(), String> {

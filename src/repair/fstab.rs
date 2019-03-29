@@ -77,7 +77,8 @@ pub fn repair() -> Result<(), FstabError> {
     // Create missing mount directories, if the mounts are missing.
     for path in &[EFI, RECOVERY] {
         if !Path::new(*path).exists() {
-            fs::create_dir(*path).map_err(|why| FstabError::MissingDirCreation { path: *path, why })?;
+            fs::create_dir(*path)
+                .map_err(|why| FstabError::MissingDirCreation { path: *path, why })?;
         }
     }
 

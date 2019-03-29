@@ -122,11 +122,12 @@ impl<'a> DaemonRuntime<'a> {
     pub fn release_upgrade(&mut self, current: &str, new: &str) -> Result<Upgrader, ReleaseError> {
         let current = current
             .parse::<Version>()
-            .map(|c| <&'static str>::from(Codename::from(c)))
+            .map(Codename::from)
+            .map(<&'static str>::from)
             .unwrap_or(current);
 
         let new =
-            new.parse::<Version>().map(|c| <&'static str>::from(Codename::from(c))).unwrap_or(new);
+            new.parse::<Version>().map(Codename::from).map(<&'static str>::from).unwrap_or(new);
 
         let sources = SourcesList::scan().unwrap();
 
@@ -205,17 +206,13 @@ impl<'a> DaemonRuntime<'a> {
 
         self.apt_fetch(uris, fetch.clone())?;
 
-        if nupdates != 0 {
-            // Upgrade the current release to the latest packages.
-            (*logger)(UpgradeEvent::UpgradingPackages);
-            apt_upgrade(upgrade).map_err(ReleaseError::Upgrade)?;
-        }
+        // Upgrade the current release to the latest packages.
+        (*logger)(UpgradeEvent::UpgradingPackages);
+        apt_upgrade(upgrade).map_err(ReleaseError::Upgrade)?;
 
-        if nfetched != 0 {
-            // Install any packages that are deemed critical.
-            (*logger)(UpgradeEvent::InstallingPackages);
-            apt_install(CORE_PACKAGES).map_err(ReleaseError::InstallCore)?;
-        }
+        // Install any packages that are deemed critical.
+        (*logger)(UpgradeEvent::InstallingPackages);
+        apt_install(CORE_PACKAGES).map_err(ReleaseError::InstallCore)?;
 
         // Update the source lists to the new release,
         // then fetch the packages required for the upgrade.
