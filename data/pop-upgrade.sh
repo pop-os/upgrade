@@ -33,9 +33,6 @@ upgrade () {
             then
                 message -i "Installing Updates (${percent}%): $line"
             fi
-
-
-
         done
 
     # Validate the exit status

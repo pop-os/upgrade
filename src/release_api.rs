@@ -23,8 +23,9 @@ pub struct Release {
 }
 
 impl Release {
-    pub fn get_release(version: &str, arch: &str) -> Result<Release, ApiError> {
-        let url = [BASE, "builds/", version, "/", arch].concat();
+    pub fn get_release(version: &str, channel: &str) -> Result<Release, ApiError> {
+        info!("checking for build {} in channel {}", version, channel);
+        let url = [BASE, "builds/", version, "/", channel].concat();
 
         let response = Client::new()
             .get(&url)
@@ -35,4 +36,11 @@ impl Release {
 
         serde_json::from_reader(response).map_err(ApiError::Json)
     }
+}
+
+#[test]
+pub fn release_exists() {
+    let result = Release::get_release("18.10", "intel");
+    eprintln!("{:?}", result);
+    assert!(result.is_ok());
 }
