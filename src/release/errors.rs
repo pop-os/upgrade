@@ -24,6 +24,8 @@ pub enum ReleaseError {
     NotRoot,
     #[error(display = "fetch of package failed: {}", _0)]
     PackageFetch(FetchError),
+    #[error(display = "failed to read the /proc/partitions file: {}", _0)]
+    ReadingPartitions(io::Error),
     #[error(display = "failed to open the recovery configuration file: {}", _0)]
     RecoveryConfOpen(io::Error),
     #[error(display = "failed to update the recovery configuration file: {}", _0)]

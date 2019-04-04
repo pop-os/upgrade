@@ -11,7 +11,7 @@ use std::sync::Arc;
 use systemd_boot_conf::SystemdBootConf;
 
 use crate::daemon::DaemonRuntime;
-use crate::release_api::{ApiError, Release};
+use crate::release_api::Release;
 use crate::repair;
 use apt_cli_wrappers::*;
 use ubuntu_version::{Codename, Version, VersionError};
@@ -23,9 +23,9 @@ const RELEASE_FETCH_FILE: &str = "/release_fetch_in_progress";
 const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
 const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
 
-pub fn check() -> RelResult<(String, String, bool)> {
-    fn release_exists(current: &str, iso: &str) -> bool {
-        Release::get_release(current, iso).is_ok()
+pub fn check() -> RelResult<(String, String, Option<u16>)> {
+    fn release_exists(current: &str, iso: &str) -> Option<u16> {
+        Release::get_release(current, iso).ok().map(|r| r.build)
     }
 
     find_next_release(Version::detect, release_exists)
@@ -148,7 +148,7 @@ impl<'a> DaemonRuntime<'a> {
     }
 
     /// Performs a live release upgrade via the daemon, with a callback for tracking progress.
-    pub fn package_upgrade<C: Fn(AptUpgradeEvent)>(&mut self, mut callback: C) -> RelResult<()> {
+    pub fn package_upgrade<C: Fn(AptUpgradeEvent)>(&mut self, callback: C) -> RelResult<()> {
         let callback = &callback;
         // If the first upgrade attempt fails, try to dpkg --configure -a and try again.
         if apt_upgrade(callback).is_err() {
@@ -170,11 +170,6 @@ impl<'a> DaemonRuntime<'a> {
         fetch: Arc<Fn(FetchEvent) + Send + Sync>,
         upgrade: &dyn Fn(AptUpgradeEvent),
     ) -> RelResult<()> {
-        // Must be root for this operation.
-        check_root()?;
-
-        // Inhibit suspension and shutdown
-
         // Check the system and perform any repairs necessary for success.
         repair::repair().map_err(ReleaseError::Repair)?;
 
@@ -193,16 +188,14 @@ impl<'a> DaemonRuntime<'a> {
         let mut uris = apt_uris(&["full-upgrade"]).map_err(ReleaseError::AptList)?;
 
         // Also include the packages which we must have installed.
-        let uris2 = apt_uris(&{
-            let mut args = vec!["install"];
-            args.extend_from_slice(CORE_PACKAGES);
-            args
-        })
-        .map_err(ReleaseError::AptList)?;
-
-        let nupdates = uris.len();
-        let nfetched = uris.len();
-        uris.extend_from_slice(&uris2);
+        uris.extend_from_slice(
+            &apt_uris(&{
+                let mut args = vec!["install"];
+                args.extend_from_slice(CORE_PACKAGES);
+                args
+            })
+            .map_err(ReleaseError::AptList)?,
+        );
 
         self.apt_fetch(uris, fetch.clone())?;
 
@@ -258,11 +251,14 @@ impl<'a> DaemonRuntime<'a> {
             return Err(ReleaseError::SystemdBootEfiPathNotFound);
         }
 
-        if !Path::new("/recovery").exists() {
-            return Err(ReleaseError::RecoveryNotFound);
-        }
+        let partitions =
+            fs::read_to_string("/proc/mounts").map_err(ReleaseError::ReadingPartitions)?;
 
-        Ok(())
+        if partitions.contains("/recovery") {
+            Ok(())
+        } else {
+            Err(ReleaseError::RecoveryNotFound)
+        }
     }
 
     /// Validate that the pre-required files for performing a system upgrade are in place.
@@ -377,14 +373,6 @@ pub enum FetchEvent {
     Init(usize),
 }
 
-fn check_root() -> RelResult<()> {
-    if unsafe { libc::geteuid() } != 0 {
-        Err(ReleaseError::NotRoot)
-    } else {
-        Ok(())
-    }
-}
-
 pub fn release_fetch_cleanup() {
     if let Ok(data) = fs::read_to_string(RELEASE_FETCH_FILE) {
         let mut iter = data.split(' ');
@@ -406,17 +394,18 @@ fn format_version(version: Version) -> String {
 
 fn find_next_release(
     version_detect: fn() -> Result<Version, VersionError>,
-    release_exists: fn(&str, &str) -> bool,
-) -> RelResult<(String, String, bool)> {
+    release_exists: fn(&str, &str) -> Option<u16>,
+) -> RelResult<(String, String, Option<u16>)> {
     let current = version_detect()?;
     let mut next = current.next_release();
     let mut next_str = format_version(next);
-    let available = release_exists(&next_str, "intel");
+    let mut available = release_exists(&next_str, "intel");
 
-    if available {
+    if available.is_some() {
         let mut next_next = next.next_release();
         let mut next_next_str = format_version(next_next);
-        while release_exists(&next_next_str, "intel") {
+        while let Some(build) = release_exists(&next_next_str, "intel") {
+            available = Some(build);
             next = next_next;
             next_str = next_next_str;
             next_next = next.next_release();
@@ -444,29 +433,33 @@ mod tests {
         Ok(Version { major: 19, minor: 4, patch: 0 })
     }
 
-    fn releases_up_to_1904(release: &str, _kind: &str) -> bool {
+    fn releases_up_to_1904(release: &str, _kind: &str) -> Option<u16> {
         match release {
-            "18.04" | "18.10" | "19.04" => true,
-            _ => false,
+            "18.04" | "18.10" | "19.04" => Some(1),
+            _ => None,
         }
     }
 
-    fn releases_up_to_1910(release: &str, kind: &str) -> bool {
-        releases_up_to_1904(release, kind) || release == "19.10"
+    fn releases_up_to_1910(release: &str, kind: &str) -> Option<u16> {
+        releases_up_to_1904(release, kind).or_else(|| if release == "19.10" {
+            Some(1)
+        } else {
+            None
+        })
     }
 
     #[test]
     fn release_check() {
-        let (current, next, available) = find_next_release(v1804, releases_up_to_1910).unwrap();
-        assert!("19.10" == next.as_str() && available);
+        let (_, next, available) = find_next_release(v1804, releases_up_to_1910).unwrap();
+        assert!("19.10" == next.as_str() && available.is_some());
 
-        let (current, next, available) = find_next_release(v1810, releases_up_to_1910).unwrap();
-        assert!("19.10" == next.as_str() && available);
+        let (_, next, available) = find_next_release(v1810, releases_up_to_1910).unwrap();
+        assert!("19.10" == next.as_str() && available.is_some());
 
-        let (current, next, available) = find_next_release(v1810, releases_up_to_1904).unwrap();
-        assert!("19.04" == next.as_str() && available);
+        let (_, next, available) = find_next_release(v1810, releases_up_to_1904).unwrap();
+        assert!("19.04" == next.as_str() && available.is_some());
 
-        let (current, next, available) = find_next_release(v1904, releases_up_to_1904).unwrap();
-        assert!("19.10" == next.as_str() && !available);
+        let (_, next, available) = find_next_release(v1904, releases_up_to_1904).unwrap();
+        assert!("19.10" == next.as_str() && !available.is_some());
     }
 }
