@@ -1,4 +1,5 @@
 use crate::daemon::*;
+use crate::misc;
 use crate::recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags};
 use crate::release::{UpgradeEvent, UpgradeMethod};
 use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
@@ -100,11 +101,12 @@ impl Client {
         match matches.subcommand() {
             ("check", _) => {
                 let mut message = None;
+                let mut buffer = String::new();
                 let (current, next, available) = self.release_check(&mut message)?;
 
                 println!(
                     "      Current Release: {}\n         Next Release: {}\nNew Release Available: {}",
-                    current, next, available
+                    current, next, misc::format_build_number(available, &mut buffer)
                 );
             }
             ("update", Some(matches)) => {
@@ -138,7 +140,7 @@ impl Client {
                 let mut message = None;
                 let (current, next, available) = self.release_check(&mut message)?;
 
-                if matches.is_present("force-next") || available {
+                if matches.is_present("force-next") || available.is_some() {
                     let args = vec![(method as u8).into(), current.into(), next.into()];
                     let _message = self.call_method(methods::RELEASE_UPGRADE, args.into_iter())?;
                     self.event_listen_release_upgrade()?;
@@ -191,9 +193,13 @@ impl Client {
     fn release_check<'a>(
         &self,
         message: &'a mut Option<Message>,
-    ) -> Result<(&'a str, &'a str, bool), ClientError> {
+    ) -> Result<(&'a str, &'a str, Option<u16>), ClientError> {
         *message = Some(self.call_method(methods::RELEASE_CHECK, iter::empty())?);
-        message.as_mut().unwrap().read3::<&str, &str, bool>().map_err(ClientError::BadResponse)
+        let (c, n, a) = message.as_mut().unwrap().read3::<&str, &str, i16>()
+            .map_err(ClientError::BadResponse)?;
+
+        let a = if a < 0 { None } else { Some(a as u16) };
+        Ok((c, n, a))
     }
 
     fn call_method<A: Iterator<Item = MessageItem>>(

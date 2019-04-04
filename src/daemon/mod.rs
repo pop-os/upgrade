@@ -11,6 +11,7 @@ pub use self::signals::SignalEvent;
 pub use self::status::DaemonStatus;
 
 use self::dbus_helper::DbusFactory;
+use crate::misc;
 use crate::recovery::{
     self, ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
 };
@@ -207,7 +208,7 @@ impl Daemon {
                                 &to,
                                 &progress,
                                 fetch_closure.clone(),
-                                &mut |event| {
+                                &|event| {
                                     let _ = dbus_tx.send(SignalEvent::Upgrade(event));
                                 },
                             );
@@ -447,14 +448,15 @@ impl Daemon {
         Ok(())
     }
 
-    fn release_check(&mut self) -> Result<(String, String, bool), String> {
+    fn release_check(&mut self) -> Result<(String, String, Option<u16>), String> {
         info!("performing a release check");
 
         let (current, next, available) = release::check().map_err(|why| format!("{}", why))?;
+        let mut buffer = String::new();
 
         info!(
             "Release {{ current: \"{}\", next: \"{}\", available: {} }}",
-            current, next, available
+            current, next, misc::format_build_number(available, &mut buffer)
         );
 
         Ok((current, next, available))
