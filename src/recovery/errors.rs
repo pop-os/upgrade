@@ -17,14 +17,16 @@ pub enum RecoveryError {
     Checksum { path: PathBuf, why: ValidateError },
     #[error(display = "failed to download ISO: {}", _0)]
     Download(Box<RecoveryError>),
+    #[error(display = "fetching from {} failed: {}", url, why)]
+    Fetch { url: String, why: io::Error },
     #[error(display = "I/O error: {}", _0)]
     Io(io::Error),
     #[error(display = "ISO does not exist at path")]
     IsoNotFound,
+    #[error(display = "no build was found to fetch from: attempted to fetch {}", version)]
+    NoBuildAvailable { version: String },
     #[error(display = "failed to create temporary directory for ISO: {}", _0)]
     TempDir(io::Error),
-    #[error(display = "fetching from {} failed: {}", url, why)]
-    Fetch { url: String, why: io::Error },
     #[error(display = "recovery partition was not found")]
     RecoveryNotFound,
     #[error(display = "failed to apply system repair before recovery upgrade: {}", _0)]
@@ -37,6 +39,8 @@ pub enum RecoveryError {
     ReleaseVersion(VersionError),
     #[error(display = "the recovery feature is limited to EFI installs")]
     Unsupported,
+    #[error(display = "failed to write version of ISO now stored on the recovery partition: {}", _0)]
+    WriteVersion(io::Error),
 }
 
 impl From<io::Error> for RecoveryError {

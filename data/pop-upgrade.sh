@@ -18,7 +18,9 @@ upgrade () {
     percent=0
 
     # Watch progress of an update, and report it to the splash screen
-    env LANG=C apt-get full-upgrade -y --allow-downgrades --show-progress \
+    env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
+        full-upgrade -y --allow-downgrades --show-progress \
+        --no-download --ignore-missing \
         | while read -r line; do
             if test "Progress: [" = "$(echo ${line} | cut -c-11)"; then
                 percent=$(echo ${line} | cut -c12-14)
@@ -36,12 +38,14 @@ upgrade () {
         done
 
     # Validate the exit status
-    apt-get full-upgrade -y --allow-downgrades
+    apt-get -o Dpkg::Options::="--force-overwrite" \
+        full-upgrade -y --allow-downgrades \
+        --no-download --ignore-missing
 }
 
 dpkg_configure () {
-    dpkg --configure -a | while read -r line; do
-        message -i "Upgrade failed: attempting to repair: $line"
+    dpkg --configure -a --force-overwrite | while read -r line; do
+        message -i "Attempting to repair: $line"
     done
 
     # Validate the exit status
