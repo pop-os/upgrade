@@ -23,7 +23,7 @@ const RELEASE_FETCH_FILE: &str = "/release_fetch_in_progress";
 const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
 const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
 
-pub fn check() -> RelResult<(String, String, Option<u16>)> {
+pub fn check() -> Result<(String, String, Option<u16>), VersionError> {
     fn release_exists(current: &str, iso: &str) -> Option<u16> {
         Release::get_release(current, iso).ok().map(|r| r.build)
     }
@@ -395,7 +395,7 @@ fn format_version(version: Version) -> String {
 fn find_next_release(
     version_detect: fn() -> Result<Version, VersionError>,
     release_exists: fn(&str, &str) -> Option<u16>,
-) -> RelResult<(String, String, Option<u16>)> {
+) -> Result<(String, String, Option<u16>), VersionError> {
     let current = version_detect()?;
     let mut next = current.next_release();
     let mut next_str = format_version(next);

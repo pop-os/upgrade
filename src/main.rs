@@ -147,21 +147,22 @@ pub fn main() {
                                         .long("next"),
                                 ),
                         )
-                        .subcommand(
-                            SubCommand::with_name("from-file")
-                                .about("update the recovery partition using an ISO on the system")
-                                .arg(
-                                    Arg::with_name("PATH")
-                                        .help("location to fetch the from file")
-                                        .required(true),
-                                ),
-                        ),
+                        // .subcommand(
+                        //     SubCommand::with_name("from-file")
+                        //         .about("update the recovery partition using an ISO on the system")
+                        //         .arg(
+                        //             Arg::with_name("PATH")
+                        //                 .help("location to fetch the from file")
+                        //                 .required(true),
+                        //         ),
+                        // ),
                 ),
         )
         // Distribution release tools
         .subcommand(
             SubCommand::with_name("release")
                 .about("check for new distribution releases, or upgrade to a new release")
+                .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
                     SubCommand::with_name("check").about("check for a new distribution release"),
                 )

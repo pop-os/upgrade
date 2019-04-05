@@ -2,7 +2,7 @@ mod errors;
 
 use atomic::Atomic;
 use parallel_getter::ParallelGetter;
-use std::fs::OpenOptions;
+use std::fs::{self, OpenOptions};
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
@@ -32,7 +32,6 @@ pub enum RecoveryEvent {
     Verifying = 2,
     Syncing = 3,
     Complete = 4,
-    Failed = 5,
 }
 
 impl From<RecoveryEvent> for &'static str {
@@ -42,7 +41,6 @@ impl From<RecoveryEvent> for &'static str {
             RecoveryEvent::Syncing => "syncing recovery files with recovery partition",
             RecoveryEvent::Verifying => "verifying checksums of fetched files",
             RecoveryEvent::Complete => "recovery partition upgrade completed",
-            RecoveryEvent::Failed => "recovery partition upgrade failed",
         }
     }
 }
@@ -73,20 +71,18 @@ where
     // Borrowck disallows moving ownership due to using FnMut instead of FnOnce.
     let progress = Arc::new(progress);
 
-    let result = fetch_iso(&action, &progress, &event, Path::new("/recovery"));
-    if result.is_err() {
-        event(RecoveryEvent::Failed);
-    }
-
-    result.map(|_| ())
+    let (version, build) = fetch_iso(&action, &progress, &event, "/recovery")?;
+    let data = format!("{} {}", version, build);
+    fs::write("/recovery/version", data.as_bytes()).map_err(RecoveryError::WriteVersion)
 }
 
-fn fetch_iso<F: Fn(u64, u64) + 'static + Send + Sync>(
+fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     action: &UpgradeMethod,
     progress: &Arc<F>,
     event: &dyn Fn(RecoveryEvent),
-    recovery_path: &Path,
-) -> RecResult<()> {
+    recovery_path: P,
+) -> RecResult<(String, u16)> {
+    let recovery_path = recovery_path.as_ref();
     info!("fetching ISO to upgrade recovery partition at {}", recovery_path.display());
     (*event)(RecoveryEvent::Fetching);
 
@@ -104,11 +100,14 @@ fn fetch_iso<F: Fn(u64, u64) + 'static + Send + Sync>(
     let recovery = ["Recovery-", &recovery_uuid].concat();
 
     let mut temp_iso_dir = None;
-    let iso = match action {
+    let (iso, version, build) = match action {
         UpgradeMethod::FromRelease { ref version, ref arch, flags } => {
             from_release(&mut temp_iso_dir, progress, event, version, arch, *flags)?
         }
-        UpgradeMethod::FromFile(ref path) => from_file(path)?,
+        UpgradeMethod::FromFile(ref _path) => {
+            // from_file(path)?
+            unimplemented!();
+        },
     };
 
     (*event)(RecoveryEvent::Syncing);
@@ -140,7 +139,7 @@ fn fetch_iso<F: Fn(u64, u64) + 'static + Send + Sync>(
 
     (*event)(RecoveryEvent::Complete);
 
-    Ok(())
+    Ok((version, build))
 }
 
 /// Fetches the release ISO remotely from api.pop-os.org.
@@ -151,18 +150,12 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
     version: &Option<String>,
     arch: &Option<String>,
     flags: ReleaseFlags,
-) -> RecResult<PathBuf> {
-    let version_: String;
-    let version = match version {
-        Some(ref version) => version,
-        None => {
-            let current = Version::detect()?;
-            let version =
-                if flags.contains(ReleaseFlags::NEXT) { current.next_release() } else { current };
+) -> RecResult<(PathBuf, String, u16)> {
+    let (_, version, build) = crate::release::check()?;
 
-            version_ = format!("{}", version);
-            &version_
-        }
+    let build = match build {
+        Some(build) => build,
+        None => return Err(RecoveryError::NoBuildAvailable { version })
     };
 
     let arch = match arch {
@@ -170,9 +163,11 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
         None => detect_arch()?,
     };
 
-    let release = Release::get_release(version, arch).map_err(RecoveryError::ApiError)?;
-    from_remote(temp, progress, event, &release.url, &release.sha_sum)
-        .map_err(|why| RecoveryError::Download(Box::new(why)))
+    let release = Release::get_release(&version, arch).map_err(RecoveryError::ApiError)?;
+    let iso_path = from_remote(temp, progress, event, &release.url, &release.sha_sum)
+        .map_err(|why| RecoveryError::Download(Box::new(why)))?;
+
+    Ok((iso_path, version, build))
 }
 
 /// Check that the file exist.
