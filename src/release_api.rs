@@ -60,6 +60,10 @@ impl Release {
             .map_err(ApiError::Json)?
             .into_release()
     }
+
+    pub fn exists(current: &str, iso: &str) -> Option<u16> {
+        Self::get_release(current, iso).ok().map(|r| r.build)
+    }
 }
 
 #[test]

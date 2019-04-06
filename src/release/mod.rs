@@ -24,11 +24,11 @@ const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
 const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
 
 pub fn check() -> Result<(String, String, Option<u16>), VersionError> {
-    fn release_exists(current: &str, iso: &str) -> Option<u16> {
-        Release::get_release(current, iso).ok().map(|r| r.build)
-    }
+    find_next_release(Version::detect, Release::exists)
+}
 
-    find_next_release(Version::detect, release_exists)
+pub fn check_current(version: Option<&str>) -> Option<(String, u16)> {
+    find_current_release(Version::detect, Release::exists, version)
 }
 
 #[repr(u8)]
@@ -392,6 +392,34 @@ fn format_version(version: Version) -> String {
     format!("{}.{:02}", version.major, version.minor)
 }
 
+fn find_current_release(
+    version_detect: fn() -> Result<Version, VersionError>,
+    release_exists: fn(&str, &str) -> Option<u16>,
+    version: Option<&str>
+) -> Option<(String, u16)> {
+    if let Some(version) = version {
+        let build = release_exists(version, "intel")?;
+        return Some((version.into(), build));
+    }
+
+    let mut current = version_detect().ok()?;
+    let mut current_str = format_version(current);
+    let mut available = release_exists(&current_str, "intel")?;
+
+    let mut next = current.next_release();
+    let mut next_str = format_version(next);
+
+    while let Some(build) = release_exists(&next_str, "intel") {
+        available = build;
+        current = next;
+        current_str = next_str;
+        next = current.next_release();
+        next_str = format_version(next);
+    }
+
+    Some((current_str, available))
+}
+
 fn find_next_release(
     version_detect: fn() -> Result<Version, VersionError>,
     release_exists: fn(&str, &str) -> Option<u16>,
@@ -461,5 +489,17 @@ mod tests {
 
         let (_, next, available) = find_next_release(v1904, releases_up_to_1904).unwrap();
         assert!("19.10" == next.as_str() && !available.is_some());
+    }
+
+    #[test]
+    fn current_release_check() {
+        let (current, build) = find_current_release(v1804, releases_up_to_1910, None).unwrap();
+        assert!("19.10" == current.as_str());
+
+        let (current, build) = find_current_release(v1904, releases_up_to_1904, None).unwrap();
+        assert!("19.04" == current.as_str());
+
+        let (current, build) = find_current_release(v1904, releases_up_to_1904, Some("18.04")).unwrap();
+        assert!("18.04" == current.as_str());
     }
 }

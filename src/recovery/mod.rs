@@ -102,6 +102,8 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     let mut temp_iso_dir = None;
     let (iso, version, build) = match action {
         UpgradeMethod::FromRelease { ref version, ref arch, flags } => {
+            let version = version.as_ref().map(|v| v.as_str());
+            let arch = arch.as_ref().map(|v| v.as_str());
             from_release(&mut temp_iso_dir, progress, event, version, arch, *flags)?
         }
         UpgradeMethod::FromFile(ref _path) => {
@@ -147,16 +149,12 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
     temp: &mut Option<TempDir>,
     progress: &Arc<F>,
     event: &dyn Fn(RecoveryEvent),
-    version: &Option<String>,
-    arch: &Option<String>,
+    version: Option<&str>,
+    arch: Option<&str>,
     flags: ReleaseFlags,
 ) -> RecResult<(PathBuf, String, u16)> {
-    let (_, version, build) = crate::release::check()?;
-
-    let build = match build {
-        Some(build) => build,
-        None => return Err(RecoveryError::NoBuildAvailable { version })
-    };
+    let (version, build) = crate::release::check_current(version)
+        .ok_or(RecoveryError::NoBuildAvailable)?;
 
     let arch = match arch {
         Some(ref arch) => arch,
