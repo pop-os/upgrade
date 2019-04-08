@@ -76,6 +76,8 @@ attempt_upgrade () {
     fi
 }
 
+plymouth change-mode --updates
+
 FIRST_ATTEMPT=/upgrade-attempt1
 SECOND_ATTEMPT=/upgrade-attempt2
 
