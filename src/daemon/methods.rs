@@ -101,22 +101,12 @@ pub fn release_check(
     let daemon = daemon.clone();
 
     let method = dbus_factory.method(RELEASE_CHECK, move |_message| {
-        daemon
-            .borrow_mut()
-            .release_check()
-            .map(|(current, next, available)| {
-                vec![
-                    current.into(),
-                    next.into(),
-                    available.map_or(-1, |a| a as i16).into()
-                ]
-            })
+        daemon.borrow_mut().release_check().map(|(current, next, available)| {
+            vec![current.into(), next.into(), available.map_or(-1, |a| a as i16).into()]
+        })
     });
 
-    method.outarg::<&str>("current")
-        .outarg::<&str>("next")
-        .outarg::<i16>("build")
-        .consume()
+    method.outarg::<&str>("current").outarg::<&str>("next").outarg::<i16>("build").consume()
 }
 
 pub const RELEASE_UPGRADE: &str = "ReleaseUpgrade";

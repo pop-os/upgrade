@@ -195,7 +195,10 @@ impl Client {
         message: &'a mut Option<Message>,
     ) -> Result<(&'a str, &'a str, Option<u16>), ClientError> {
         *message = Some(self.call_method(methods::RELEASE_CHECK, iter::empty())?);
-        let (c, n, a) = message.as_mut().unwrap().read3::<&str, &str, i16>()
+        let (c, n, a) = message
+            .as_mut()
+            .unwrap()
+            .read3::<&str, &str, i16>()
             .map_err(ClientError::BadResponse)?;
 
         let a = if a < 0 { None } else { Some(a as u16) };

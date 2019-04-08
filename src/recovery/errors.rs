@@ -39,7 +39,10 @@ pub enum RecoveryError {
     ReleaseVersion(VersionError),
     #[error(display = "the recovery feature is limited to EFI installs")]
     Unsupported,
-    #[error(display = "failed to write version of ISO now stored on the recovery partition: {}", _0)]
+    #[error(
+        display = "failed to write version of ISO now stored on the recovery partition: {}",
+        _0
+    )]
     WriteVersion(io::Error),
 }
 

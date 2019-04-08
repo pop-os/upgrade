@@ -27,8 +27,7 @@ pub struct RawRelease {
 impl RawRelease {
     fn into_release(self) -> Result<Release, ApiError> {
         let RawRelease { version, url, size, sha_sum, channel, build } = self;
-        let build = build.parse::<u16>()
-            .map_err(|_| ApiError::BuildNaN(build))?;
+        let build = build.parse::<u16>().map_err(|_| ApiError::BuildNaN(build))?;
 
         Ok(Release { version, url, size, sha_sum, channel, build })
     }
@@ -56,9 +55,7 @@ impl Release {
             .error_for_status()
             .map_err(ApiError::Get)?;
 
-        serde_json::from_reader::<_, RawRelease>(response)
-            .map_err(ApiError::Json)?
-            .into_release()
+        serde_json::from_reader::<_, RawRelease>(response).map_err(ApiError::Json)?.into_release()
     }
 
     pub fn exists(current: &str, iso: &str) -> Option<u16> {

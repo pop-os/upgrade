@@ -109,7 +109,7 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
         UpgradeMethod::FromFile(ref _path) => {
             // from_file(path)?
             unimplemented!();
-        },
+        }
     };
 
     (*event)(RecoveryEvent::Syncing);
@@ -153,8 +153,8 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
     arch: Option<&str>,
     flags: ReleaseFlags,
 ) -> RecResult<(PathBuf, String, u16)> {
-    let (version, build) = crate::release::check_current(version)
-        .ok_or(RecoveryError::NoBuildAvailable)?;
+    let (version, build) =
+        crate::release::check_current(version).ok_or(RecoveryError::NoBuildAvailable)?;
 
     let arch = match arch {
         Some(ref arch) => arch,

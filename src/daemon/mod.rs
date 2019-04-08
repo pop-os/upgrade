@@ -456,7 +456,9 @@ impl Daemon {
 
         info!(
             "Release {{ current: \"{}\", next: \"{}\", available: {} }}",
-            current, next, misc::format_build_number(available, &mut buffer)
+            current,
+            next,
+            misc::format_build_number(available, &mut buffer)
         );
 
         Ok((current, next, available))

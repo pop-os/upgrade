@@ -395,7 +395,7 @@ fn format_version(version: Version) -> String {
 fn find_current_release(
     version_detect: fn() -> Result<Version, VersionError>,
     release_exists: fn(&str, &str) -> Option<u16>,
-    version: Option<&str>
+    version: Option<&str>,
 ) -> Option<(String, u16)> {
     if let Some(version) = version {
         let build = release_exists(version, "intel")?;
@@ -469,11 +469,8 @@ mod tests {
     }
 
     fn releases_up_to_1910(release: &str, kind: &str) -> Option<u16> {
-        releases_up_to_1904(release, kind).or_else(|| if release == "19.10" {
-            Some(1)
-        } else {
-            None
-        })
+        releases_up_to_1904(release, kind)
+            .or_else(|| if release == "19.10" { Some(1) } else { None })
     }
 
     #[test]
@@ -499,7 +496,8 @@ mod tests {
         let (current, build) = find_current_release(v1904, releases_up_to_1904, None).unwrap();
         assert!("19.04" == current.as_str());
 
-        let (current, build) = find_current_release(v1904, releases_up_to_1904, Some("18.04")).unwrap();
+        let (current, build) =
+            find_current_release(v1904, releases_up_to_1904, Some("18.04")).unwrap();
         assert!("18.04" == current.as_str());
     }
 }
