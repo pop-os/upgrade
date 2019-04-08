@@ -55,7 +55,6 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
             info!("adding PPA: {}", *ppa);
             ppa_add(*ppa)?;
         }
-
     }
 
     Ok(())
