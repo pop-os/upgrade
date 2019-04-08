@@ -31,7 +31,15 @@ endif
 all: target/$(TARGET)/$(BIN)
 
 clean:
+	rm -rf .cargo vendor vendor.tar.xz
 	cargo clean
+
+vendor:
+	mkdir -p .cargo
+	cargo vendor | head -n -1 > .cargo/config
+	echo 'directory = "vendor"' >> .cargo/config
+	tar pcfJ vendor.tar.xz vendor
+	rm -rf vendor
 
 install: all
 	install -Dm04755 "target/$(TARGET)/$(BIN)" "$(DESTDIR)$(bindir)/$(BIN)"
@@ -41,4 +49,7 @@ install: all
 	install -Dm0644 "data/$(BIN).conf" "$(DESTDIR)$(sysconfdir)/dbus-1/system.d/$(BIN).conf"
 
 target/$(TARGET)/$(BIN): Makefile Cargo.lock Cargo.toml src/* src/*/*
+ifeq ($(VENDORED),1)
+	tar pxf vendor.tar.xz
+endif
 	cargo build $(ARGS)
