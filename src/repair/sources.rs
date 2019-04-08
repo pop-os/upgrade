@@ -36,6 +36,7 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
 
     info!("ensuring that the proprietary pop repo is added");
     let mut sources_list = SourcesList::scan().map_err(SourcesError::ListRead)?;
+
     insert_entry(
         &mut sources_list,
         MAIN_SOURCES,
@@ -47,8 +48,14 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
     sources_list.write_sync().map_err(SourcesError::ListWrite)?;
 
     for ppa in POP_PPAS {
-        info!("adding PPA: {}", ppa);
-        ppa_add(*ppa)?;
+        let url = ["http://ppa.launchpad.net/", *ppa, "/ubuntu"].concat();
+        if sources_list.iter().any(|file| file.contains_entry(&url).is_some()) {
+            info!("PPA {} found: not adding", *ppa);
+        } else {
+            info!("adding PPA: {}", *ppa);
+            ppa_add(*ppa)?;
+        }
+
     }
 
     Ok(())
