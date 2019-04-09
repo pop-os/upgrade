@@ -179,6 +179,10 @@ pub fn main() {
                         ),
                 )
                 .subcommand(
+                    SubCommand::with_name("refresh")
+                        .about("refresh the existing OS (requires recovery partition)")
+                )
+                .subcommand(
                     SubCommand::with_name("repair")
                         .about("search for issues in the system, and repair them"),
                 )

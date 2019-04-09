@@ -148,6 +148,10 @@ impl Client {
                     println!("no release available to upgrade to");
                 }
             }
+            ("refresh", Some(_)) => {
+                let _ = self.call_method(methods::REFRESH_OS, iter::empty())?;
+                println!("reboot to boot into the recovery partition to begin the refresh install");
+            }
             ("repair", Some(_)) => {
                 let _message = self.call_method(methods::RELEASE_REPAIR, iter::empty())?;
             }

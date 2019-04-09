@@ -92,6 +92,22 @@ pub fn recovery_upgrade_release(
         .consume()
 }
 
+pub const REFRESH_OS: &str = "RefreshOS";
+
+pub fn refresh_os(
+    daemon: Rc<RefCell<Daemon>>,
+    dbus_factory: &DbusFactory,
+) -> Method<MTFn<()>, ()> {
+    let daemon = daemon.clone();
+
+    let method = dbus_factory.method::<_, String>(REFRESH_OS, move |_message| {
+        daemon.borrow_mut().refresh_os()?;
+        Ok(Vec::new())
+    });
+
+    method.outarg::<u8>("result").consume()
+}
+
 pub const RELEASE_CHECK: &str = "ReleaseCheck";
 
 pub fn release_check(

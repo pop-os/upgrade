@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-VENDORED ?= 1
+export VENDORED ?= 1
 CLEAN ?= 1
 
 %:

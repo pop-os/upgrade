@@ -19,7 +19,7 @@ use ubuntu_version::{Codename, Version, VersionError};
 pub use self::errors::{RelResult, ReleaseError};
 
 const CORE_PACKAGES: &[&str] = &["pop-desktop"];
-const RELEASE_FETCH_FILE: &str = "/release_fetch_in_progress";
+const RELEASE_FETCH_FILE: &str = "/pop_preparing_release_upgrade";
 const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
 const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
 
@@ -29,6 +29,12 @@ pub fn check() -> Result<(String, String, Option<u16>), VersionError> {
 
 pub fn check_current(version: Option<&str>) -> Option<(String, u16)> {
     find_current_release(Version::detect, Release::exists, version)
+}
+
+// Configure the system to refresh the OS in the recovery partition.
+pub fn refresh_os() -> Result<(), ReleaseError> {
+    recovery_prereq()?;
+    set_recovery_as_default_boot_option("REFRESH")
 }
 
 #[repr(u8)]
@@ -175,7 +181,7 @@ impl<'a> DaemonRuntime<'a> {
 
         // Ensure that prerequest files and mounts are available.
         match action {
-            UpgradeMethod::Recovery => Self::recovery_upgrade_prereq_check()?,
+            UpgradeMethod::Recovery => recovery_prereq()?,
             UpgradeMethod::Offline => Self::systemd_upgrade_prereq_check()?,
         }
 
@@ -212,8 +218,11 @@ impl<'a> DaemonRuntime<'a> {
         let mut upgrader = self.fetch_new_release_packages(logger, fetch, from, to)?;
         let result = self.perform_action(logger, action);
 
-        // Removing this will signal that we
-        let _ = fs::remove_file(RELEASE_FETCH_FILE);
+        // We know that an offline install will trigger the upgrade script at init.
+        // We want to ensure that the recovery partition has removed this file on completion.
+        if let UpgradeMethod::Offline = action {
+            let _ = fs::remove_file(RELEASE_FETCH_FILE);
+        }
 
         if let Err(ref why) = result {
             (*logger)(UpgradeEvent::Failure);
@@ -237,27 +246,8 @@ impl<'a> DaemonRuntime<'a> {
             }
             UpgradeMethod::Recovery => {
                 (*logger)(UpgradeEvent::AttemptingRecovery);
-                set_recovery_as_default_boot_option()
+                set_recovery_as_default_boot_option("UPGRADE")
             }
-        }
-    }
-
-    fn recovery_upgrade_prereq_check() -> RelResult<()> {
-        if !Path::new(SYSTEMD_BOOT_LOADER).exists() {
-            return Err(ReleaseError::SystemdBootLoaderNotFound);
-        }
-
-        if !Path::new(SYSTEMD_BOOT_LOADER_PATH).exists() {
-            return Err(ReleaseError::SystemdBootEfiPathNotFound);
-        }
-
-        let partitions =
-            fs::read_to_string("/proc/mounts").map_err(ReleaseError::ReadingPartitions)?;
-
-        if partitions.contains("/recovery") {
-            Ok(())
-        } else {
-            Err(ReleaseError::RecoveryNotFound)
         }
     }
 
@@ -340,7 +330,7 @@ fn rollback<E: ::std::fmt::Display>(upgrader: &mut Upgrader, why: &E) {
 /// boot option.
 ///
 /// It will be up to the recovery partition to revert this change once it has completed its job.
-fn set_recovery_as_default_boot_option() -> RelResult<()> {
+fn set_recovery_as_default_boot_option(option: &str) -> RelResult<()> {
     info!("gathering systemd-boot configuration information");
 
     let mut systemd_boot_conf =
@@ -362,7 +352,7 @@ fn set_recovery_as_default_boot_option() -> RelResult<()> {
 
     EnvFile::new(Path::new("/recovery/recovery.conf"))
         .map_err(ReleaseError::RecoveryConfOpen)?
-        .update("UPGRADE", "1")
+        .update(option, "1")
         .write()
         .map_err(ReleaseError::RecoveryUpdate)
 }
@@ -373,7 +363,8 @@ pub enum FetchEvent {
     Init(usize),
 }
 
-pub fn release_fetch_cleanup() {
+/// Check if certain files exist at the time of starting this daemon.
+pub fn cleanup() {
     if let Ok(data) = fs::read_to_string(RELEASE_FETCH_FILE) {
         let mut iter = data.split(' ');
         if let (Some(current), Some(next)) = (iter.next(), iter.next()) {
@@ -385,6 +376,25 @@ pub fn release_fetch_cleanup() {
 
         let _ = fs::remove_file(RELEASE_FETCH_FILE);
         let _ = apt_update();
+    }
+}
+
+fn recovery_prereq() -> RelResult<()> {
+    if !Path::new(SYSTEMD_BOOT_LOADER).exists() {
+        return Err(ReleaseError::SystemdBootLoaderNotFound);
+    }
+
+    if !Path::new(SYSTEMD_BOOT_LOADER_PATH).exists() {
+        return Err(ReleaseError::SystemdBootEfiPathNotFound);
+    }
+
+    let partitions =
+        fs::read_to_string("/proc/mounts").map_err(ReleaseError::ReadingPartitions)?;
+
+    if partitions.contains("/recovery") {
+        Ok(())
+    } else {
+        Err(ReleaseError::RecoveryNotFound)
     }
 }
 
