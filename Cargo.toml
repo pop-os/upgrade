@@ -14,8 +14,8 @@ clap = "2.32.0"
 crossbeam-channel = "0.3.8"
 dbus = "0.6.4"
 disk-types = "0.1.2"
-distinst-chroot = { git = "https://github.com/pop-os/distinst/", branch = "unused-fix" }
-distinst-disks = { git = "https://github.com/pop-os/distinst/", branch = "unused-fix" }
+distinst-chroot = { git = "https://github.com/pop-os/distinst/" }
+distinst-disks = { git = "https://github.com/pop-os/distinst/" }
 err-derive = "0.1.5"
 fern = "0.5.7"
 futures = "0.1.25"

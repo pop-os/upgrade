@@ -285,6 +285,7 @@ impl Daemon {
             .add_m(methods::package_upgrade(daemon.clone(), &dbus_factory))
             .add_m(methods::recovery_upgrade_file(daemon.clone(), &dbus_factory))
             .add_m(methods::recovery_upgrade_release(daemon.clone(), &dbus_factory))
+            .add_m(methods::refresh_os(daemon.clone(), &dbus_factory))
             .add_m(methods::release_check(daemon.clone(), &dbus_factory))
             .add_m(methods::release_repair(daemon.clone(), &dbus_factory))
             .add_m(methods::release_upgrade(daemon.clone(), &dbus_factory))
@@ -312,7 +313,7 @@ impl Daemon {
 
         info!("daemon registered -- listening for new events");
 
-        release::release_fetch_cleanup();
+        release::cleanup();
 
         loop {
             connection.incoming(1000).next();
@@ -446,6 +447,11 @@ impl Daemon {
 
         self.submit_event(event)?;
         Ok(())
+    }
+
+    fn refresh_os(&mut self) -> Result<(), String> {
+        info!("preparing to refresh OS");
+        crate::release::refresh_os().map_err(|why| format!("{}", why))
     }
 
     fn release_check(&mut self) -> Result<(String, String, Option<u16>), String> {

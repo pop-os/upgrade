@@ -20,9 +20,9 @@ following details:
     - If an update task is already in progress, `completed` and `total` will have non-zero values.
     - If `updates_available` returns `false`, then there are no packages to fetch.
     - Unless `download_only` is specified as `true`, the packages will also be installed.
-- `RecoveryUpgradeByFile (path: s)`
+- `RecoveryUpgradeByFile (path: s) -> (result: y)`
     - Creates a task which will upgrade the recovery partition via a file ath the `path`.
-- `RecoveryUpgradeByRelease (version: s, arch: s, flags: q) -> (result: u8)`
+- `RecoveryUpgradeByRelease (version: s, arch: s, flags: q) -> (result: y)`
     - Creates a task which will upgrade the recovery partition via the release API, using the defined details.
     - If package updates are available, a `FetchUpdates` task will execute beforehand.
     - `how` defines how the recovery partition should be upgraded.
@@ -30,7 +30,8 @@ following details:
     - `version` defines the suite to fetch from (ie: `20.04`)
     - `arch` defines which variant of that version to fetch (ie: `nvidia`)
     - `flags` sets additional configuration parameters for the task
-- `ReleaseCheck () -> (current: s, next: s, available: b)`
+- `RefreshOS () -> (result: y)`
+- `ReleaseCheck () -> (current: s, next: s, build: n)`
     - Quickly checks the `current` release, determines the `next` release, and states whether
     an update is `available` or not.
 - `ReleaseUpgrade (how: q, from: s, to: s)`
@@ -75,11 +76,11 @@ following details:
   - Tracks the progress of the recovery files being fetched
 - `RecoveryUpgradeEvent (event: q)`
   - Notifies the client of a recovery upgrade event that has occurred
-- `RecoveryUpgradeResult (result: q)`
+- `RecoveryUpgradeResult (result: y)`
   - Indicates the final result of the recovery upgrade process
 - `ReleaseUpgradeEvent (event: q)`
   - Notifies the client of a release upgrade event that has occurred
-- `ReleaseUpgradeResult (result: q)`
+- `ReleaseUpgradeResult (result: y)`
   - Indicates the final result of the recovery upgrade process
 
 ### Recovery Upgrade Event

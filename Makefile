@@ -22,7 +22,7 @@ ifeq ($(DEBUG),0)
 endif
 
 VENDORED ?= 0
-ifneq ($(VENDORED),0)
+ifeq ($(VENDORED),1)
 	ARGS += "--frozen"
 endif
 
