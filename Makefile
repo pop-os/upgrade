@@ -31,8 +31,10 @@ endif
 all: target/$(TARGET)/$(BIN)
 
 clean:
-	rm -rf .cargo vendor vendor.tar.xz
 	cargo clean
+
+distclean:
+	rm -rf .cargo vendor vendor.tar.xz
 
 vendor:
 	mkdir -p .cargo
@@ -50,6 +52,7 @@ install: all
 
 target/$(TARGET)/$(BIN): Makefile Cargo.lock Cargo.toml src/* src/*/*
 ifeq ($(VENDORED),1)
+	ls
 	tar pxf vendor.tar.xz
 endif
 	cargo build $(ARGS)
