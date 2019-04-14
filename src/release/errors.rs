@@ -18,6 +18,8 @@ pub enum ReleaseError {
     CurrentUpdate(io::Error),
     #[error(display = "failed to execute `dpkg --configure -a`: {}", _0)]
     DpkgConfigure(io::Error),
+    #[error(display = "failed to hold the pop-upgrade package: {}", _0)]
+    HoldPopUpgrade(io::Error),
     #[error(display = "failure to overwrite release files: {}", _0)]
     Overwrite(DistUpgradeError),
     #[error(display = "root is required for this action: rerun with `sudo`")]
@@ -46,6 +48,8 @@ pub enum ReleaseError {
     Repair(RepairError),
     #[error(display = "files required for systemd upgrade are missing: {:?}", _0)]
     SystemdUpgradeFilesMissing(Vec<&'static str>),
+    #[error(display = "failed to unhold the pop-upgrade package: {}", _0)]
+    UnholdPopUpgrade(io::Error),
     #[error(display = "failed to perform apt upgrade of the current release: {}", _0)]
     Upgrade(io::Error),
     #[error(display = "failed to install core packages: {}", _0)]

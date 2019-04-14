@@ -156,11 +156,16 @@ impl<'a> DaemonRuntime<'a> {
     /// Performs a live release upgrade via the daemon, with a callback for tracking progress.
     pub fn package_upgrade<C: Fn(AptUpgradeEvent)>(&mut self, callback: C) -> RelResult<()> {
         let callback = &callback;
+        
+        apt_hold("pop-upgrade").map_err(ReleaseError::HoldPopUpgrade)?;
+
         // If the first upgrade attempt fails, try to dpkg --configure -a and try again.
         if apt_upgrade(callback).is_err() {
             dpkg_configure_all().map_err(ReleaseError::DpkgConfigure)?;
             apt_upgrade(callback).map_err(ReleaseError::Upgrade)?;
         }
+
+        apt_unhold("pop-upgrade").map_err(ReleaseError::UnholdPopUpgrade)?;
 
         Ok(())
     }
@@ -365,10 +370,14 @@ pub enum FetchEvent {
 
 /// Check if certain files exist at the time of starting this daemon.
 pub fn cleanup() {
+    info!("checking for {}", RELEASE_FETCH_FILE);
     if let Ok(data) = fs::read_to_string(RELEASE_FETCH_FILE) {
+        info!("cleaning up after {} ({})", RELEASE_FETCH_FILE, data);
         let mut iter = data.split(' ');
         if let (Some(current), Some(next)) = (iter.next(), iter.next()) {
+            info!("current: {}; next: {}", current, next);
             if let Ok(mut lists) = SourcesList::scan() {
+                info!("found lists");
                 lists.dist_replace(next, current);
                 let _ = lists.write_sync();
             }
