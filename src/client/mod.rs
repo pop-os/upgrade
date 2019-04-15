@@ -16,7 +16,7 @@ use std::{
     io::{self, Write},
     iter,
 };
-use yansi::{Color, Paint};
+use yansi::Paint;
 
 const TIMEOUT: i32 = 3000;
 
@@ -293,8 +293,8 @@ impl Client {
                     println!(
                         "{} ({}/{}) {}",
                         Paint::green("Fetched").bold(),
-                        Paint::yellow(completed),
-                        Paint::yellow(total),
+                        Paint::yellow(completed).bold(),
+                        Paint::yellow(total).bold(),
                         Paint::magenta(name).bold()
                     );
                 }
@@ -331,9 +331,11 @@ impl Client {
                         signal.read2::<u64, u64>().map_err(ClientError::BadResponse)?;
 
                     print!(
-                        "\rFetched {}/{} MiB",
-                        Paint::yellow(progress / 1024),
-                        Paint::yellow(total / 1024)
+                        "\r{} {}/{} {}",
+                        Paint::green("Fetched").bold(),
+                        Paint::yellow(progress / 1024).bold(),
+                        Paint::yellow(total / 1024).bold(),
+                        Paint::green("MiB").bold()
                     );
                     let _ = io::stdout().flush();
                 }
@@ -362,7 +364,7 @@ impl Client {
                     println!(
                         "{}: recovery upgrade status was {}",
                         Paint::green("Complete").bold(),
-                        Paint::yellow(status)
+                        Paint::yellow(status).bold()
                     );
                     return Ok(Continue(false));
                 }
@@ -388,8 +390,8 @@ impl Client {
                     println!(
                         "{} ({}/{}): {}",
                         Paint::green("Fetched").bold(),
-                        Paint::yellow(completed),
-                        Paint::yellow(total),
+                        Paint::yellow(completed).bold(),
+                        Paint::yellow(total).bold(),
                         Paint::magenta(name).bold()
                     );
                 }
@@ -404,7 +406,7 @@ impl Client {
                     println!(
                         "{}: release upgrade status was {}",
                         Paint::green("Complete").bold(),
-                        Paint::yellow(status)
+                        Paint::yellow(status).bold()
                     );
                     return Ok(Continue(false));
                 }
@@ -484,8 +486,8 @@ fn write_apt_event (event: AptUpgradeEvent) {
                 dpkg,
                 Paint::cyan("Unpacking").bold(),
                 Paint::magenta(package).bold(),
-                Paint::yellow(version),
-                Paint::yellow(over)
+                Paint::yellow(version).bold(),
+                Paint::yellow(over).bold()
             );
         }
     }
