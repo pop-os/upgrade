@@ -1,5 +1,7 @@
-use std::fmt::{self, Display, Formatter};
-use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
+use std::{
+    fmt::{self, Display, Formatter},
+    sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT},
+};
 
 pub static PENDING: AtomicUsize = ATOMIC_USIZE_INIT;
 

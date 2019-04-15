@@ -1,8 +1,8 @@
-use dbus;
-use dbus::tree::{MTFn, Method};
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::atomic::Ordering;
+use dbus::{
+    self,
+    tree::{MTFn, Method},
+};
+use std::{cell::RefCell, rc::Rc, sync::atomic::Ordering};
 
 use crate::daemon::{dbus_helper::DbusFactory, Daemon, DaemonStatus};
 
@@ -94,10 +94,7 @@ pub fn recovery_upgrade_release(
 
 pub const REFRESH_OS: &str = "RefreshOS";
 
-pub fn refresh_os(
-    daemon: Rc<RefCell<Daemon>>,
-    dbus_factory: &DbusFactory,
-) -> Method<MTFn<()>, ()> {
+pub fn refresh_os(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method<MTFn<()>, ()> {
     let daemon = daemon.clone();
 
     let method = dbus_factory.method::<_, String>(REFRESH_OS, move |_message| {

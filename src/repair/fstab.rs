@@ -7,10 +7,10 @@ use distinst_chroot::Command;
 use distinst_disks::{Disks, PartitionInfo};
 use partition_identity::{PartitionID, PartitionSource};
 use proc_mounts::{MountInfo, MountIter, MountTab};
-use std::path::{Path, PathBuf};
 use std::{
     fs,
     io::{self, Write},
+    path::{Path, PathBuf},
 };
 
 #[derive(Debug, Error)]
@@ -39,9 +39,7 @@ pub enum FstabError {
     ProcRead(io::Error),
     #[error(display = "failed to read the fstab file: {}", _0)]
     Read(io::Error),
-    #[error(
-        display = "root partition's device path was not found (maybe it is a logical device?)"
-    )]
+    #[error(display = "root partition's device path was not found (maybe it is a logical device?)")]
     RootDeviceNotFound,
     #[error(display = "root partition was not found in the fstab file")]
     RootNotFound,
@@ -166,9 +164,7 @@ pub fn repair() -> Result<(), FstabError> {
     mount_all().map_err(FstabError::MountFailure)
 }
 
-fn mount_all() -> io::Result<()> {
-    Command::new("mount").arg("-a").run()
-}
+fn mount_all() -> io::Result<()> { Command::new("mount").arg("-a").run() }
 
 fn fstab_check_root(root: Option<&MountInfo>) -> Result<Option<PartitionID>, FstabError> {
     let root = root.ok_or(FstabError::RootNotFound)?;

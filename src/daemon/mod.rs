@@ -5,33 +5,38 @@ mod runtime;
 pub mod signals;
 mod status;
 
-pub use self::error::DaemonError;
-pub use self::runtime::DaemonRuntime;
-pub use self::signals::SignalEvent;
-pub use self::status::DaemonStatus;
+pub use self::{
+    error::DaemonError, runtime::DaemonRuntime, signals::SignalEvent, status::DaemonStatus,
+};
 
 use self::dbus_helper::DbusFactory;
-use crate::misc;
-use crate::recovery::{
-    self, ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
+use crate::{
+    misc,
+    recovery::{
+        self, ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
+    },
+    release::{self, FetchEvent, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod},
+    signal_handler, DBUS_IFACE, DBUS_NAME, DBUS_PATH,
 };
-use crate::release::{self, FetchEvent, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod};
-use crate::{signal_handler, DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 use apt_cli_wrappers::apt_upgrade;
 use apt_fetcher::apt_uris::{apt_uris, AptUri};
 use atomic::Atomic;
 use crossbeam_channel::{bounded, Receiver, Sender};
-use dbus::tree::{Factory, Signal};
-use dbus::{self, BusType, Connection, Message, NameFlag};
+use dbus::{
+    self,
+    tree::{Factory, Signal},
+    BusType, Connection, Message, NameFlag,
+};
 use logind_dbus::LoginManager;
 use num_traits::FromPrimitive;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::thread;
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    path::PathBuf,
+    rc::Rc,
+    sync::{atomic::Ordering, Arc},
+    thread,
+};
 use tokio::runtime::Runtime;
 
 #[derive(Debug)]
@@ -43,11 +48,11 @@ pub enum Event {
 }
 
 pub struct Daemon {
-    event_tx: Sender<Event>,
-    dbus_rx: Receiver<SignalEvent>,
-    connection: Arc<Connection>,
-    status: Arc<Atomic<DaemonStatus>>,
-    sub_status: Arc<Atomic<u8>>,
+    event_tx:       Sender<Event>,
+    dbus_rx:        Receiver<SignalEvent>,
+    connection:     Arc<Connection>,
+    status:         Arc<Atomic<DaemonStatus>>,
+    sub_status:     Arc<Atomic<u8>>,
     fetching_state: Arc<Atomic<(u64, u64)>>,
 }
 
@@ -441,8 +446,8 @@ impl Daemon {
 
         let event = Event::RecoveryUpgrade(RecoveryUpgradeMethod::FromRelease {
             version: if version.is_empty() { None } else { Some(version.into()) },
-            arch: if arch.is_empty() { None } else { Some(arch.into()) },
-            flags: RecoveryReleaseFlags::from_bits_truncate(flags),
+            arch:    if arch.is_empty() { None } else { Some(arch.into()) },
+            flags:   RecoveryReleaseFlags::from_bits_truncate(flags),
         });
 
         self.submit_event(event)?;

@@ -1,17 +1,22 @@
-use crate::daemon::*;
-use crate::misc;
-use crate::recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags};
-use crate::release::{UpgradeEvent, UpgradeMethod};
-use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
+use crate::{
+    daemon::*,
+    misc,
+    recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags},
+    release::{UpgradeEvent, UpgradeMethod},
+    DBUS_IFACE, DBUS_NAME, DBUS_PATH,
+};
 use apt_cli_wrappers::AptUpgradeEvent;
 use clap::ArgMatches;
 use dbus::{
     self, BusType, Connection, ConnectionItem, Message, MessageItem, MessageItemArray, Signature,
 };
 use num_traits::FromPrimitive;
-use std::collections::HashMap;
-use std::io::{self, Write};
-use std::iter;
+use std::{
+    collections::HashMap,
+    io::{self, Write},
+    iter,
+};
+use yansi::{Color, Paint};
 
 const TIMEOUT: i32 = 3000;
 
@@ -61,6 +66,18 @@ impl Client {
         })
     }
 
+    fn recovery_by_release(
+        &self,
+        version: &str,
+        arch: &str,
+        flags: RecoveryReleaseFlags,
+    ) -> Result<Message, ClientError> {
+        let flags: u8 = flags.bits();
+        let args: Vec<MessageItem> = vec![version.into(), arch.into(), flags.into()];
+
+        self.call_method(methods::RECOVERY_UPGRADE_RELEASE, args.into_iter())
+    }
+
     /// Executes the recovery subcommand of the client.
     pub fn recovery(&self, matches: &ArgMatches) -> Result<(), ClientError> {
         match matches.subcommand() {
@@ -75,11 +92,7 @@ impl Client {
                             RecoveryReleaseFlags::empty()
                         };
 
-                        let flags: u8 = flags.bits();
-                        let args: Vec<MessageItem> =
-                            vec![version.into(), arch.into(), flags.into()];
-
-                        self.call_method(methods::RECOVERY_UPGRADE_RELEASE, args.into_iter())
+                        self.recovery_by_release(version, arch, flags)
                     }
                     ("from-file", Some(matches)) => {
                         let path = matches.value_of("PATH").expect("missing reqired PATH argument");
@@ -105,10 +118,14 @@ impl Client {
                 let (current, next, available) = self.release_check(&mut message)?;
 
                 println!(
-                    "      Current Release: {}\n         Next Release: {}\nNew Release Available: {}",
-                    current, next, misc::format_build_number(available, &mut buffer)
+                    "      Current Release: {}\n         Next Release: {}\nNew Release Available: \
+                     {}",
+                    current,
+                    next,
+                    misc::format_build_number(available, &mut buffer)
                 );
             }
+            // Update the current system, without performing a release upgrade
             ("update", Some(matches)) => {
                 let packages = MessageItemArray::new(
                     Vec::<String>::new().into_iter().map(MessageItem::from).collect(),
@@ -130,6 +147,7 @@ impl Client {
                     self.event_listen_fetch_updates()?;
                 }
             }
+            // Perform an upgrade to the next release. Supports either systemd or recovery upgrades.
             ("upgrade", Some(matches)) => {
                 let (method, matches) = match matches.subcommand() {
                     ("offline", Some(matches)) => (UpgradeMethod::Offline, matches),
@@ -140,7 +158,16 @@ impl Client {
                 let mut message = None;
                 let (current, next, available) = self.release_check(&mut message)?;
 
+                // Only upgrade if an upgrade is possible, or if being forced to upgrade.
                 if matches.is_present("force-next") || available.is_some() {
+                    // Before doing a release upgrade with the recovery partition, ensure that
+                    // the recovery partition has been updated in advance.
+                    if let UpgradeMethod::Recovery = method {
+                        self.recovery_by_release("", "", RecoveryReleaseFlags::empty())?;
+                        self.event_listen_recovery_upgrade()?;
+                    }
+
+                    // Ask to perform the release upgrade, and then listen for its signals.
                     let args = vec![(method as u8).into(), current.into(), next.into()];
                     let _message = self.call_method(methods::RELEASE_UPGRADE, args.into_iter())?;
                     self.event_listen_release_upgrade()?;
@@ -148,6 +175,8 @@ impl Client {
                     println!("no release available to upgrade to");
                 }
             }
+            // Set the recovery partition as the next boot target, and configure it to
+            // automatically switch to the refresh view.
             ("refresh", Some(_)) => {
                 let _ = self.call_method(methods::REFRESH_OS, iter::empty())?;
                 println!("reboot to boot into the recovery partition to begin the refresh install");
@@ -261,12 +290,18 @@ impl Client {
                     let (name, completed, total) =
                         signal.read3::<&str, u32, u32>().map_err(ClientError::BadResponse)?;
 
-                    println!("{}/{}: fetched {}", completed, total, name);
+                    println!(
+                        "{} ({}/{}) {}",
+                        Paint::green("Fetched").bold(),
+                        Paint::yellow(completed),
+                        Paint::yellow(total),
+                        Paint::magenta(name).bold()
+                    );
                 }
                 signals::PACKAGE_FETCHING => {
                     let name = signal.read1::<&str>().map_err(ClientError::BadResponse)?;
 
-                    println!("fetching {}", name);
+                    println!("{} {}", Paint::green("Fetching").bold(), Paint::magenta(name).bold());
                 }
                 signals::PACKAGE_UPGRADE => {
                     let event = signal
@@ -274,7 +309,7 @@ impl Client {
                         .map_err(ClientError::BadResponse)?;
 
                     if let Ok(event) = AptUpgradeEvent::from_dbus_map(event) {
-                        println!("{}", event);
+                        println!("{}: {}", Paint::green("DPKG").bold(), event);
                     } else {
                         eprintln!("failed to unpack the upgrade event");
                     }
@@ -295,7 +330,11 @@ impl Client {
                     let (progress, total) =
                         signal.read2::<u64, u64>().map_err(ClientError::BadResponse)?;
 
-                    print!("\rISO downloaded {} of {} MiB", progress / 1024, total / 1024);
+                    print!(
+                        "\rFetched {}/{} MiB",
+                        Paint::yellow(progress / 1024),
+                        Paint::yellow(total / 1024)
+                    );
                     let _ = io::stdout().flush();
                 }
                 signals::RECOVERY_EVENT => {
@@ -310,7 +349,7 @@ impl Client {
                         println!("");
                     }
 
-                    println!("recovery event: {}", message);
+                    println!("{}: {}", Paint::green("Recovery event").bold(), message);
                 }
                 signals::RECOVERY_RESULT => {
                     let status = signal.read1::<u8>().map_err(ClientError::BadResponse)?;
@@ -320,7 +359,11 @@ impl Client {
                         println!("");
                     }
 
-                    println!("recovery upgrade complete: status was {}", status);
+                    println!(
+                        "{}: recovery upgrade status was {}",
+                        Paint::green("Complete").bold(),
+                        Paint::yellow(status)
+                    );
                     return Ok(Continue(false));
                 }
                 _ => (),
@@ -342,17 +385,27 @@ impl Client {
                     let (name, completed, total) =
                         signal.read3::<&str, u32, u32>().map_err(ClientError::BadResponse)?;
 
-                    println!("{}/{}: fetched {}", completed, total, name);
+                    println!(
+                        "{} ({}/{}): {}",
+                        Paint::green("Fetched").bold(),
+                        Paint::yellow(completed),
+                        Paint::yellow(total),
+                        Paint::magenta(name).bold()
+                    );
                 }
                 signals::PACKAGE_FETCHING => {
                     let name = signal.read1::<&str>().map_err(ClientError::BadResponse)?;
 
-                    println!("fetching {}", name);
+                    println!("{} {}", Paint::green("Fetching").bold(), Paint::magenta(name));
                 }
                 signals::RELEASE_RESULT => {
                     let status = signal.read1::<u8>().map_err(ClientError::BadResponse)?;
 
-                    println!("recovery upgrade complete: status was {}", status);
+                    println!(
+                        "{}: release upgrade status was {}",
+                        Paint::green("Complete").bold(),
+                        Paint::yellow(status)
+                    );
                     return Ok(Continue(false));
                 }
                 signals::RELEASE_EVENT => {
@@ -362,7 +415,7 @@ impl Client {
                         .map(<&'static str>::from)
                         .unwrap_or("unknown event");
 
-                    println!("release upgrade event: {}", message);
+                    println!("{}: {}", Paint::green("Release Event").bold(), message);
                 }
                 signals::PACKAGE_UPGRADE => {
                     let event = signal
@@ -370,7 +423,7 @@ impl Client {
                         .map_err(ClientError::BadResponse)?;
 
                     if let Ok(event) = AptUpgradeEvent::from_dbus_map(event) {
-                        println!("{}", event);
+                        println!("{}: {}", Paint::green("DPKG").bold(), event);
                     } else {
                         eprintln!("failed to unpack the upgrade event");
                     }

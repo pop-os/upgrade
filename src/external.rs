@@ -1,6 +1,5 @@
 use distinst_chroot::Command;
-use std::io;
-use std::path::Path;
+use std::{io, path::Path};
 
 // pub fn update_initramfs() -> io::Result<()> {
 //     Command::new("update-initramfs").args(&["-ck", "all"]).run()

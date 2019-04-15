@@ -18,9 +18,7 @@ pub enum SourcesError {
 }
 
 impl From<SourceError> for SourcesError {
-    fn from(why: SourceError) -> Self {
-        SourcesError::ListRead(why)
-    }
+    fn from(why: SourceError) -> Self { SourcesError::ListRead(why) }
 }
 
 const MAIN_SOURCES: &str = "/etc/apt/sources.list";
@@ -78,10 +76,10 @@ fn insert_entry<P: AsRef<Path>>(
     sources_list.insert_entry(
         preferred,
         SourceEntry {
-            source: false,
-            options: None,
-            url: url.to_owned(),
-            suite: suite.to_owned(),
+            source:     false,
+            options:    None,
+            url:        url.to_owned(),
+            suite:      suite.to_owned(),
             components: components.iter().cloned().map(String::from).collect(),
         },
     )?;

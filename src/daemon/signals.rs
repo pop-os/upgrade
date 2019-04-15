@@ -1,5 +1,7 @@
-use crate::recovery::{RecoveryError, RecoveryEvent};
-use crate::release::{ReleaseError, UpgradeEvent};
+use crate::{
+    recovery::{RecoveryError, RecoveryEvent},
+    release::{ReleaseError, UpgradeEvent},
+};
 use apt_cli_wrappers::AptUpgradeEvent;
 use std::fmt::{self, Display, Formatter};
 

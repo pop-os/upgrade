@@ -17,11 +17,11 @@ pub enum ApiError {
 #[derive(Debug, Deserialize)]
 pub struct RawRelease {
     pub version: String,
-    pub url: String,
-    pub size: u64,
+    pub url:     String,
+    pub size:    u64,
     pub sha_sum: String,
     pub channel: String,
-    pub build: String,
+    pub build:   String,
 }
 
 impl RawRelease {
@@ -36,11 +36,11 @@ impl RawRelease {
 #[derive(Debug)]
 pub struct Release {
     pub version: String,
-    pub url: String,
-    pub size: u64,
+    pub url:     String,
+    pub size:    u64,
     pub sha_sum: String,
     pub channel: String,
-    pub build: u16,
+    pub build:   u16,
 }
 
 impl Release {

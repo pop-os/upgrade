@@ -25,19 +25,16 @@ mod repair;
 mod signal_handler;
 mod system_environment;
 
-use self::client::Client;
-use self::daemon::Daemon;
-use self::logging::setup_logging;
+use self::{client::Client, daemon::Daemon, logging::setup_logging};
 
 pub static DBUS_NAME: &'static str = "com.system76.PopUpgrade";
 pub static DBUS_PATH: &'static str = "/com/system76/PopUpgrade";
 pub static DBUS_IFACE: &'static str = "com.system76.PopUpgrade";
 
 pub mod error {
-    use super::client::ClientError;
-    use super::daemon::DaemonError;
-    use super::recovery::RecoveryError;
-    use super::release::ReleaseError;
+    use super::{
+        client::ClientError, daemon::DaemonError, recovery::RecoveryError, release::ReleaseError,
+    };
     use std::io;
 
     #[derive(Debug, Error)]
@@ -55,33 +52,23 @@ pub mod error {
     }
 
     impl From<ClientError> for Error {
-        fn from(why: ClientError) -> Self {
-            Error::Client(why)
-        }
+        fn from(why: ClientError) -> Self { Error::Client(why) }
     }
 
     impl From<DaemonError> for Error {
-        fn from(why: DaemonError) -> Self {
-            Error::Daemon(why)
-        }
+        fn from(why: DaemonError) -> Self { Error::Daemon(why) }
     }
 
     impl From<RecoveryError> for Error {
-        fn from(why: RecoveryError) -> Self {
-            Error::Recovery(why)
-        }
+        fn from(why: RecoveryError) -> Self { Error::Recovery(why) }
     }
 
     impl From<ReleaseError> for Error {
-        fn from(why: ReleaseError) -> Self {
-            Error::Release(why)
-        }
+        fn from(why: ReleaseError) -> Self { Error::Release(why) }
     }
 
     impl From<InitError> for Error {
-        fn from(why: InitError) -> Self {
-            Error::Init(why)
-        }
+        fn from(why: InitError) -> Self { Error::Init(why) }
     }
 
     #[derive(Debug, Error)]
@@ -180,7 +167,7 @@ pub fn main() {
                 )
                 .subcommand(
                     SubCommand::with_name("refresh")
-                        .about("refresh the existing OS (requires recovery partition)")
+                        .about("refresh the existing OS (requires recovery partition)"),
                 )
                 .subcommand(
                     SubCommand::with_name("repair")
@@ -192,10 +179,13 @@ pub fn main() {
                         .setting(AppSettings::SubcommandRequiredElseHelp)
                         .arg(
                             Arg::with_name("force-next")
-                                .help("Attempt to upgrade to the next release, even if it is not released")
+                                .help(
+                                    "Attempt to upgrade to the next release, even if it is not \
+                                     released",
+                                )
                                 .short("f")
                                 .long("force-next")
-                                .global(true)
+                                .global(true),
                         )
                         .subcommand(SubCommand::with_name("offline").about(
                             "apply system upgrades offline with systemd's offline-update service",
