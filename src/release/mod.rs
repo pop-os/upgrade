@@ -1,18 +1,20 @@
 mod errors;
 
-use apt_fetcher::apt_uris::{apt_uris, AptUri};
-use apt_fetcher::{SourcesList, UpgradeRequest, Upgrader};
+use apt_fetcher::{
+    apt_uris::{apt_uris, AptUri},
+    SourcesList, UpgradeRequest, Upgrader,
+};
 use envfile::EnvFile;
 use futures::{stream, Future, Stream};
-use std::fs::{self, File};
-use std::os::unix::fs::symlink;
-use std::path::Path;
-use std::sync::Arc;
+use std::{
+    fs::{self, File},
+    os::unix::fs::symlink,
+    path::Path,
+    sync::Arc,
+};
 use systemd_boot_conf::SystemdBootConf;
 
-use crate::daemon::DaemonRuntime;
-use crate::release_api::Release;
-use crate::repair;
+use crate::{daemon::DaemonRuntime, release_api::Release, repair};
 use apt_cli_wrappers::*;
 use ubuntu_version::{Codename, Version, VersionError};
 
@@ -156,7 +158,7 @@ impl<'a> DaemonRuntime<'a> {
     /// Performs a live release upgrade via the daemon, with a callback for tracking progress.
     pub fn package_upgrade<C: Fn(AptUpgradeEvent)>(&mut self, callback: C) -> RelResult<()> {
         let callback = &callback;
-        
+
         apt_hold("pop-upgrade").map_err(ReleaseError::HoldPopUpgrade)?;
 
         // If the first upgrade attempt fails, try to dpkg --configure -a and try again.
@@ -170,8 +172,8 @@ impl<'a> DaemonRuntime<'a> {
         Ok(())
     }
 
-    /// Perform the release upgrade by updating release files, fetching packages required for the new
-    /// release, and then setting the recovery partition as the default boot entry.
+    /// Perform the release upgrade by updating release files, fetching packages required for the
+    /// new release, and then setting the recovery partition as the default boot entry.
     pub fn upgrade(
         &mut self,
         action: UpgradeMethod,
@@ -212,7 +214,7 @@ impl<'a> DaemonRuntime<'a> {
 
         // Upgrade the current release to the latest packages.
         (*logger)(UpgradeEvent::UpgradingPackages);
-        apt_upgrade(upgrade).map_err(ReleaseError::Upgrade)?;
+        self.package_upgrade(upgrade)?;
 
         // Install any packages that are deemed critical.
         (*logger)(UpgradeEvent::InstallingPackages);
@@ -397,8 +399,7 @@ fn recovery_prereq() -> RelResult<()> {
         return Err(ReleaseError::SystemdBootEfiPathNotFound);
     }
 
-    let partitions =
-        fs::read_to_string("/proc/mounts").map_err(ReleaseError::ReadingPartitions)?;
+    let partitions = fs::read_to_string("/proc/mounts").map_err(ReleaseError::ReadingPartitions)?;
 
     if partitions.contains("/recovery") {
         Ok(())
@@ -407,9 +408,7 @@ fn recovery_prereq() -> RelResult<()> {
     }
 }
 
-fn format_version(version: Version) -> String {
-    format!("{}.{:02}", version.major, version.minor)
-}
+fn format_version(version: Version) -> String { format!("{}.{:02}", version.major, version.minor) }
 
 fn find_current_release(
     version_detect: fn() -> Result<Version, VersionError>,
@@ -468,17 +467,11 @@ mod tests {
     use super::*;
     use ubuntu_version::{Version, VersionError};
 
-    fn v1804() -> Result<Version, VersionError> {
-        Ok(Version { major: 18, minor: 4, patch: 0 })
-    }
+    fn v1804() -> Result<Version, VersionError> { Ok(Version { major: 18, minor: 4, patch: 0 }) }
 
-    fn v1810() -> Result<Version, VersionError> {
-        Ok(Version { major: 18, minor: 10, patch: 0 })
-    }
+    fn v1810() -> Result<Version, VersionError> { Ok(Version { major: 18, minor: 10, patch: 0 }) }
 
-    fn v1904() -> Result<Version, VersionError> {
-        Ok(Version { major: 19, minor: 4, patch: 0 })
-    }
+    fn v1904() -> Result<Version, VersionError> { Ok(Version { major: 19, minor: 4, patch: 0 }) }
 
     fn releases_up_to_1904(release: &str, _kind: &str) -> Option<u16> {
         match release {

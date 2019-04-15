@@ -1,5 +1,4 @@
-use crate::release_architecture::ReleaseArchError;
-use crate::repair::RepairError;
+use crate::{release_architecture::ReleaseArchError, repair::RepairError};
 use apt_fetcher::{apt_uris::AptUriError, DistUpgradeError};
 use async_fetcher::FetchError;
 use std::io;
@@ -60,26 +59,20 @@ pub enum ReleaseError {
     SystemdBootConf(SystemdBootConfError),
     #[error(display = "failed to overwrite systemd-boot configuration: {}", _0)]
     SystemdBootConfOverwrite(SystemdBootConfError),
-    #[error(
-        display = "attempted recovery-based upgrade method, but the systemd efi loader path was not found"
-    )]
+    #[error(display = "attempted recovery-based upgrade method, but the systemd efi loader path \
+                       was not found")]
     SystemdBootEfiPathNotFound,
-    #[error(
-        display = "attempted recovery-based upgrade method, but the systemd boot loader was not found"
-    )]
+    #[error(display = "attempted recovery-based upgrade method, but the systemd boot loader was \
+                       not found")]
     SystemdBootLoaderNotFound,
     #[error(display = "recovery entry not found in systemd-boot loader config")]
     MissingRecoveryEntry,
 }
 
 impl From<VersionError> for ReleaseError {
-    fn from(why: VersionError) -> Self {
-        ReleaseError::ReleaseVersion(why)
-    }
+    fn from(why: VersionError) -> Self { ReleaseError::ReleaseVersion(why) }
 }
 
 impl From<ReleaseArchError> for ReleaseError {
-    fn from(why: ReleaseArchError) -> Self {
-        ReleaseError::ReleaseArch(why)
-    }
+    fn from(why: ReleaseArchError) -> Self { ReleaseError::ReleaseArch(why) }
 }

@@ -1,6 +1,4 @@
-use std::fs::File;
-use std::io;
-use std::path::Path;
+use std::{fs::File, io, path::Path};
 
 pub fn create<P: AsRef<Path>>(path: P) -> io::Result<File> {
     File::create(&path).map_err(|why| {

@@ -1,7 +1,9 @@
 use err_derive::Error;
 use sha2::{Digest, Sha256};
-use std::fs::File;
-use std::io::{self, Read};
+use std::{
+    fs::File,
+    io::{self, Read},
+};
 
 #[derive(Debug, Error)]
 pub enum ValidateError {

@@ -2,19 +2,22 @@ mod errors;
 
 use atomic::Atomic;
 use parallel_getter::ParallelGetter;
-use std::fs::{self, OpenOptions};
-use std::io::{Seek, SeekFrom, Write};
-use std::path::{Path, PathBuf};
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::{
+    fs::{self, OpenOptions},
+    io::{Seek, SeekFrom, Write},
+    path::{Path, PathBuf},
+    sync::{atomic::Ordering, Arc},
+};
 use sys_mount::{Mount, MountFlags, Unmount, UnmountFlags};
 use tempfile::{tempdir, TempDir};
 
-use crate::checksum::validate_checksum;
-use crate::external::{findmnt_uuid, rsync};
-use crate::release_api::Release;
-use crate::release_architecture::detect_arch;
-use crate::system_environment::SystemEnvironment;
+use crate::{
+    checksum::validate_checksum,
+    external::{findmnt_uuid, rsync},
+    release_api::Release,
+    release_architecture::detect_arch,
+    system_environment::SystemEnvironment,
+};
 use ubuntu_version::Version;
 
 pub use self::errors::{RecResult, RecoveryError};

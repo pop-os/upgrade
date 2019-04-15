@@ -1,8 +1,7 @@
 pub mod fstab;
 pub mod sources;
 
-use self::fstab::FstabError;
-use self::sources::SourcesError;
+use self::{fstab::FstabError, sources::SourcesError};
 use ubuntu_version::{Codename, Version, VersionError};
 
 #[derive(Debug, Error)]

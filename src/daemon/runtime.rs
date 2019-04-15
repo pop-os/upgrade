@@ -1,11 +1,10 @@
 use reqwest::r#async::Client;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 use tokio::runtime::Runtime;
 
 pub struct DaemonRuntime<'a> {
     pub runtime: &'a mut Runtime,
-    pub client: Arc<Client>,
+    pub client:  Arc<Client>,
 }
 
 impl<'a> DaemonRuntime<'a> {
