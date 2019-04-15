@@ -150,7 +150,7 @@ impl Client {
             // Perform an upgrade to the next release. Supports either systemd or recovery upgrades.
             ("upgrade", Some(matches)) => {
                 let (method, matches) = match matches.subcommand() {
-                    ("offline", Some(matches)) => (UpgradeMethod::Offline, matches),
+                    ("systemd", Some(matches)) => (UpgradeMethod::Offline, matches),
                     ("recovery", Some(matches)) => (UpgradeMethod::Recovery, matches),
                     _ => unreachable!(),
                 };
@@ -309,7 +309,7 @@ impl Client {
                         .map_err(ClientError::BadResponse)?;
 
                     if let Ok(event) = AptUpgradeEvent::from_dbus_map(event) {
-                        println!("{}: {}", Paint::green("DPKG").bold(), event);
+                        write_apt_event(event);
                     } else {
                         eprintln!("failed to unpack the upgrade event");
                     }
@@ -396,7 +396,7 @@ impl Client {
                 signals::PACKAGE_FETCHING => {
                     let name = signal.read1::<&str>().map_err(ClientError::BadResponse)?;
 
-                    println!("{} {}", Paint::green("Fetching").bold(), Paint::magenta(name));
+                    println!("{} {}", Paint::green("Fetching").bold(), Paint::magenta(name).bold());
                 }
                 signals::RELEASE_RESULT => {
                     let status = signal.read1::<u8>().map_err(ClientError::BadResponse)?;
@@ -423,7 +423,7 @@ impl Client {
                         .map_err(ClientError::BadResponse)?;
 
                     if let Ok(event) = AptUpgradeEvent::from_dbus_map(event) {
-                        println!("{}: {}", Paint::green("DPKG").bold(), event);
+                        write_apt_event(event);
                     } else {
                         eprintln!("failed to unpack the upgrade event");
                     }
@@ -448,5 +448,45 @@ fn filter_signal(ci: ConnectionItem) -> Option<Message> {
         Some(ci)
     } else {
         None
+    }
+}
+
+fn write_apt_event (event: AptUpgradeEvent) {
+    let dpkg = Paint::green("Dpkg").bold();
+    match event {
+        AptUpgradeEvent::Processing { package } => {
+            println!(
+                "{}: {} for {}",
+                dpkg,
+                Paint::cyan("Processing triggers").bold(),
+                Paint::magenta(package).bold()
+            );
+        }
+        AptUpgradeEvent::Progress { percent } => {
+            println!(
+                "{}: {}: {}%",
+                dpkg,
+                Paint::cyan("Progress").bold(),
+                Paint::yellow(percent).bold()
+            );
+        },
+        AptUpgradeEvent::SettingUp { package } => {
+            println!(
+                "{}: {} {}",
+                dpkg,
+                Paint::cyan("Setting up").bold(),
+                Paint::magenta(package).bold()
+            );
+        }
+        AptUpgradeEvent::Unpacking { package, version, over } => {
+            println!(
+                "{}: {} {} ({}) over ({})",
+                dpkg,
+                Paint::cyan("Unpacking").bold(),
+                Paint::magenta(package).bold(),
+                Paint::yellow(version),
+                Paint::yellow(over)
+            );
+        }
     }
 }

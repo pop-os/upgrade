@@ -77,7 +77,8 @@ attempt_upgrade () {
     apt-mark unhold pop-upgrade
 }
 
-plymouth change-mode --updates
+plymouth message --text="system-updates"
+
 FIRST_ATTEMPT=/upgrade-attempt1
 SECOND_ATTEMPT=/upgrade-attempt2
 
@@ -94,5 +95,7 @@ elif test -f $SECOND_ATTEMPT; then
 else
     attempt_upgrade $FIRST_ATTEMPT
 fi
+
+plymouth message --text="system-updates-stop"
 
 systemctl reboot
