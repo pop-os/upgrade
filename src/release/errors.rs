@@ -11,6 +11,8 @@ pub type RelResult<T> = Result<T, ReleaseError>;
 pub enum ReleaseError {
     #[error(display = "failed to fetch apt URIs to fetch: {}", _0)]
     AptList(AptUriError),
+    #[error(display = "failed to purge packages: {}", _0)]
+    AptPurge(io::Error),
     #[error(display = "unable to upgrade to next release: {}", _0)]
     Check(DistUpgradeError),
     #[error(display = "failed to update package lists for the current release: {}", _0)]
