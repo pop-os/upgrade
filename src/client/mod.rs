@@ -281,9 +281,17 @@ impl Client {
         self.event_listen(DaemonStatus::FetchingPackages, |_client, signal| {
             match &*signal.member().unwrap() {
                 signals::PACKAGE_FETCH_RESULT => {
-                    let status = signal.read1::<u8>().map_err(ClientError::BadResponse)?;
+                    let (status, why) =
+                        signal.read2::<u8, &str>().map_err(ClientError::BadResponse)?;
 
-                    println!("package fetching complete: status was {}", status);
+                    log_result(
+                        status,
+                        "Package fetch status",
+                        "cargo has been loaded successfully",
+                        "package-fetching aborted",
+                        &why,
+                    );
+
                     return Ok(Continue(false));
                 }
                 signals::PACKAGE_FETCHED => {
@@ -354,18 +362,22 @@ impl Client {
                     println!("{}: {}", Paint::green("Recovery event").bold(), message);
                 }
                 signals::RECOVERY_RESULT => {
-                    let status = signal.read1::<u8>().map_err(ClientError::BadResponse)?;
+                    let (status, why) =
+                        signal.read2::<u8, &str>().map_err(ClientError::BadResponse)?;
 
                     if reset {
                         reset = false;
                         println!("");
                     }
 
-                    println!(
-                        "{}: recovery upgrade status was {}",
-                        Paint::green("Complete").bold(),
-                        Paint::yellow(status).bold()
+                    log_result(
+                        status,
+                        "Recovery upgrade status",
+                        "recovery partition refueled and ready to go",
+                        "recovery upgrade aborted",
+                        &why,
                     );
+
                     return Ok(Continue(false));
                 }
                 _ => (),
@@ -379,9 +391,16 @@ impl Client {
         self.event_listen(DaemonStatus::ReleaseUpgrade, |_client, signal| {
             match &*signal.member().unwrap() {
                 signals::PACKAGE_FETCH_RESULT => {
-                    let status = signal.read1::<u8>().map_err(ClientError::BadResponse)?;
+                    let (status, why) =
+                        signal.read2::<u8, &str>().map_err(ClientError::BadResponse)?;
 
-                    println!("package fetching complete: status was {}", status);
+                    log_result(
+                        status,
+                        "Package fetch status",
+                        "cargo has been loaded successfully",
+                        "package-fetching aborted",
+                        &why,
+                    );
                 }
                 signals::PACKAGE_FETCHED => {
                     let (name, completed, total) =
@@ -401,13 +420,17 @@ impl Client {
                     println!("{} {}", Paint::green("Fetching").bold(), Paint::magenta(name).bold());
                 }
                 signals::RELEASE_RESULT => {
-                    let status = signal.read1::<u8>().map_err(ClientError::BadResponse)?;
+                    let (status, why) =
+                        signal.read2::<u8, &str>().map_err(ClientError::BadResponse)?;
 
-                    println!(
-                        "{}: release upgrade status was {}",
-                        Paint::green("Complete").bold(),
-                        Paint::yellow(status).bold()
+                    log_result(
+                        status,
+                        "Release upgrade status",
+                        "systems are go for launch: reboot now",
+                        "release upgrade aborted",
+                        &why,
                     );
+
                     return Ok(Continue(false));
                 }
                 signals::RELEASE_EVENT => {
@@ -453,7 +476,7 @@ fn filter_signal(ci: ConnectionItem) -> Option<Message> {
     }
 }
 
-fn write_apt_event (event: AptUpgradeEvent) {
+fn write_apt_event(event: AptUpgradeEvent) {
     let dpkg = Paint::green("Dpkg").bold();
     match event {
         AptUpgradeEvent::Processing { package } => {
@@ -471,7 +494,7 @@ fn write_apt_event (event: AptUpgradeEvent) {
                 Paint::cyan("Progress").bold(),
                 Paint::yellow(percent).bold()
             );
-        },
+        }
         AptUpgradeEvent::SettingUp { package } => {
             println!(
                 "{}: {} {}",
@@ -491,4 +514,20 @@ fn write_apt_event (event: AptUpgradeEvent) {
             );
         }
     }
+}
+
+fn log_result(status: u8, event: &str, success: &str, error: &str, why: &str) {
+    let inner: String;
+
+    println!(
+        "{}: {}",
+        Paint::cyan(event).bold(),
+        if status == 0 {
+            Paint::green(success).bold()
+        } else {
+            inner = format!("{}: {}", Paint::red(error).bold(), Paint::yellow(why).bold());
+
+            Paint::wrapping(inner.as_str())
+        }
+    );
 }

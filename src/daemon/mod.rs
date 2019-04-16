@@ -13,7 +13,8 @@ use self::dbus_helper::DbusFactory;
 use crate::{
     misc,
     recovery::{
-        self, ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
+        self, RecoveryError, ReleaseFlags as RecoveryReleaseFlags,
+        UpgradeMethod as RecoveryUpgradeMethod,
     },
     release::{self, FetchEvent, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod},
     signal_handler, DBUS_IFACE, DBUS_NAME, DBUS_PATH,
@@ -47,6 +48,18 @@ pub enum Event {
     ReleaseUpgrade { how: ReleaseUpgradeMethod, from: String, to: String },
 }
 
+pub struct LastKnown {
+    fetch:            Result<(), ReleaseError>,
+    recovery_upgrade: Result<(), RecoveryError>,
+    release_upgrade:  Result<(), ReleaseError>,
+}
+
+impl Default for LastKnown {
+    fn default() -> Self {
+        Self { fetch: Ok(()), recovery_upgrade: Ok(()), release_upgrade: Ok(()) }
+    }
+}
+
 pub struct Daemon {
     event_tx:       Sender<Event>,
     dbus_rx:        Receiver<SignalEvent>,
@@ -54,6 +67,7 @@ pub struct Daemon {
     status:         Arc<Atomic<DaemonStatus>>,
     sub_status:     Arc<Atomic<u8>>,
     fetching_state: Arc<Atomic<(u64, u64)>>,
+    last_known:     LastKnown,
 }
 
 impl Daemon {
@@ -158,7 +172,7 @@ impl Daemon {
                                 }
                             });
 
-                            let _ = dbus_tx.send(SignalEvent::FetchResult(result.map(|_| ())));
+                            let _ = dbus_tx.send(SignalEvent::FetchResult(result));
                         }
                         Event::PackageUpgrade => {
                             info!("upgrading packages");
@@ -228,7 +242,15 @@ impl Daemon {
             });
         }
 
-        Ok(Daemon { event_tx, dbus_rx, connection, fetching_state: prog_state, status, sub_status })
+        Ok(Daemon {
+            event_tx,
+            dbus_rx,
+            connection,
+            fetching_state: prog_state,
+            status,
+            sub_status,
+            last_known: Default::default(),
+        })
     }
 
     pub fn init() -> Result<(), DaemonError> {
@@ -241,7 +263,11 @@ impl Daemon {
         let daemon = Rc::new(RefCell::new(Self::new(&dbus_factory)?));
 
         let fetch_result = Arc::new(
-            dbus_factory.signal(signals::PACKAGE_FETCH_RESULT).sarg::<u8>("status").consume(),
+            dbus_factory
+                .signal(signals::PACKAGE_FETCH_RESULT)
+                .sarg::<u8>("status")
+                .sarg::<&str>("why")
+                .consume(),
         );
 
         let fetching_package = Arc::new(
@@ -268,14 +294,24 @@ impl Daemon {
         let recovery_event =
             Arc::new(dbus_factory.signal(signals::RECOVERY_EVENT).sarg::<u8>("event").consume());
 
-        let recovery_result =
-            Arc::new(dbus_factory.signal(signals::RECOVERY_RESULT).sarg::<u8>("result").consume());
+        let recovery_result = Arc::new(
+            dbus_factory
+                .signal(signals::RECOVERY_RESULT)
+                .sarg::<u8>("result")
+                .sarg::<&str>("why")
+                .consume(),
+        );
 
         let release_event =
             Arc::new(dbus_factory.signal(signals::RELEASE_EVENT).sarg::<u8>("event").consume());
 
-        let release_result =
-            Arc::new(dbus_factory.signal(signals::RELEASE_RESULT).sarg::<u8>("result").consume());
+        let release_result = Arc::new(
+            dbus_factory
+                .signal(signals::RELEASE_RESULT)
+                .sarg::<u8>("result")
+                .sarg::<&str>("why")
+                .consume(),
+        );
 
         let upgrade_event = Arc::new(
             dbus_factory
@@ -324,55 +360,63 @@ impl Daemon {
             connection.incoming(1000).next();
 
             while let Ok(dbus_event) = receiver.try_recv() {
-                Self::send_signal_message(
-                    &connection,
+                Self::send_signal_message(&connection, {
                     match &dbus_event {
-                        SignalEvent::FetchResult(result) => Self::signal_message(&fetch_result)
-                            .append1(match result {
-                                Ok(_) => 0u8,
-                                Err(_) => 1,
-                            }),
-                        SignalEvent::Fetched(name, completed, total) => {
-                            info!("{}", dbus_event);
-                            Self::signal_message(&fetched_package).append3(&name, completed, total)
+                        SignalEvent::Fetched(..)
+                        | SignalEvent::Fetching(_)
+                        | SignalEvent::RecoveryUpgradeEvent(_)
+                        | SignalEvent::RecoveryUpgradeResult(_)
+                        | SignalEvent::ReleaseUpgradeEvent(_)
+                        | SignalEvent::ReleaseUpgradeResult(_)
+                        | SignalEvent::Upgrade(_) => info!("{}", dbus_event),
+                        _ => (),
+                    }
+
+                    match dbus_event {
+                        SignalEvent::FetchResult(result) => {
+                            let (status, why) = result_signal(&result);
+                            let message = Self::signal_message(&fetch_result).append2(status, why);
+
+                            (*daemon.borrow_mut()).last_known.fetch = result;
+                            message
                         }
+                        SignalEvent::Fetched(name, completed, total) => Self::signal_message(
+                            &fetched_package,
+                        )
+                        .append3(name.as_str(), completed, total),
                         SignalEvent::Fetching(name) => {
-                            info!("{}", dbus_event);
-                            Self::signal_message(&fetching_package).append1(&name)
+                            Self::signal_message(&fetching_package).append1(name.as_str())
                         }
                         SignalEvent::RecoveryDownloadProgress(progress, total) => {
                             Self::signal_message(&recovery_download_progress)
                                 .append2(progress, total)
                         }
                         SignalEvent::RecoveryUpgradeEvent(event) => {
-                            info!("{}", dbus_event);
-                            Self::signal_message(&recovery_event).append1(*event as u8)
+                            Self::signal_message(&recovery_event).append1(event as u8)
                         }
                         SignalEvent::RecoveryUpgradeResult(result) => {
-                            info!("{}", dbus_event);
-                            Self::signal_message(&recovery_result).append1(match result {
-                                Ok(_) => 0u8,
-                                Err(_) => 1,
-                            })
+                            let (status, why) = result_signal(&result);
+                            let message =
+                                Self::signal_message(&recovery_result).append2(status, why);
+
+                            (*daemon.borrow_mut()).last_known.recovery_upgrade = result;
+                            message
                         }
                         SignalEvent::ReleaseUpgradeEvent(event) => {
-                            info!("{}", dbus_event);
-                            Self::signal_message(&release_event).append1(*event as u8)
+                            Self::signal_message(&release_event).append1(event as u8)
                         }
                         SignalEvent::ReleaseUpgradeResult(result) => {
-                            info!("{}", dbus_event);
-                            Self::signal_message(&release_result).append1(match result {
-                                Ok(_) => 0u8,
-                                Err(_) => 1,
-                            })
+                            let (status, why) = result_signal(&result);
+                            let message =
+                                Self::signal_message(&release_result).append2(status, why);
+
+                            (*daemon.borrow_mut()).last_known.release_upgrade = result;
+                            message
                         }
-                        SignalEvent::Upgrade(event) => {
-                            info!("{}", dbus_event);
-                            Self::signal_message(&upgrade_event)
-                                .append1(event.clone().into_dbus_map())
-                        }
-                    },
-                )
+                        SignalEvent::Upgrade(ref event) => Self::signal_message(&upgrade_event)
+                            .append1(event.clone().into_dbus_map()),
+                    }
+                })
             }
         }
     }
@@ -526,4 +570,15 @@ impl Daemon {
         let _ = self.event_tx.send(event);
         Ok(())
     }
+}
+
+fn result_signal<E: ::std::fmt::Display>(result: &Result<(), E>) -> (u8, String) {
+    let status = match result {
+        Ok(_) => 0u8,
+        Err(_) => 1,
+    };
+
+    let why: String = result.err().map(|why| format!("{}", why)).unwrap_or_default();
+
+    (status, why)
 }
