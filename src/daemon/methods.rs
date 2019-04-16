@@ -4,6 +4,7 @@ use dbus::{
 };
 use std::{cell::RefCell, rc::Rc, sync::atomic::Ordering};
 
+use super::result_signal;
 use crate::daemon::{dbus_helper::DbusFactory, Daemon, DaemonStatus};
 
 // Methods supported by the daemon.
@@ -39,6 +40,20 @@ pub fn fetch_updates(
         .outarg::<u32>("completed")
         .outarg::<u32>("total")
         .consume()
+}
+
+pub const FETCH_UPDATES_STATUS: &str = "FetchUpdatesStatus";
+
+pub fn fetch_updates_status(
+    daemon: Rc<RefCell<Daemon>>,
+    dbus_factory: &DbusFactory,
+) -> Method<MTFn<()>, ()> {
+    let method = dbus_factory.method::<_, u8>(FETCH_UPDATES_STATUS, move |_| {
+        let (status, why) = result_signal(daemon.borrow().last_known.fetch.as_ref());
+        Ok(vec![status.into(), why.into()])
+    });
+
+    method.outarg::<u8>("status").outarg::<&str>("why").consume()
 }
 
 pub const RECOVERY_UPGRADE_FILE: &str = "RecoveryUpgradeFile";
@@ -92,6 +107,20 @@ pub fn recovery_upgrade_release(
         .consume()
 }
 
+pub const RECOVERY_UPGRADE_RELEASE_STATUS: &str = "RecoveryUpgradeReleaseStatus";
+
+pub fn recovery_upgrade_status(
+    daemon: Rc<RefCell<Daemon>>,
+    dbus_factory: &DbusFactory,
+) -> Method<MTFn<()>, ()> {
+    let method = dbus_factory.method::<_, u8>(RECOVERY_UPGRADE_RELEASE_STATUS, move |_| {
+        let (status, why) = result_signal(daemon.borrow().last_known.recovery_upgrade.as_ref());
+        Ok(vec![status.into(), why.into()])
+    });
+
+    method.outarg::<u8>("status").outarg::<&str>("why").consume()
+}
+
 pub const REFRESH_OS: &str = "RefreshOS";
 
 pub fn refresh_os(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method<MTFn<()>, ()> {
@@ -143,6 +172,20 @@ pub fn release_upgrade(
     });
 
     method.inarg::<u8>("how").inarg::<&str>("from").inarg::<&str>("to").consume()
+}
+
+pub const RELEASE_UPGRADE_STATUS: &str = "ReleaseUpgradeStatus";
+
+pub fn release_upgrade_status(
+    daemon: Rc<RefCell<Daemon>>,
+    dbus_factory: &DbusFactory,
+) -> Method<MTFn<()>, ()> {
+    let method = dbus_factory.method::<_, u8>(RELEASE_UPGRADE_STATUS, move |_| {
+        let (status, why) = result_signal(daemon.borrow().last_known.release_upgrade.as_ref());
+        Ok(vec![status.into(), why.into()])
+    });
+
+    method.outarg::<u8>("status").outarg::<&str>("why").consume()
 }
 
 pub const RELEASE_REPAIR: &str = "ReleaseRepair";

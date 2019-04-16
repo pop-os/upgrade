@@ -18,7 +18,6 @@ use crate::{
     release_architecture::detect_arch,
     system_environment::SystemEnvironment,
 };
-use ubuntu_version::Version;
 
 pub use self::errors::{RecResult, RecoveryError};
 
