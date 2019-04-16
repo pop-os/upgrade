@@ -20,6 +20,18 @@ use yansi::Paint;
 
 const TIMEOUT: i32 = 3000;
 
+const FETCH_RESULT_STR: &str = "Package fetch status";
+const FETCH_RESULT_SUCCESS: &str = "cargo has been loaded successfully";
+const FETCH_RESULT_ERROR: &str = "package-fetching aborted";
+
+const RECOVERY_RESULT_STR: &str = "Release upgrade status";
+const RECOVERY_RESULT_SUCCESS: &str = "systems are go for launch: reboot now";
+const RECOVERY_RESULT_ERROR: &str = "release upgrade aborted";
+
+const UPGRADE_RESULT_STR: &str = "Recovery upgrade status";
+const UPGRADE_RESULT_SUCCESS: &str = "recovery partition refueled and ready to go";
+const UPGRADE_RESULT_ERROR: &str = "recovery upgrade aborted";
+
 pub struct Continue(pub bool);
 
 #[derive(Debug, Error)]
@@ -256,6 +268,10 @@ impl Client {
     fn event_listen<F>(
         &self,
         expected_status: DaemonStatus,
+        status_name: &'static str,
+        event_name: &'static str,
+        success: &'static str,
+        error: &'static str,
         mut event: F,
     ) -> Result<(), ClientError>
     where
@@ -264,7 +280,11 @@ impl Client {
         for item in self.bus.iter(3000) {
             if let ConnectionItem::Nothing = item {
                 if !self.status_is(expected_status)? {
-                    warn!("daemon status changed before getting the result");
+                    let message = self.call_method(status_name, iter::empty())?;
+                    let (status, why) =
+                        message.read2::<u8, &str>().map_err(ClientError::BadResponse)?;
+                    log_result(status, event_name, success, error, why);
+
                     break;
                 }
             } else if let Some(signal) = filter_signal(item) {
@@ -278,186 +298,215 @@ impl Client {
     }
 
     fn event_listen_fetch_updates(&self) -> Result<(), ClientError> {
-        self.event_listen(DaemonStatus::FetchingPackages, |_client, signal| {
-            match &*signal.member().unwrap() {
-                signals::PACKAGE_FETCH_RESULT => {
-                    let (status, why) =
-                        signal.read2::<u8, &str>().map_err(ClientError::BadResponse)?;
+        self.event_listen(
+            DaemonStatus::FetchingPackages,
+            methods::FETCH_UPDATES_STATUS,
+            FETCH_RESULT_STR,
+            FETCH_RESULT_SUCCESS,
+            FETCH_RESULT_ERROR,
+            |_client, signal| {
+                match &*signal.member().unwrap() {
+                    signals::PACKAGE_FETCH_RESULT => {
+                        let (status, why) =
+                            signal.read2::<u8, &str>().map_err(ClientError::BadResponse)?;
 
-                    log_result(
-                        status,
-                        "Package fetch status",
-                        "cargo has been loaded successfully",
-                        "package-fetching aborted",
-                        &why,
-                    );
+                        log_result(
+                            status,
+                            "Package fetch status",
+                            "cargo has been loaded successfully",
+                            "package-fetching aborted",
+                            why,
+                        );
 
-                    return Ok(Continue(false));
-                }
-                signals::PACKAGE_FETCHED => {
-                    let (name, completed, total) =
-                        signal.read3::<&str, u32, u32>().map_err(ClientError::BadResponse)?;
-
-                    println!(
-                        "{} ({}/{}) {}",
-                        Paint::green("Fetched").bold(),
-                        Paint::yellow(completed).bold(),
-                        Paint::yellow(total).bold(),
-                        Paint::magenta(name).bold()
-                    );
-                }
-                signals::PACKAGE_FETCHING => {
-                    let name = signal.read1::<&str>().map_err(ClientError::BadResponse)?;
-
-                    println!("{} {}", Paint::green("Fetching").bold(), Paint::magenta(name).bold());
-                }
-                signals::PACKAGE_UPGRADE => {
-                    let event = signal
-                        .read1::<HashMap<&str, String>>()
-                        .map_err(ClientError::BadResponse)?;
-
-                    if let Ok(event) = AptUpgradeEvent::from_dbus_map(event) {
-                        write_apt_event(event);
-                    } else {
-                        eprintln!("failed to unpack the upgrade event");
+                        return Ok(Continue(false));
                     }
-                }
-                _ => (),
-            }
+                    signals::PACKAGE_FETCHED => {
+                        let (name, completed, total) =
+                            signal.read3::<&str, u32, u32>().map_err(ClientError::BadResponse)?;
 
-            Ok(Continue(true))
-        })
+                        println!(
+                            "{} ({}/{}) {}",
+                            Paint::green("Fetched").bold(),
+                            Paint::yellow(completed).bold(),
+                            Paint::yellow(total).bold(),
+                            Paint::magenta(name).bold()
+                        );
+                    }
+                    signals::PACKAGE_FETCHING => {
+                        let name = signal.read1::<&str>().map_err(ClientError::BadResponse)?;
+
+                        println!(
+                            "{} {}",
+                            Paint::green("Fetching").bold(),
+                            Paint::magenta(name).bold()
+                        );
+                    }
+                    signals::PACKAGE_UPGRADE => {
+                        let event = signal
+                            .read1::<HashMap<&str, String>>()
+                            .map_err(ClientError::BadResponse)?;
+
+                        if let Ok(event) = AptUpgradeEvent::from_dbus_map(event) {
+                            write_apt_event(event);
+                        } else {
+                            eprintln!("failed to unpack the upgrade event");
+                        }
+                    }
+                    _ => (),
+                }
+
+                Ok(Continue(true))
+            },
+        )
     }
 
     fn event_listen_recovery_upgrade(&self) -> Result<(), ClientError> {
         let mut reset = false;
 
-        self.event_listen(DaemonStatus::RecoveryUpgrade, move |_client, signal| {
-            match &*signal.member().unwrap() {
-                signals::RECOVERY_DOWNLOAD_PROGRESS => {
-                    let (progress, total) =
-                        signal.read2::<u64, u64>().map_err(ClientError::BadResponse)?;
+        self.event_listen(
+            DaemonStatus::RecoveryUpgrade,
+            methods::RECOVERY_UPGRADE_RELEASE_STATUS,
+            RECOVERY_RESULT_STR,
+            RECOVERY_RESULT_SUCCESS,
+            RECOVERY_RESULT_ERROR,
+            move |_client, signal| {
+                match &*signal.member().unwrap() {
+                    signals::RECOVERY_DOWNLOAD_PROGRESS => {
+                        let (progress, total) =
+                            signal.read2::<u64, u64>().map_err(ClientError::BadResponse)?;
 
-                    print!(
-                        "\r{} {}/{} {}",
-                        Paint::green("Fetched").bold(),
-                        Paint::yellow(progress / 1024).bold(),
-                        Paint::yellow(total / 1024).bold(),
-                        Paint::green("MiB").bold()
-                    );
-                    let _ = io::stdout().flush();
-                }
-                signals::RECOVERY_EVENT => {
-                    let status = signal.read1::<u8>().map_err(ClientError::BadResponse)?;
-
-                    let message = RecoveryEvent::from_u8(status)
-                        .map(<&'static str>::from)
-                        .unwrap_or("unknown event");
-
-                    if reset {
-                        reset = false;
-                        println!("");
+                        print!(
+                            "\r{} {}/{} {}",
+                            Paint::green("Fetched").bold(),
+                            Paint::yellow(progress / 1024).bold(),
+                            Paint::yellow(total / 1024).bold(),
+                            Paint::green("MiB").bold()
+                        );
+                        let _ = io::stdout().flush();
                     }
+                    signals::RECOVERY_EVENT => {
+                        let status = signal.read1::<u8>().map_err(ClientError::BadResponse)?;
 
-                    println!("{}: {}", Paint::green("Recovery event").bold(), message);
-                }
-                signals::RECOVERY_RESULT => {
-                    let (status, why) =
-                        signal.read2::<u8, &str>().map_err(ClientError::BadResponse)?;
+                        let message = RecoveryEvent::from_u8(status)
+                            .map(<&'static str>::from)
+                            .unwrap_or("unknown event");
 
-                    if reset {
-                        reset = false;
-                        println!("");
+                        if reset {
+                            reset = false;
+                            println!("");
+                        }
+
+                        println!("{}: {}", Paint::green("Recovery event").bold(), message);
                     }
+                    signals::RECOVERY_RESULT => {
+                        let (status, why) =
+                            signal.read2::<u8, &str>().map_err(ClientError::BadResponse)?;
 
-                    log_result(
-                        status,
-                        "Recovery upgrade status",
-                        "recovery partition refueled and ready to go",
-                        "recovery upgrade aborted",
-                        &why,
-                    );
+                        if reset {
+                            reset = false;
+                            println!("");
+                        }
 
-                    return Ok(Continue(false));
+                        log_result(
+                            status,
+                            RECOVERY_RESULT_STR,
+                            RECOVERY_RESULT_SUCCESS,
+                            RECOVERY_RESULT_ERROR,
+                            why,
+                        );
+
+                        return Ok(Continue(false));
+                    }
+                    _ => (),
                 }
-                _ => (),
-            }
 
-            Ok(Continue(true))
-        })
+                Ok(Continue(true))
+            },
+        )
     }
 
     fn event_listen_release_upgrade(&self) -> Result<(), ClientError> {
-        self.event_listen(DaemonStatus::ReleaseUpgrade, |_client, signal| {
-            match &*signal.member().unwrap() {
-                signals::PACKAGE_FETCH_RESULT => {
-                    let (status, why) =
-                        signal.read2::<u8, &str>().map_err(ClientError::BadResponse)?;
+        self.event_listen(
+            DaemonStatus::ReleaseUpgrade,
+            methods::RELEASE_UPGRADE_STATUS,
+            UPGRADE_RESULT_STR,
+            UPGRADE_RESULT_SUCCESS,
+            UPGRADE_RESULT_ERROR,
+            |_client, signal| {
+                match &*signal.member().unwrap() {
+                    signals::PACKAGE_FETCH_RESULT => {
+                        let (status, why) =
+                            signal.read2::<u8, &str>().map_err(ClientError::BadResponse)?;
 
-                    log_result(
-                        status,
-                        "Package fetch status",
-                        "cargo has been loaded successfully",
-                        "package-fetching aborted",
-                        &why,
-                    );
-                }
-                signals::PACKAGE_FETCHED => {
-                    let (name, completed, total) =
-                        signal.read3::<&str, u32, u32>().map_err(ClientError::BadResponse)?;
-
-                    println!(
-                        "{} ({}/{}): {}",
-                        Paint::green("Fetched").bold(),
-                        Paint::yellow(completed).bold(),
-                        Paint::yellow(total).bold(),
-                        Paint::magenta(name).bold()
-                    );
-                }
-                signals::PACKAGE_FETCHING => {
-                    let name = signal.read1::<&str>().map_err(ClientError::BadResponse)?;
-
-                    println!("{} {}", Paint::green("Fetching").bold(), Paint::magenta(name).bold());
-                }
-                signals::RELEASE_RESULT => {
-                    let (status, why) =
-                        signal.read2::<u8, &str>().map_err(ClientError::BadResponse)?;
-
-                    log_result(
-                        status,
-                        "Release upgrade status",
-                        "systems are go for launch: reboot now",
-                        "release upgrade aborted",
-                        &why,
-                    );
-
-                    return Ok(Continue(false));
-                }
-                signals::RELEASE_EVENT => {
-                    let status = signal.read1::<u8>().map_err(ClientError::BadResponse)?;
-
-                    let message = UpgradeEvent::from_u8(status)
-                        .map(<&'static str>::from)
-                        .unwrap_or("unknown event");
-
-                    println!("{}: {}", Paint::green("Release Event").bold(), message);
-                }
-                signals::PACKAGE_UPGRADE => {
-                    let event = signal
-                        .read1::<HashMap<&str, String>>()
-                        .map_err(ClientError::BadResponse)?;
-
-                    if let Ok(event) = AptUpgradeEvent::from_dbus_map(event) {
-                        write_apt_event(event);
-                    } else {
-                        eprintln!("failed to unpack the upgrade event");
+                        log_result(
+                            status,
+                            FETCH_RESULT_STR,
+                            FETCH_RESULT_SUCCESS,
+                            FETCH_RESULT_ERROR,
+                            why,
+                        );
                     }
-                }
-                _ => (),
-            }
+                    signals::PACKAGE_FETCHED => {
+                        let (name, completed, total) =
+                            signal.read3::<&str, u32, u32>().map_err(ClientError::BadResponse)?;
 
-            Ok(Continue(true))
-        })
+                        println!(
+                            "{} ({}/{}): {}",
+                            Paint::green("Fetched").bold(),
+                            Paint::yellow(completed).bold(),
+                            Paint::yellow(total).bold(),
+                            Paint::magenta(name).bold()
+                        );
+                    }
+                    signals::PACKAGE_FETCHING => {
+                        let name = signal.read1::<&str>().map_err(ClientError::BadResponse)?;
+
+                        println!(
+                            "{} {}",
+                            Paint::green("Fetching").bold(),
+                            Paint::magenta(name).bold()
+                        );
+                    }
+                    signals::RELEASE_RESULT => {
+                        let (status, why) =
+                            signal.read2::<u8, &str>().map_err(ClientError::BadResponse)?;
+
+                        log_result(
+                            status,
+                            UPGRADE_RESULT_STR,
+                            UPGRADE_RESULT_SUCCESS,
+                            UPGRADE_RESULT_ERROR,
+                            why,
+                        );
+
+                        return Ok(Continue(false));
+                    }
+                    signals::RELEASE_EVENT => {
+                        let status = signal.read1::<u8>().map_err(ClientError::BadResponse)?;
+
+                        let message = UpgradeEvent::from_u8(status)
+                            .map(<&'static str>::from)
+                            .unwrap_or("unknown event");
+
+                        println!("{}: {}", Paint::green("Release Event").bold(), message);
+                    }
+                    signals::PACKAGE_UPGRADE => {
+                        let event = signal
+                            .read1::<HashMap<&str, String>>()
+                            .map_err(ClientError::BadResponse)?;
+
+                        if let Ok(event) = AptUpgradeEvent::from_dbus_map(event) {
+                            write_apt_event(event);
+                        } else {
+                            eprintln!("failed to unpack the upgrade event");
+                        }
+                    }
+                    _ => (),
+                }
+
+                Ok(Continue(true))
+            },
+        )
     }
 
     fn status_is(&self, expected: DaemonStatus) -> Result<bool, ClientError> {
@@ -516,7 +565,13 @@ fn write_apt_event(event: AptUpgradeEvent) {
     }
 }
 
-fn log_result(status: u8, event: &str, success: &str, error: &str, why: &str) {
+fn log_result(
+    status: u8,
+    event: &'static str,
+    success: &'static str,
+    error: &'static str,
+    why: &str,
+) {
     let inner: String;
 
     println!(

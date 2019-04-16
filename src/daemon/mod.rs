@@ -323,13 +323,16 @@ impl Daemon {
         let interface = factory
             .interface(DBUS_IFACE, ())
             .add_m(methods::fetch_updates(daemon.clone(), &dbus_factory))
+            .add_m(methods::fetch_updates_status(daemon.clone(), &dbus_factory))
             .add_m(methods::package_upgrade(daemon.clone(), &dbus_factory))
             .add_m(methods::recovery_upgrade_file(daemon.clone(), &dbus_factory))
             .add_m(methods::recovery_upgrade_release(daemon.clone(), &dbus_factory))
+            .add_m(methods::recovery_upgrade_status(daemon.clone(), &dbus_factory))
             .add_m(methods::refresh_os(daemon.clone(), &dbus_factory))
             .add_m(methods::release_check(daemon.clone(), &dbus_factory))
             .add_m(methods::release_repair(daemon.clone(), &dbus_factory))
             .add_m(methods::release_upgrade(daemon.clone(), &dbus_factory))
+            .add_m(methods::release_upgrade_status(daemon.clone(), &dbus_factory))
             .add_m(methods::status(daemon.clone(), &dbus_factory))
             .add_s(fetch_result.clone())
             .add_s(fetched_package.clone())
@@ -374,7 +377,7 @@ impl Daemon {
 
                     match dbus_event {
                         SignalEvent::FetchResult(result) => {
-                            let (status, why) = result_signal(&result);
+                            let (status, why) = result_signal(result.as_ref());
                             let message = Self::signal_message(&fetch_result).append2(status, why);
 
                             (*daemon.borrow_mut()).last_known.fetch = result;
@@ -395,7 +398,7 @@ impl Daemon {
                             Self::signal_message(&recovery_event).append1(event as u8)
                         }
                         SignalEvent::RecoveryUpgradeResult(result) => {
-                            let (status, why) = result_signal(&result);
+                            let (status, why) = result_signal(result.as_ref());
                             let message =
                                 Self::signal_message(&recovery_result).append2(status, why);
 
@@ -406,7 +409,7 @@ impl Daemon {
                             Self::signal_message(&release_event).append1(event as u8)
                         }
                         SignalEvent::ReleaseUpgradeResult(result) => {
-                            let (status, why) = result_signal(&result);
+                            let (status, why) = result_signal(result.as_ref());
                             let message =
                                 Self::signal_message(&release_result).append2(status, why);
 
@@ -572,7 +575,7 @@ impl Daemon {
     }
 }
 
-fn result_signal<E: ::std::fmt::Display>(result: &Result<(), E>) -> (u8, String) {
+pub fn result_signal<E: ::std::fmt::Display>(result: Result<&(), &E>) -> (u8, String) {
     let status = match result {
         Ok(_) => 0u8,
         Err(_) => 1,
