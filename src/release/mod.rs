@@ -25,6 +25,14 @@ const RELEASE_FETCH_FILE: &str = "/pop_preparing_release_upgrade";
 const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
 const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
 
+const DEPRECATED_PACKAGES: &[&str] = &[
+    // Not critical to the system.
+    // Slows the system down drastically.
+    // Filles journal logs with worthless messages.
+    // No longer maintained, and removed from repos since 18.10.
+    "ureadahead"
+];
+
 pub fn check() -> Result<(String, String, Option<u16>), VersionError> {
     find_next_release(Version::detect, Release::exists)
 }

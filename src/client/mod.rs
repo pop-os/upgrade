@@ -24,13 +24,13 @@ const FETCH_RESULT_STR: &str = "Package fetch status";
 const FETCH_RESULT_SUCCESS: &str = "cargo has been loaded successfully";
 const FETCH_RESULT_ERROR: &str = "package-fetching aborted";
 
-const RECOVERY_RESULT_STR: &str = "Release upgrade status";
-const RECOVERY_RESULT_SUCCESS: &str = "systems are go for launch: reboot now";
-const RECOVERY_RESULT_ERROR: &str = "release upgrade aborted";
+const RECOVERY_RESULT_STR: &str = "Recovery upgrade status";
+const RECOVERY_RESULT_SUCCESS: &str = "recovery partition refueled and ready to go";
+const RECOVERY_RESULT_ERROR: &str = "recovery upgrade aborted";
 
-const UPGRADE_RESULT_STR: &str = "Recovery upgrade status";
-const UPGRADE_RESULT_SUCCESS: &str = "recovery partition refueled and ready to go";
-const UPGRADE_RESULT_ERROR: &str = "recovery upgrade aborted";
+const UPGRADE_RESULT_STR: &str = "Release upgrade status";
+const UPGRADE_RESULT_SUCCESS: &str = "systems are go for launch: reboot now";
+const UPGRADE_RESULT_ERROR: &str = "release upgrade aborted";
 
 pub struct Continue(pub bool);
 
