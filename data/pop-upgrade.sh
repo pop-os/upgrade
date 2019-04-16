@@ -84,7 +84,7 @@ SECOND_ATTEMPT=/upgrade-attempt2
 
 if test -f $FIRST_ATTEMPT; then
     rm /pop_upgrade.log
-    message -i "System rebooted without completing the uprade. Trying a second time"
+    message -i "System rebooted without completing the upgrade. Trying a second time"
     rm $FIRST_ATTEMPT
     sleep 6
     attempt_upgrade $SECOND_ATTEMPT
