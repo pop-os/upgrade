@@ -11,6 +11,7 @@ use dbus::{
     self, BusType, Connection, ConnectionItem, Message, MessageItem, MessageItemArray, Signature,
 };
 use num_traits::FromPrimitive;
+use promptly::Promptable;
 use std::{
     collections::HashMap,
     io::{self, Write},
@@ -32,7 +33,7 @@ const UPGRADE_RESULT_STR: &str = "Release upgrade status";
 const UPGRADE_RESULT_SUCCESS: &str = "systems are go for launch: reboot now";
 const UPGRADE_RESULT_ERROR: &str = "release upgrade aborted";
 
-pub struct Continue(pub bool);
+struct Continue(pub bool);
 
 #[derive(Debug, Error)]
 pub enum ClientError {
@@ -186,7 +187,14 @@ impl Client {
                     // Ask to perform the release upgrade, and then listen for its signals.
                     let args = vec![(method as u8).into(), current.into(), next.into()];
                     let _message = self.call_method(methods::RELEASE_UPGRADE, args.into_iter())?;
-                    self.event_listen_release_upgrade()?;
+                    let mut recall = self.event_listen_release_upgrade()?;
+
+                    // Repeat as necessary.
+                    while recall {
+                        let args = vec![(method as u8).into(), current.into(), next.into()];
+                        let _message = self.call_method(methods::RELEASE_UPGRADE, args.into_iter())?;
+                        recall = self.event_listen_release_upgrade()?;
+                    }
                 } else {
                     println!("no release available to upgrade to");
                 }
@@ -429,14 +437,16 @@ impl Client {
         )
     }
 
-    fn event_listen_release_upgrade(&self) -> Result<(), ClientError> {
+    fn event_listen_release_upgrade(&self) -> Result<bool, ClientError> {
+        let recall = &mut false;
+
         self.event_listen(
             DaemonStatus::ReleaseUpgrade,
             methods::RELEASE_UPGRADE_STATUS,
             UPGRADE_RESULT_STR,
             UPGRADE_RESULT_SUCCESS,
             UPGRADE_RESULT_ERROR,
-            |_client, signal| {
+            |client, signal| {
                 match &*signal.member().unwrap() {
                     signals::PACKAGE_FETCH_RESULT => {
                         let (status, why) =
@@ -512,7 +522,7 @@ impl Client {
 
                         println!("{}:", Paint::red("Incompatible repositories detected").bold());
 
-                        for (url, why) in failure {
+                        for (url, why) in &failure {
                             println!(
                                 "\t{}: {}: {}",
                                 Paint::red("Error").bold(),
@@ -529,14 +539,28 @@ impl Client {
                             );
                         }
 
-                        // TODO: Do something about it
+                        println!("{}", Paint::yellow("Requesting user input:").bold());
+
+                        let repos = failure.iter()
+                            .map(|(url, _)| *url)
+                            .filter(|url| {
+                                let prompt = format!("\tKeep {}? Y/n", url);
+                                <Option<bool>>::prompt(prompt).unwrap_or(true)
+                            })
+                            .map(|url| MessageItem::DictEntry(Box::new(url.into()), Box::new(true.into())));
+
+                        client.call_method(methods::REPO_MODIFY, repos)?;
+
+                        *recall = true;
                     }
                     _ => (),
                 }
 
                 Ok(Continue(true))
             },
-        )
+        )?;
+
+        Ok(*recall)
     }
 
     fn status_is(&self, expected: DaemonStatus) -> Result<bool, ClientError> {
