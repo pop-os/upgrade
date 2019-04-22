@@ -20,7 +20,7 @@ use crate::{
     signal_handler, DBUS_IFACE, DBUS_NAME, DBUS_PATH,
 };
 use apt_cli_wrappers::apt_upgrade;
-use apt_fetcher::apt_uris::{apt_uris, AptUri};
+use apt_fetcher::{DistUpgradeError, apt_uris::{apt_uris, AptUri}};
 use atomic::Atomic;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use dbus::{
@@ -33,6 +33,7 @@ use num_traits::FromPrimitive;
 use std::{
     cell::RefCell,
     collections::HashMap,
+    error::Error,
     path::PathBuf,
     rc::Rc,
     sync::{atomic::Ordering, Arc},
@@ -313,6 +314,14 @@ impl Daemon {
                 .consume(),
         );
 
+        let repo_compat_error = Arc::new(
+            dbus_factory
+                .signal(signals::REPO_COMPAT_ERROR)
+                .sarg::<&[&str]>("success")
+                .sarg::<&[(&str, &str)]>("failed")
+                .consume(),
+        );
+
         let upgrade_event = Arc::new(
             dbus_factory
                 .signal(signals::PACKAGE_UPGRADE)
@@ -333,6 +342,7 @@ impl Daemon {
             .add_m(methods::release_repair(daemon.clone(), &dbus_factory))
             .add_m(methods::release_upgrade(daemon.clone(), &dbus_factory))
             .add_m(methods::release_upgrade_status(daemon.clone(), &dbus_factory))
+            .add_m(methods::repo_modify(daemon.clone(), &dbus_factory))
             .add_m(methods::status(daemon.clone(), &dbus_factory))
             .add_s(fetch_result.clone())
             .add_s(fetched_package.clone())
@@ -340,6 +350,7 @@ impl Daemon {
             .add_s(recovery_download_progress.clone())
             .add_s(recovery_event.clone())
             .add_s(recovery_result.clone())
+            .add_s(repo_compat_error.clone())
             .add_s(upgrade_event.clone());
 
         let (connection, receiver) = {
@@ -409,6 +420,33 @@ impl Daemon {
                             Self::signal_message(&release_event).append1(event as u8)
                         }
                         SignalEvent::ReleaseUpgradeResult(result) => {
+                            if let Err(ReleaseError::Check(DistUpgradeError::SourcesUnavailable { ref success, ref failure })) = result {
+                                let failure: Vec<(String, String)> = failure.iter()
+                                    .map(|(url, why)| {
+                                        let mut root_cause = None;
+                                        if let Some(mut cause) = why.source() {
+                                            while let Some(inner_cause) = cause.source() {
+                                                cause = inner_cause;
+                                            }
+
+                                            root_cause = Some(cause);
+                                        }
+
+                                        let cause = match root_cause {
+                                            Some(root_cause) => format!("{}", root_cause),
+                                            None => format!("{}", why)
+                                        };
+
+                                        (url.clone(), cause)
+                                    })
+                                    .collect();
+
+                                let message = Self::signal_message(&repo_compat_error)
+                                    .append2(success, failure);
+
+                                Self::send_signal_message(&connection, message);
+                            }
+
                             let (status, why) = result_signal(result.as_ref());
                             let message =
                                 Self::signal_message(&release_result).append2(status, why);
@@ -434,7 +472,7 @@ impl Daemon {
                 let args = {
                     let mut targs = Vec::with_capacity(args.len() + 1);
                     targs.push("install");
-                    targs.extend(args.iter().map(|x| x.as_str()));
+                    targs.extend(args.iter().map(String::as_str));
                     targs
                 };
 
@@ -536,6 +574,10 @@ impl Daemon {
 
     fn release_repair(&mut self) -> Result<(), String> {
         crate::repair::repair().map_err(|why| format!("{}", why))
+    }
+
+    fn repo_modify(&mut self, repos: &HashMap<&str, u8>) -> Result<(), String> {
+        crate::repos::modify_repos(repos).map_err(|why| format!("{}", why))
     }
 
     fn send_signal_message(connection: &Connection, message: Message) {

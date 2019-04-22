@@ -2,7 +2,7 @@ mod errors;
 
 use apt_fetcher::{
     apt_uris::{apt_uris, AptUri},
-    SourcesList, UpgradeRequest, Upgrader,
+    SourcesLists, UpgradeRequest, Upgrader,
 };
 use envfile::EnvFile;
 use futures::{stream, Future, Stream};
@@ -41,7 +41,7 @@ pub fn check_current(version: Option<&str>) -> Option<(String, u16)> {
     find_current_release(Version::detect, Release::exists, version)
 }
 
-// Configure the system to refresh the OS in the recovery partition.
+/// Configure the system to refresh the OS in the recovery partition.
 pub fn refresh_os() -> Result<(), ReleaseError> {
     recovery_prereq()?;
     set_recovery_as_default_boot_option("REFRESH")
@@ -145,12 +145,11 @@ impl<'a> DaemonRuntime<'a> {
         let new =
             new.parse::<Version>().map(Codename::from).map(<&'static str>::from).unwrap_or(new);
 
-        let sources = SourcesList::scan().unwrap();
+        let sources = SourcesLists::scan().unwrap();
 
         info!("checking if release can be upgraded from {} to {}", current, new);
-        let mut upgrade = UpgradeRequest::new(self.client.clone(), sources, self.runtime)
-            .send(current, new)
-            .map_err(ReleaseError::Check)?;
+        let request = UpgradeRequest::new(self.client.clone(), sources, self.runtime);
+        let mut upgrade = request.send(current, new).map_err(ReleaseError::Check)?;
 
         // In case the system abruptly shuts down after this point, create a file to signal
         // that packages were being fetched for a new release.
@@ -386,7 +385,7 @@ pub fn cleanup() {
         let mut iter = data.split(' ');
         if let (Some(current), Some(next)) = (iter.next(), iter.next()) {
             info!("current: {}; next: {}", current, next);
-            if let Ok(mut lists) = SourcesList::scan() {
+            if let Ok(mut lists) = SourcesLists::scan() {
                 info!("found lists");
                 lists.dist_replace(next, current);
                 let _ = lists.write_sync();
