@@ -577,6 +577,7 @@ impl Daemon {
     }
 
     fn repo_modify(&mut self, repos: &HashMap<&str, u8>) -> Result<(), String> {
+        info!("modifying repos: {:#?}", repos);
         crate::repos::modify_repos(repos).map_err(|why| format!("{}", why))
     }
 
