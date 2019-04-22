@@ -2,7 +2,7 @@ use dbus::{
     self,
     tree::{MTFn, Method},
 };
-use std::{cell::RefCell, rc::Rc, sync::atomic::Ordering};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::atomic::Ordering};
 
 use super::result_signal;
 use crate::daemon::{dbus_helper::DbusFactory, Daemon, DaemonStatus};
@@ -203,6 +203,24 @@ pub fn release_repair(
     });
 
     method.consume()
+}
+
+pub const REPO_MODIFY: &str = "RepoModify";
+
+pub fn repo_modify(
+    daemon: Rc<RefCell<Daemon>>,
+    dbus_factory: &DbusFactory,
+) -> Method<MTFn<()>, ()> {
+    let daemon = daemon.clone();
+
+    let method = dbus_factory.method::<_, String>(REPO_MODIFY, move |message| {
+        let repos = message.read1::<HashMap<&str, u8>>()
+            .map_err(|why| format!("{}", why))?;
+        daemon.borrow_mut().repo_modify(&repos)?;
+        Ok(Vec::new())
+    });
+
+    method.inarg::<HashMap<&str, &str>>("repos").consume()
 }
 
 pub const STATUS: &str = "Status";

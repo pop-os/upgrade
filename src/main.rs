@@ -22,6 +22,7 @@ mod release;
 mod release_api;
 mod release_architecture;
 mod repair;
+mod repos;
 mod signal_handler;
 mod system_environment;
 

@@ -3,6 +3,7 @@ use crate::{
     release::{ReleaseError, UpgradeEvent},
 };
 use apt_cli_wrappers::AptUpgradeEvent;
+use apt_fetcher::DistUpgradeError;
 use std::fmt::{self, Display, Formatter};
 
 // Signals supported by the daemon.
@@ -18,6 +19,8 @@ pub const RECOVERY_RESULT: &str = "RecoveryUpgradeResult";
 
 pub const RELEASE_EVENT: &str = "ReleaseUpgradeEvent";
 pub const RELEASE_RESULT: &str = "ReleaseUpgradeResult";
+
+pub const REPO_COMPAT_ERROR: &str = "RepoCompatError";
 
 #[derive(Debug)]
 pub enum SignalEvent {
@@ -51,7 +54,23 @@ impl Display for SignalEvent {
             ReleaseUpgradeEvent(event) => {
                 write!(fmt, "release upgrade: {}", <&'static str>::from(*event))
             }
-            ReleaseUpgradeResult(result) => write!(fmt, "release upgrade result: {:?}", result),
+            ReleaseUpgradeResult(result) => {
+                match result {
+                    Err(ReleaseError::Check(DistUpgradeError::SourcesUnavailable { success, failure })) => {
+                        writeln!(fmt, "incompatible repositories detected:")?;
+                        for (url, why) in failure {
+                            writeln!(fmt, "\tError: {}: {}", url, why)?;
+                        }
+
+                        for url in success {
+                            writeln!(fmt, "\tSuccess: {}", url)?;
+                        }
+
+                        Ok(())
+                    }
+                    _ => write!(fmt, "release upgrade result: {:?}", result)
+                }
+            }
             Upgrade(event) => write!(fmt, "package upgrade: {}", event),
         }
     }

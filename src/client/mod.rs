@@ -64,15 +64,19 @@ impl Client {
         }
 
         Connection::get_private(BusType::System).map_err(ClientError::Connection).and_then(|bus| {
-            add_match(&bus, signals::PACKAGE_FETCH_RESULT)?;
-            add_match(&bus, signals::PACKAGE_FETCHED)?;
-            add_match(&bus, signals::PACKAGE_FETCHING)?;
-            add_match(&bus, signals::PACKAGE_UPGRADE)?;
-            add_match(&bus, signals::RECOVERY_DOWNLOAD_PROGRESS)?;
-            add_match(&bus, signals::RECOVERY_RESULT)?;
-            add_match(&bus, signals::RECOVERY_EVENT)?;
-            add_match(&bus, signals::RELEASE_RESULT)?;
-            add_match(&bus, signals::RELEASE_EVENT)?;
+            {
+                let bus = &bus;
+                add_match(bus, signals::PACKAGE_FETCH_RESULT)?;
+                add_match(bus, signals::PACKAGE_FETCHED)?;
+                add_match(bus, signals::PACKAGE_FETCHING)?;
+                add_match(bus, signals::PACKAGE_UPGRADE)?;
+                add_match(bus, signals::RECOVERY_DOWNLOAD_PROGRESS)?;
+                add_match(bus, signals::RECOVERY_RESULT)?;
+                add_match(bus, signals::RECOVERY_EVENT)?;
+                add_match(bus, signals::RELEASE_RESULT)?;
+                add_match(bus, signals::RELEASE_EVENT)?;
+                add_match(bus, signals::REPO_COMPAT_ERROR)?;
+            }
 
             Ok(Client { bus })
         })
@@ -393,7 +397,7 @@ impl Client {
 
                         if reset {
                             reset = false;
-                            println!("");
+                            println!();
                         }
 
                         println!("{}: {}", Paint::green("Recovery event").bold(), message);
@@ -404,7 +408,7 @@ impl Client {
 
                         if reset {
                             reset = false;
-                            println!("");
+                            println!();
                         }
 
                         log_result(
@@ -467,6 +471,17 @@ impl Client {
                             Paint::magenta(name).bold()
                         );
                     }
+                    signals::PACKAGE_UPGRADE => {
+                        let event = signal
+                            .read1::<HashMap<&str, String>>()
+                            .map_err(ClientError::BadResponse)?;
+
+                        if let Ok(event) = AptUpgradeEvent::from_dbus_map(event) {
+                            write_apt_event(event);
+                        } else {
+                            eprintln!("failed to unpack the upgrade event");
+                        }
+                    }
                     signals::RELEASE_RESULT => {
                         let (status, why) =
                             signal.read2::<u8, &str>().map_err(ClientError::BadResponse)?;
@@ -490,16 +505,31 @@ impl Client {
 
                         println!("{}: {}", Paint::green("Release Event").bold(), message);
                     }
-                    signals::PACKAGE_UPGRADE => {
-                        let event = signal
-                            .read1::<HashMap<&str, String>>()
+                    signals::REPO_COMPAT_ERROR => {
+                        let (success, failure) = signal
+                            .read2::<Vec<&str>, Vec<(&str, &str)>>()
                             .map_err(ClientError::BadResponse)?;
 
-                        if let Ok(event) = AptUpgradeEvent::from_dbus_map(event) {
-                            write_apt_event(event);
-                        } else {
-                            eprintln!("failed to unpack the upgrade event");
+                        println!("{}:", Paint::red("Incompatible repositories detected").bold());
+
+                        for (url, why) in failure {
+                            println!(
+                                "\t{}: {}: {}",
+                                Paint::red("Error").bold(),
+                                Paint::cyan(url).bold(),
+                                Paint::red(why).bold(),
+                            );
                         }
+
+                        for url in success {
+                            println!(
+                                "\t{}: {}",
+                                Paint::green("Success").bold(),
+                                Paint::cyan(url).bold()
+                            );
+                        }
+
+                        // TODO: Do something about it
                     }
                     _ => (),
                 }

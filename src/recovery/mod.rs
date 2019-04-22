@@ -104,8 +104,8 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     let mut temp_iso_dir = None;
     let (iso, version, build) = match action {
         UpgradeMethod::FromRelease { ref version, ref arch, flags } => {
-            let version = version.as_ref().map(|v| v.as_str());
-            let arch = arch.as_ref().map(|v| v.as_str());
+            let version = version.as_ref().map(String::as_str);
+            let arch = arch.as_ref().map(String::as_str);
             from_release(&mut temp_iso_dir, progress, event, version, arch, *flags)?
         }
         UpgradeMethod::FromFile(ref _path) => {

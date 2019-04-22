@@ -111,7 +111,7 @@ pub fn repair() -> Result<(), FstabError> {
                     MountIter::new_from_file("/proc/mounts").map_err(FstabError::ProcRead)?;
 
                 let root_mount = mtab
-                    .flat_map(|e| e.ok())
+                    .flat_map(Result::ok)
                     .find(|e| e.dest == Path::new("/"))
                     .ok_or_else(|| FstabError::RootNotMounted)?;
 

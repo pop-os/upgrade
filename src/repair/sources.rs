@@ -1,6 +1,6 @@
 //! All code responsible for validating sources.
 
-use apt_sources_lists::{SourceEntry, SourceError, SourcesList};
+use apt_sources_lists::{SourceEntry, SourceError, SourcesLists};
 use distinst_chroot::Command;
 use std::{fs, io, path::Path};
 use ubuntu_version::Codename;
@@ -33,7 +33,7 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
     }
 
     info!("ensuring that the proprietary pop repo is added");
-    let mut sources_list = SourcesList::scan().map_err(SourcesError::ListRead)?;
+    let mut sources_list = SourcesLists::scan().map_err(SourcesError::ListRead)?;
 
     insert_entry(
         &mut sources_list,
@@ -67,7 +67,7 @@ fn ppa_add(ppa: &str) -> Result<(), SourcesError> {
 }
 
 fn insert_entry<P: AsRef<Path>>(
-    sources_list: &mut SourcesList,
+    sources_list: &mut SourcesLists,
     preferred: P,
     url: &str,
     suite: &str,
@@ -76,6 +76,7 @@ fn insert_entry<P: AsRef<Path>>(
     sources_list.insert_entry(
         preferred,
         SourceEntry {
+            enabled:    true,
             source:     false,
             options:    None,
             url:        url.to_owned(),
