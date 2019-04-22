@@ -214,6 +214,7 @@ pub fn repo_modify(
     let daemon = daemon.clone();
 
     let method = dbus_factory.method::<_, String>(REPO_MODIFY, move |message| {
+        info!("received {}", REPO_MODIFY);
         let repos = message.read1::<HashMap<&str, u8>>()
             .map_err(|why| format!("{}", why))?;
         daemon.borrow_mut().repo_modify(&repos)?;

@@ -191,6 +191,7 @@ impl Client {
 
                     // Repeat as necessary.
                     while recall {
+                        info!("attempting to perform upgrade again");
                         let args = vec![(method as u8).into(), current.into(), next.into()];
                         let _message = self.call_method(methods::RELEASE_UPGRADE, args.into_iter())?;
                         recall = self.event_listen_release_upgrade()?;
@@ -524,7 +525,7 @@ impl Client {
 
                         for (url, why) in &failure {
                             println!(
-                                "\t{}: {}: {}",
+                                "    {}: {}: {}",
                                 Paint::red("Error").bold(),
                                 Paint::cyan(url).bold(),
                                 Paint::red(why).bold(),
@@ -533,7 +534,7 @@ impl Client {
 
                         for url in success {
                             println!(
-                                "\t{}: {}",
+                                "    {}: {}",
                                 Paint::green("Success").bold(),
                                 Paint::cyan(url).bold()
                             );
@@ -543,13 +544,25 @@ impl Client {
 
                         let repos = failure.iter()
                             .map(|(url, _)| *url)
-                            .filter(|url| {
-                                let prompt = format!("\tKeep {}? Y/n", url);
-                                <Option<bool>>::prompt(prompt).unwrap_or(true)
-                            })
-                            .map(|url| MessageItem::DictEntry(Box::new(url.into()), Box::new(true.into())));
+                            .map(|url| {
+                                let prompt = format!("    Keep repository {}? y/N", url);
+                                let res = <Option<bool>>::prompt(prompt).unwrap_or(false);
+                                MessageItem::DictEntry(
+                                    Box::new(url.into()),
+                                    Box::new((res as u8).into())
+                                )
+                            });
 
-                        client.call_method(methods::REPO_MODIFY, repos)?;
+                        let array = MessageItemArray::new(
+                            repos.collect::<Vec<_>>(),
+                            Signature::from_slice(b"a{sy}\0").unwrap(),
+                        )
+                        .unwrap();
+
+
+                        info!("sending message");
+                        client.call_method(methods::REPO_MODIFY, iter::once(MessageItem::Array(array)))?;
+                        info!("message sent");
 
                         *recall = true;
                     }
