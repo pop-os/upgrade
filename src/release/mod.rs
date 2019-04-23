@@ -7,6 +7,7 @@ use apt_fetcher::{
 use envfile::EnvFile;
 use futures::{stream, Future, Stream};
 use std::{
+    collections::HashSet,
     fs::{self, File},
     os::unix::fs::symlink,
     path::Path,
@@ -30,7 +31,7 @@ const DEPRECATED_PACKAGES: &[&str] = &[
     // Slows the system down drastically.
     // Filles journal logs with worthless messages.
     // No longer maintained, and removed from repos since 18.10.
-    "ureadahead"
+    "ureadahead",
 ];
 
 pub fn check() -> Result<(String, String, Option<u16>), VersionError> {
@@ -135,7 +136,12 @@ impl<'a> DaemonRuntime<'a> {
     /// Check if release files can be upgraded, and then overwrite them with the new release.
     ///
     /// On failure, the original release files will be restored.
-    pub fn release_upgrade(&mut self, current: &str, new: &str) -> Result<Upgrader, ReleaseError> {
+    pub fn release_upgrade<'b>(
+        &mut self,
+        retain: &'b HashSet<Box<str>>,
+        current: &str,
+        new: &str,
+    ) -> Result<Upgrader<'b>, ReleaseError> {
         let current = current
             .parse::<Version>()
             .map(Codename::from)
@@ -149,7 +155,7 @@ impl<'a> DaemonRuntime<'a> {
 
         info!("checking if release can be upgraded from {} to {}", current, new);
         let request = UpgradeRequest::new(self.client.clone(), sources, self.runtime);
-        let mut upgrade = request.send(current, new).map_err(ReleaseError::Check)?;
+        let mut upgrade = request.send(retain, current, new).map_err(ReleaseError::Check)?;
 
         // In case the system abruptly shuts down after this point, create a file to signal
         // that packages were being fetched for a new release.
@@ -186,6 +192,7 @@ impl<'a> DaemonRuntime<'a> {
         action: UpgradeMethod,
         from: &str,
         to: &str,
+        retain: &HashSet<Box<str>>,
         logger: &dyn Fn(UpgradeEvent),
         fetch: Arc<Fn(FetchEvent) + Send + Sync>,
         upgrade: &dyn Fn(AptUpgradeEvent),
@@ -229,7 +236,7 @@ impl<'a> DaemonRuntime<'a> {
 
         // Update the source lists to the new release,
         // then fetch the packages required for the upgrade.
-        let mut upgrader = self.fetch_new_release_packages(logger, fetch, from, to)?;
+        let mut upgrader = self.fetch_new_release_packages(logger, retain, fetch, from, to)?;
         let result = self.perform_action(logger, action);
 
         // We know that an offline install will trigger the upgrade script at init.
@@ -308,15 +315,16 @@ impl<'a> DaemonRuntime<'a> {
     /// Update the release files and fetch packages for the new release.
     ///
     /// On failure, the original release files will be restored.
-    fn fetch_new_release_packages(
+    fn fetch_new_release_packages<'b>(
         &mut self,
         logger: &dyn Fn(UpgradeEvent),
+        retain: &'b HashSet<Box<str>>,
         fetch: Arc<Fn(FetchEvent) + Send + Sync>,
         current: &str,
         next: &str,
-    ) -> RelResult<Upgrader> {
+    ) -> RelResult<Upgrader<'b>> {
         (*logger)(UpgradeEvent::UpdatingSourceLists);
-        let mut upgrader = self.release_upgrade(&current, &next)?;
+        let mut upgrader = self.release_upgrade(retain, &current, &next)?;
 
         (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
         match self.attempt_fetch(fetch) {
