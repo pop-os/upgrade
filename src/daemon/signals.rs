@@ -54,23 +54,24 @@ impl Display for SignalEvent {
             ReleaseUpgradeEvent(event) => {
                 write!(fmt, "release upgrade: {}", <&'static str>::from(*event))
             }
-            ReleaseUpgradeResult(result) => {
-                match result {
-                    Err(ReleaseError::Check(DistUpgradeError::SourcesUnavailable { success, failure })) => {
-                        writeln!(fmt, "incompatible repositories detected:")?;
-                        for (url, why) in failure {
-                            writeln!(fmt, "\tError: {}: {}", url, why)?;
-                        }
-
-                        for url in success {
-                            writeln!(fmt, "\tSuccess: {}", url)?;
-                        }
-
-                        Ok(())
+            ReleaseUpgradeResult(result) => match result {
+                Err(ReleaseError::Check(DistUpgradeError::SourcesUnavailable {
+                    success,
+                    failure,
+                })) => {
+                    writeln!(fmt, "incompatible repositories detected:")?;
+                    for (url, why) in failure {
+                        writeln!(fmt, "\tError: {}: {}", url, why)?;
                     }
-                    _ => write!(fmt, "release upgrade result: {:?}", result)
+
+                    for url in success {
+                        writeln!(fmt, "\tSuccess: {}", url)?;
+                    }
+
+                    Ok(())
                 }
-            }
+                _ => write!(fmt, "release upgrade result: {:?}", result),
+            },
             Upgrade(event) => write!(fmt, "package upgrade: {}", event),
         }
     }

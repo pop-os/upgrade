@@ -215,8 +215,7 @@ pub fn repo_modify(
 
     let method = dbus_factory.method::<_, String>(REPO_MODIFY, move |message| {
         info!("received {}", REPO_MODIFY);
-        let repos = message.read1::<HashMap<&str, u8>>()
-            .map_err(|why| format!("{}", why))?;
+        let repos = message.read1::<HashMap<&str, bool>>().map_err(|why| format!("{}", why))?;
         daemon.borrow_mut().repo_modify(&repos)?;
         Ok(Vec::new())
     });

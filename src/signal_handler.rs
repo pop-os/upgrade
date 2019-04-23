@@ -1,9 +1,9 @@
 use std::{
     fmt::{self, Display, Formatter},
-    sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT},
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
-pub static PENDING: AtomicUsize = ATOMIC_USIZE_INIT;
+pub static PENDING: AtomicUsize = AtomicUsize::new(0);
 
 #[repr(u8)]
 pub enum Signal {

@@ -20,9 +20,12 @@ use crate::{
     signal_handler, DBUS_IFACE, DBUS_NAME, DBUS_PATH,
 };
 use apt_cli_wrappers::apt_upgrade;
-use apt_fetcher::{DistUpgradeError, apt_uris::{apt_uris, AptUri}};
+use apt_fetcher::{
+    apt_uris::{apt_uris, AptUri},
+    DistUpgradeError,
+};
 use atomic::Atomic;
-use crossbeam_channel::{bounded, Receiver, Sender};
+use crossbeam::channel::{bounded, Receiver, Sender};
 use dbus::{
     self,
     tree::{Factory, Signal},
@@ -32,11 +35,11 @@ use logind_dbus::LoginManager;
 use num_traits::FromPrimitive;
 use std::{
     cell::RefCell,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     error::Error,
     path::PathBuf,
     rc::Rc,
-    sync::{atomic::Ordering, Arc},
+    sync::{atomic::Ordering, Arc, Mutex},
     thread,
 };
 use tokio::runtime::Runtime;
@@ -69,6 +72,7 @@ pub struct Daemon {
     sub_status:     Arc<Atomic<u8>>,
     fetching_state: Arc<Atomic<(u64, u64)>>,
     last_known:     LastKnown,
+    retain_repos:   Arc<Mutex<HashSet<Box<str>>>>,
 }
 
 impl Daemon {
@@ -96,10 +100,13 @@ impl Daemon {
         // for the curernt progress of a task.
         let prog_state = Arc::new(Atomic::new((0u64, 0u64)));
 
+        let retain_repos = Arc::new(Mutex::new(HashSet::new()));
+
         {
             let status = status.clone();
             let sub_status = sub_status.clone();
             let prog_state = prog_state.clone();
+            let retain_repos = retain_repos.clone();
 
             info!("spawning background event thread");
             thread::spawn(move || {
@@ -222,10 +229,14 @@ impl Daemon {
                                 }
                             };
 
+                            let retain_repos =
+                                retain_repos.lock().expect("retain-repos mutex poisoned");
+
                             let result = runtime.upgrade(
                                 how,
                                 &from,
                                 &to,
+                                &retain_repos,
                                 &progress,
                                 fetch_closure.clone(),
                                 &|event| {
@@ -251,6 +262,7 @@ impl Daemon {
             status,
             sub_status,
             last_known: Default::default(),
+            retain_repos,
         })
     }
 
@@ -420,8 +432,12 @@ impl Daemon {
                             Self::signal_message(&release_event).append1(event as u8)
                         }
                         SignalEvent::ReleaseUpgradeResult(result) => {
-                            if let Err(ReleaseError::Check(DistUpgradeError::SourcesUnavailable { ref success, ref failure })) = result {
-                                let failure: Vec<(String, String)> = failure.iter()
+                            if let Err(ReleaseError::Check(
+                                DistUpgradeError::SourcesUnavailable { ref success, ref failure },
+                            )) = result
+                            {
+                                let failure: Vec<(String, String)> = failure
+                                    .iter()
                                     .map(|(url, why)| {
                                         let mut root_cause = None;
                                         if let Some(mut cause) = why.source() {
@@ -434,7 +450,7 @@ impl Daemon {
 
                                         let cause = match root_cause {
                                             Some(root_cause) => format!("{}", root_cause),
-                                            None => format!("{}", why)
+                                            None => format!("{}", why),
                                         };
 
                                         (url.clone(), cause)
@@ -576,9 +592,10 @@ impl Daemon {
         crate::repair::repair().map_err(|why| format!("{}", why))
     }
 
-    fn repo_modify(&mut self, repos: &HashMap<&str, u8>) -> Result<(), String> {
+    fn repo_modify(&mut self, repos: &HashMap<&str, bool>) -> Result<(), String> {
         info!("modifying repos: {:#?}", repos);
-        crate::repos::modify_repos(repos).map_err(|why| format!("{}", why))
+        let mut retain_repos = self.retain_repos.lock().expect("poisoned mutex");
+        crate::repos::modify_repos(&mut retain_repos, repos).map_err(|why| format!("{}", why))
     }
 
     fn send_signal_message(connection: &Connection, message: Message) {

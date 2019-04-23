@@ -193,7 +193,8 @@ impl Client {
                     while recall {
                         info!("attempting to perform upgrade again");
                         let args = vec![(method as u8).into(), current.into(), next.into()];
-                        let _message = self.call_method(methods::RELEASE_UPGRADE, args.into_iter())?;
+                        let _message =
+                            self.call_method(methods::RELEASE_UPGRADE, args.into_iter())?;
                         recall = self.event_listen_release_upgrade()?;
                     }
                 } else {
@@ -542,16 +543,11 @@ impl Client {
 
                         println!("{}", Paint::yellow("Requesting user input:").bold());
 
-                        let repos = failure.iter()
-                            .map(|(url, _)| *url)
-                            .map(|url| {
-                                let prompt = format!("    Keep repository {}? y/N", url);
-                                let res = <Option<bool>>::prompt(prompt).unwrap_or(false);
-                                MessageItem::DictEntry(
-                                    Box::new(url.into()),
-                                    Box::new((res as u8).into())
-                                )
-                            });
+                        let repos = failure.iter().map(|(url, _)| *url).map(|url| {
+                            let prompt = format!("    Keep repository {}? y/N", url);
+                            let res = <Option<bool>>::prompt(prompt).unwrap_or(false);
+                            MessageItem::DictEntry(Box::new(url.into()), Box::new(res.into()))
+                        });
 
                         let array = MessageItemArray::new(
                             repos.collect::<Vec<_>>(),
@@ -559,9 +555,11 @@ impl Client {
                         )
                         .unwrap();
 
-
                         info!("sending message");
-                        client.call_method(methods::REPO_MODIFY, iter::once(MessageItem::Array(array)))?;
+                        client.call_method(
+                            methods::REPO_MODIFY,
+                            iter::once(MessageItem::Array(array)),
+                        )?;
                         info!("message sent");
 
                         *recall = true;
