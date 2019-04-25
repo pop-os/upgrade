@@ -1,3 +1,7 @@
+mod colors;
+
+use self::colors::*;
+
 use crate::{
     daemon::*,
     misc,
@@ -340,10 +344,10 @@ impl Client {
 
                         println!(
                             "{} ({}/{}) {}",
-                            Paint::green("Fetched").bold(),
-                            Paint::yellow(completed).bold(),
-                            Paint::yellow(total).bold(),
-                            Paint::magenta(name).bold()
+                            color_primary("Fetched"),
+                            color_info(completed),
+                            color_info(total),
+                            color_secondary(name)
                         );
                     }
                     signals::PACKAGE_FETCHING => {
@@ -351,8 +355,8 @@ impl Client {
 
                         println!(
                             "{} {}",
-                            Paint::green("Fetching").bold(),
-                            Paint::magenta(name).bold()
+                            color_primary("Fetching"),
+                            color_secondary(name)
                         );
                     }
                     signals::PACKAGE_UPGRADE => {
@@ -391,10 +395,10 @@ impl Client {
 
                         print!(
                             "\r{} {}/{} {}",
-                            Paint::green("Fetched").bold(),
-                            Paint::yellow(progress / 1024).bold(),
-                            Paint::yellow(total / 1024).bold(),
-                            Paint::green("MiB").bold()
+                            color_primary("Fetched"),
+                            color_info(progress / 1024),
+                            color_info(total / 1024),
+                            color_primary("MiB")
                         );
                         let _ = io::stdout().flush();
                     }
@@ -410,7 +414,7 @@ impl Client {
                             println!();
                         }
 
-                        println!("{}: {}", Paint::green("Recovery event").bold(), message);
+                        println!("{}: {}", color_primary("Recovery event"), message);
                     }
                     signals::RECOVERY_RESULT => {
                         let (status, why) =
@@ -468,10 +472,10 @@ impl Client {
 
                         println!(
                             "{} ({}/{}): {}",
-                            Paint::green("Fetched").bold(),
-                            Paint::yellow(completed).bold(),
-                            Paint::yellow(total).bold(),
-                            Paint::magenta(name).bold()
+                            color_primary("Fetched"),
+                            color_info(completed),
+                            color_info(total),
+                            color_secondary(name)
                         );
                     }
                     signals::PACKAGE_FETCHING => {
@@ -479,8 +483,8 @@ impl Client {
 
                         println!(
                             "{} {}",
-                            Paint::green("Fetching").bold(),
-                            Paint::magenta(name).bold()
+                            color_primary("Fetching"),
+                            color_secondary(name)
                         );
                     }
                     signals::PACKAGE_UPGRADE => {
@@ -515,43 +519,47 @@ impl Client {
                             .map(<&'static str>::from)
                             .unwrap_or("unknown event");
 
-                        println!("{}: {}", Paint::green("Release Event").bold(), message);
+                        println!("{}: {}", color_primary("Release Event"), message);
                     }
                     signals::REPO_COMPAT_ERROR => {
                         let (success, failure) = signal
                             .read2::<Vec<&str>, Vec<(&str, &str)>>()
                             .map_err(ClientError::BadResponse)?;
 
-                        println!("{}:", Paint::red("Incompatible repositories detected").bold());
+                        println!("{}:", color_error("Incompatible repositories detected"));
 
                         for (url, why) in &failure {
                             println!(
-                                "    {}: {}: {}",
-                                Paint::red("Error").bold(),
-                                Paint::cyan(url).bold(),
-                                Paint::red(why).bold(),
+                                "    {}: {}:\n        {}",
+                                color_error("Error"),
+                                color_tertiary(url),
+                                color_error_desc(why),
                             );
                         }
 
                         for url in success {
                             println!(
                                 "    {}: {}",
-                                Paint::green("Success").bold(),
-                                Paint::cyan(url).bold()
+                                color_primary("Success"),
+                                color_tertiary(url)
                             );
                         }
 
-                        println!("{}", Paint::yellow("Requesting user input:").bold());
+                        println!("{}", color_primary("Requesting user input:"));
 
                         let repos = failure.iter().map(|(url, _)| *url).map(|url| {
-                            let prompt = format!("    Keep repository {}? y/N", url);
+                            let prompt = format!(
+                                "    {}: ({})? y/N",
+                                color_secondary("Keep repository"),
+                                color_tertiary(url)
+                            );
                             let res = <Option<bool>>::prompt(prompt).unwrap_or(false);
                             MessageItem::DictEntry(Box::new(url.into()), Box::new(res.into()))
                         });
 
                         let array = MessageItemArray::new(
                             repos.collect::<Vec<_>>(),
-                            Signature::from_slice(b"a{sy}\0").unwrap(),
+                            Signature::from_slice(b"a{sb}\0").unwrap(),
                         )
                         .unwrap();
 
@@ -591,40 +599,40 @@ fn filter_signal(ci: ConnectionItem) -> Option<Message> {
 }
 
 fn write_apt_event(event: AptUpgradeEvent) {
-    let dpkg = Paint::green("Dpkg").bold();
+    let dpkg = color_primary("Dpkg");
     match event {
         AptUpgradeEvent::Processing { package } => {
             println!(
                 "{}: {} for {}",
                 dpkg,
-                Paint::cyan("Processing triggers").bold(),
-                Paint::magenta(package).bold()
+                color_secondary("Processing triggers"),
+                color_info(package)
             );
         }
         AptUpgradeEvent::Progress { percent } => {
             println!(
                 "{}: {}: {}%",
                 dpkg,
-                Paint::cyan("Progress").bold(),
-                Paint::yellow(percent).bold()
+                color_secondary("Progress"),
+                color_info(percent)
             );
         }
         AptUpgradeEvent::SettingUp { package } => {
             println!(
                 "{}: {} {}",
                 dpkg,
-                Paint::cyan("Setting up").bold(),
-                Paint::magenta(package).bold()
+                color_secondary("Setting up"),
+                color_tertiary(package)
             );
         }
         AptUpgradeEvent::Unpacking { package, version, over } => {
             println!(
                 "{}: {} {} ({}) over ({})",
                 dpkg,
-                Paint::cyan("Unpacking").bold(),
-                Paint::magenta(package).bold(),
-                Paint::yellow(version).bold(),
-                Paint::yellow(over).bold()
+                color_secondary("Unpacking"),
+                color_tertiary(package),
+                color_info(version),
+                color_info(over)
             );
         }
     }
@@ -641,11 +649,11 @@ fn log_result(
 
     println!(
         "{}: {}",
-        Paint::cyan(event).bold(),
+        color_info(event),
         if status == 0 {
-            Paint::green(success).bold()
+            color_primary(success)
         } else {
-            inner = format!("{}: {}", Paint::red(error).bold(), Paint::yellow(why).bold());
+            inner = format!("{}: {}", color_error(error), color_error_desc(why));
 
             Paint::wrapping(inner.as_str())
         }
