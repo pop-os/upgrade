@@ -303,7 +303,16 @@ impl<'a> DaemonRuntime<'a> {
 
     /// Create the system upgrade files that systemd will check for at startup.
     fn systemd_upgrade_set(from: &str, to: &str) -> RelResult<()> {
-        fs::write(STARTUP_UPGRADE_FILE, &format!("{} {}", from, to))
+        let current = from
+            .parse::<Version>()
+            .map(Codename::from)
+            .map(<&'static str>::from)
+            .unwrap_or(from);
+
+        let new =
+            to.parse::<Version>().map(Codename::from).map(<&'static str>::from).unwrap_or(to);
+
+        fs::write(STARTUP_UPGRADE_FILE, &format!("{} {}", current, new))
             .and_then(|_| symlink("/var/cache/apt/archives", SYSTEM_UPDATE))
             .map_err(ReleaseError::StartupFileCreation)
     }
