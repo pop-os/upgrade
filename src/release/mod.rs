@@ -8,7 +8,7 @@ use envfile::EnvFile;
 use futures::{stream, Future, Stream};
 use std::{
     collections::HashSet,
-    fs::{self, File},
+    fs,
     os::unix::fs::symlink,
     path::Path,
     sync::Arc,
@@ -23,8 +23,10 @@ pub use self::errors::{RelResult, ReleaseError};
 
 const CORE_PACKAGES: &[&str] = &["pop-desktop"];
 const RELEASE_FETCH_FILE: &str = "/pop_preparing_release_upgrade";
-const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
+const STARTUP_UPGRADE_FILE: &str = "/pop-upgrade";
+const SYSTEM_UPDATE: &str = "/system-update";
 const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
+const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
 
 const DEPRECATED_PACKAGES: &[&str] = &[
     // Not critical to the system.
@@ -174,11 +176,15 @@ impl<'a> DaemonRuntime<'a> {
 
         apt_hold("pop-upgrade").map_err(ReleaseError::HoldPopUpgrade)?;
 
+        let _ = apt_autoremove();
+
         // If the first upgrade attempt fails, try to dpkg --configure -a and try again.
         if apt_upgrade(callback).is_err() {
             dpkg_configure_all().map_err(ReleaseError::DpkgConfigure)?;
             apt_upgrade(callback).map_err(ReleaseError::Upgrade)?;
         }
+
+        let _ = apt_autoremove();
 
         apt_unhold("pop-upgrade").map_err(ReleaseError::UnholdPopUpgrade)?;
 
@@ -237,7 +243,7 @@ impl<'a> DaemonRuntime<'a> {
         // Update the source lists to the new release,
         // then fetch the packages required for the upgrade.
         let mut upgrader = self.fetch_new_release_packages(logger, retain, fetch, from, to)?;
-        let result = self.perform_action(logger, action);
+        let result = self.perform_action(logger, action, from, to);
 
         // We know that an offline install will trigger the upgrade script at init.
         // We want to ensure that the recovery partition has removed this file on completion.
@@ -259,11 +265,13 @@ impl<'a> DaemonRuntime<'a> {
         &mut self,
         logger: &dyn Fn(UpgradeEvent),
         action: UpgradeMethod,
+        from: &str,
+        to: &str,
     ) -> RelResult<()> {
         match action {
             UpgradeMethod::Offline => {
                 (*logger)(UpgradeEvent::AttemptingSystemdUnit);
-                Self::systemd_upgrade_set()
+                Self::systemd_upgrade_set(from, to)
             }
             UpgradeMethod::Recovery => {
                 (*logger)(UpgradeEvent::AttemptingRecovery);
@@ -294,10 +302,9 @@ impl<'a> DaemonRuntime<'a> {
     }
 
     /// Create the system upgrade files that systemd will check for at startup.
-    fn systemd_upgrade_set() -> RelResult<()> {
-        const STARTUP_UPGRADE_FILE: &str = "/pop-upgrade";
-        File::create(STARTUP_UPGRADE_FILE)
-            .and_then(|_| symlink("/var/cache/apt/archives", "/system-update"))
+    fn systemd_upgrade_set(from: &str, to: &str) -> RelResult<()> {
+        fs::write(STARTUP_UPGRADE_FILE, &format!("{} {}", from, to))
+            .and_then(|_| symlink("/var/cache/apt/archives", SYSTEM_UPDATE))
             .map_err(ReleaseError::StartupFileCreation)
     }
 
@@ -387,22 +394,26 @@ pub enum FetchEvent {
 
 /// Check if certain files exist at the time of starting this daemon.
 pub fn cleanup() {
-    info!("checking for {}", RELEASE_FETCH_FILE);
-    if let Ok(data) = fs::read_to_string(RELEASE_FETCH_FILE) {
-        info!("cleaning up after {} ({})", RELEASE_FETCH_FILE, data);
-        let mut iter = data.split(' ');
-        if let (Some(current), Some(next)) = (iter.next(), iter.next()) {
-            info!("current: {}; next: {}", current, next);
-            if let Ok(mut lists) = SourcesLists::scan() {
-                info!("found lists");
-                lists.dist_replace(next, current);
-                let _ = lists.write_sync();
+    for &file in [RELEASE_FETCH_FILE, STARTUP_UPGRADE_FILE].iter() {
+        if let Ok(data) = fs::read_to_string(file) {
+            info!("cleaning up after {} ({})", file, data);
+            let mut iter = data.split_whitespace();
+            if let (Some(current), Some(mut next)) = (iter.next(), iter.next()) {
+                info!("current: {}; next: {}", current, next);
+                if let Ok(mut lists) = SourcesLists::scan() {
+                    info!("found lists");
+                    lists.dist_replace(next, current);
+                    let _ = lists.write_sync();
+                }
             }
-        }
 
-        let _ = fs::remove_file(RELEASE_FETCH_FILE);
-        let _ = apt_update();
+            let _ = fs::remove_file(file);
+            let _ = apt_update();
+            break
+        }
     }
+
+    let _ = fs::remove_file(SYSTEM_UPDATE);
 }
 
 fn recovery_prereq() -> RelResult<()> {

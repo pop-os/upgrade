@@ -69,21 +69,42 @@ where
         return Err(RecoveryError::RecoveryNotFound);
     }
 
+    const RECOVERY_VERSION: &str = "/recovery/version";
+
+    fn verify(version: &str, build: u16) -> bool {
+        fs::read_to_string(RECOVERY_VERSION)
+            .ok()
+            .and_then(move |string| {
+                let mut iter = string.split_whitespace();
+                let current_version = iter.next()?;
+                let current_build = iter.next()?.parse::<u16>().ok()?;
+
+                info!("comparing {}b{}", current_version, current_build);
+                Some(version == current_version && build == current_build)
+            })
+            .unwrap_or(false)
+    }
+
     // The function must be Arc'd so that it can be borrowed.
     // Borrowck disallows moving ownership due to using FnMut instead of FnOnce.
     let progress = Arc::new(progress);
 
-    let (version, build) = fetch_iso(&action, &progress, &event, "/recovery")?;
-    let data = format!("{} {}", version, build);
-    fs::write("/recovery/version", data.as_bytes()).map_err(RecoveryError::WriteVersion)
+    if let Some((version, build)) = fetch_iso(verify, &action, &progress, &event, "/recovery")? {
+        fetch_iso(verify, &action, &progress, &event, "/recovery")?;
+        let data = format!("{} {}", version, build);
+        fs::write(RECOVERY_VERSION, data.as_bytes()).map_err(RecoveryError::WriteVersion)?;
+    }
+
+    Ok(())
 }
 
 fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
+    verify: fn(&str, u16) -> bool,
     action: &UpgradeMethod,
     progress: &Arc<F>,
     event: &dyn Fn(RecoveryEvent),
     recovery_path: P,
-) -> RecResult<(String, u16)> {
+) -> RecResult<Option<(String, u16)>> {
     let recovery_path = recovery_path.as_ref();
     info!("fetching ISO to upgrade recovery partition at {}", recovery_path.display());
     (*event)(RecoveryEvent::Fetching);
@@ -102,11 +123,21 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     let recovery = ["Recovery-", &recovery_uuid].concat();
 
     let mut temp_iso_dir = None;
-    let (iso, version, build) = match action {
+    let (build, version, iso) = match action {
         UpgradeMethod::FromRelease { ref version, ref arch, flags } => {
-            let version = version.as_ref().map(String::as_str);
+            let version_ = version.as_ref().map(String::as_str);
             let arch = arch.as_ref().map(String::as_str);
-            from_release(&mut temp_iso_dir, progress, event, version, arch, *flags)?
+
+            let (version, build) = crate::release::check_current(version_)
+                .ok_or(RecoveryError::NoBuildAvailable)?;
+
+            if verify(&version, build) {
+                info!("recovery partition is already upgraded to {}b{}", version, build);
+                return Ok(None);
+            }
+
+            let iso = from_release(&mut temp_iso_dir, progress, event, &version, arch, *flags)?;
+            (build, version, iso)
         }
         UpgradeMethod::FromFile(ref _path) => {
             // from_file(path)?
@@ -143,7 +174,7 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
 
     (*event)(RecoveryEvent::Complete);
 
-    Ok((version, build))
+    Ok(Some((version, build)))
 }
 
 /// Fetches the release ISO remotely from api.pop-os.org.
@@ -151,23 +182,20 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
     temp: &mut Option<TempDir>,
     progress: &Arc<F>,
     event: &dyn Fn(RecoveryEvent),
-    version: Option<&str>,
+    version: &str,
     arch: Option<&str>,
     flags: ReleaseFlags,
-) -> RecResult<(PathBuf, String, u16)> {
-    let (version, build) =
-        crate::release::check_current(version).ok_or(RecoveryError::NoBuildAvailable)?;
-
+) -> RecResult<PathBuf> {
     let arch = match arch {
         Some(ref arch) => arch,
         None => detect_arch()?,
     };
 
-    let release = Release::get_release(&version, arch).map_err(RecoveryError::ApiError)?;
+    let release = Release::get_release(version, arch).map_err(RecoveryError::ApiError)?;
     let iso_path = from_remote(temp, progress, event, &release.url, &release.sha_sum)
         .map_err(|why| RecoveryError::Download(Box::new(why)))?;
 
-    Ok((iso_path, version, build))
+    Ok(iso_path)
 }
 
 /// Check that the file exist.
