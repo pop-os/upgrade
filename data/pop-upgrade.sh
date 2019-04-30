@@ -64,7 +64,7 @@ attempt_upgrade () {
     touch $1
     apt-mark hold pop-upgrade
     if upgrade || attempt_repair; then
-        rm /pop-upgrade /system-update
+        rm /pop-upgrade /system-update /pop_preparing_release_upgrade
         message -i "Upgrade complete, now rebooting the system"
         sleep 6
         status=0
@@ -90,7 +90,7 @@ if test -f $FIRST_ATTEMPT; then
     attempt_upgrade $SECOND_ATTEMPT
 elif test -f $SECOND_ATTEMPT; then
     message -i "System failed to upgrade. Bailing on upgrade attempt."
-    rm /pop-upgrade /system-update $SECOND_ATTEMPT
+    rm /pop-upgrade /system-update /pop_preparing_release_upgrade $SECOND_ATTEMPT
     sleep 6
 else
     attempt_upgrade $FIRST_ATTEMPT
