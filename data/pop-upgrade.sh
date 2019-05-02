@@ -13,6 +13,15 @@ message () {
     }
 }
 
+efi_rename () {
+    if test -d '/sys/firmware/efi/'; then
+        current_bootnum=$(efibootmgr | grep BootCurrent | awk -F' ' '{print $2}')
+        new_label=$(cat /etc/os-release | grep PRETTY | awk -F'"' '{print $2}')
+        efibootmgr -b "${current_bootnum}" -B
+        efibootmgr -c -L "${new_label}"
+    fi
+}
+
 upgrade () {
     percent=0
 
@@ -98,4 +107,5 @@ fi
 
 plymouth message --text="system-updates-stop"
 
+efi_rename
 systemctl reboot
