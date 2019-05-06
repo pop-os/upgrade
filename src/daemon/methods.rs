@@ -121,6 +121,23 @@ pub fn recovery_upgrade_status(
     method.outarg::<u8>("status").outarg::<&str>("why").consume()
 }
 
+pub const RECOVERY_VERSION: &str = "RecoveryVersion";
+
+pub fn recovery_version(
+    daemon: Rc<RefCell<Daemon>>,
+    dbus_factory: &DbusFactory,
+) -> Method<MTFn<()>, ()> {
+    let daemon = daemon.clone();
+
+    let method = dbus_factory.method(RECOVERY_VERSION, move |_message| {
+        daemon.borrow_mut()
+            .recovery_version()
+            .map(|version| vec![version.version.into(), version.build.into()])
+    });
+
+    method.outarg::<&str>("version").outarg::<u16>("build").consume()
+}
+
 pub const REFRESH_OS: &str = "RefreshOS";
 
 pub fn refresh_os(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method<MTFn<()>, ()> {
