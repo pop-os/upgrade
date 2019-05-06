@@ -1,4 +1,5 @@
 mod errors;
+mod version;
 
 use atomic::Atomic;
 use parallel_getter::ParallelGetter;
@@ -20,6 +21,13 @@ use crate::{
 };
 
 pub use self::errors::{RecResult, RecoveryError};
+pub use self::version::{
+    recovery_file,
+    version,
+    RecoveryVersion,
+    RecoveryVersionError,
+    RECOVERY_VERSION
+};
 
 bitflags! {
     pub struct ReleaseFlags: u8 {
@@ -69,17 +77,13 @@ where
         return Err(RecoveryError::RecoveryNotFound);
     }
 
-    const RECOVERY_VERSION: &str = "/recovery/version";
-
     fn verify(version: &str, build: u16) -> bool {
-        fs::read_to_string(RECOVERY_VERSION)
-            .ok()
+        recovery_file().ok()
             .and_then(move |string| {
                 let mut iter = string.split_whitespace();
                 let current_version = iter.next()?;
                 let current_build = iter.next()?.parse::<u16>().ok()?;
 
-                info!("comparing {}b{}", current_version, current_build);
                 Some(version == current_version && build == current_build)
             })
             .unwrap_or(false)

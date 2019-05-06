@@ -14,7 +14,7 @@ use crate::{
     misc,
     recovery::{
         self, RecoveryError, ReleaseFlags as RecoveryReleaseFlags,
-        UpgradeMethod as RecoveryUpgradeMethod,
+        RecoveryVersion, UpgradeMethod as RecoveryUpgradeMethod,
     },
     release::{self, FetchEvent, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod},
     signal_handler, DBUS_IFACE, DBUS_NAME, DBUS_PATH,
@@ -343,17 +343,18 @@ impl Daemon {
 
         let interface = factory
             .interface(DBUS_IFACE, ())
-            .add_m(methods::fetch_updates(daemon.clone(), &dbus_factory))
             .add_m(methods::fetch_updates_status(daemon.clone(), &dbus_factory))
+            .add_m(methods::fetch_updates(daemon.clone(), &dbus_factory))
             .add_m(methods::package_upgrade(daemon.clone(), &dbus_factory))
             .add_m(methods::recovery_upgrade_file(daemon.clone(), &dbus_factory))
             .add_m(methods::recovery_upgrade_release(daemon.clone(), &dbus_factory))
             .add_m(methods::recovery_upgrade_status(daemon.clone(), &dbus_factory))
+            .add_m(methods::recovery_version(daemon.clone(), &dbus_factory))
             .add_m(methods::refresh_os(daemon.clone(), &dbus_factory))
             .add_m(methods::release_check(daemon.clone(), &dbus_factory))
             .add_m(methods::release_repair(daemon.clone(), &dbus_factory))
-            .add_m(methods::release_upgrade(daemon.clone(), &dbus_factory))
             .add_m(methods::release_upgrade_status(daemon.clone(), &dbus_factory))
+            .add_m(methods::release_upgrade(daemon.clone(), &dbus_factory))
             .add_m(methods::repo_modify(daemon.clone(), &dbus_factory))
             .add_m(methods::status(daemon.clone(), &dbus_factory))
             .add_s(fetch_result.clone())
@@ -553,6 +554,13 @@ impl Daemon {
 
         self.submit_event(event)?;
         Ok(())
+    }
+
+    fn recovery_version(&mut self) -> Result<RecoveryVersion, String> {
+        info!("checking recovery version");
+        let version = crate::recovery::version().map_err(|why| format!("{}", why))?;
+        info!("{:?}", version);
+        Ok(version)
     }
 
     fn refresh_os(&mut self) -> Result<(), String> {
