@@ -94,7 +94,6 @@ where
     let progress = Arc::new(progress);
 
     if let Some((version, build)) = fetch_iso(verify, &action, &progress, &event, "/recovery")? {
-        fetch_iso(verify, &action, &progress, &event, "/recovery")?;
         let data = format!("{} {}", version, build);
         fs::write(RECOVERY_VERSION, data.as_bytes()).map_err(RecoveryError::WriteVersion)?;
     }
