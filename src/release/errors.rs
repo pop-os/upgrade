@@ -25,8 +25,8 @@ pub enum ReleaseError {
     Overwrite(DistUpgradeError),
     #[error(display = "root is required for this action: rerun with `sudo`")]
     NotRoot,
-    #[error(display = "fetch of package failed: {}", _0)]
-    PackageFetch(FetchError),
+    #[error(display = "fetch of package '{}' failed: {}", _0, _1)]
+    PackageFetch(String, FetchError),
     #[error(display = "failed to read the /proc/partitions file: {}", _0)]
     ReadingPartitions(io::Error),
     #[error(display = "failed to open the recovery configuration file: {}", _0)]
