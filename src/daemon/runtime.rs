@@ -12,7 +12,8 @@ impl<'a> DaemonRuntime<'a> {
         // This client contains a thread pool for performing HTTP/s requests.
         let client = Arc::new(
             Client::builder()
-                .timeout(Duration::from_secs(3))
+                .timeout(Duration::new(30, 0))
+                .connect_timeout(Duration::new(15, 0))
                 .build()
                 .expect("failed to initialize reqwest client"),
         );
