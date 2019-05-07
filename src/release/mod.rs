@@ -130,7 +130,7 @@ impl<'a> DaemonRuntime<'a> {
                 func2(FetchEvent::Fetched(uri.clone()));
                 Ok(())
             })
-            .map_err(|(uri, why)| ReleaseError::PackageFetch(uri.name, why));
+            .map_err(|(uri, why)| ReleaseError::PackageFetch(uri.name, uri.uri, why));
 
         self.runtime.block_on(buffered_stream).map(|_| ())
     }
