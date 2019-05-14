@@ -3,12 +3,10 @@ sysconfdir ?= /etc
 exec_prefix = $(prefix)
 bindir = $(exec_prefix)/bin
 libdir = $(exec_prefix)/lib
-includedir = $(prefix)/include
-datarootdir = $(prefix)/share
-datadir = $(datarootdir)
+
+SRC = Makefile Cargo.lock Cargo.toml $(shell find src -type f -wholename '*src/*.rs')
 
 BIN=pop-upgrade
-TARGET = debug
 
 TESTING ?= 0
 ifeq ($(TESTING),1)
@@ -16,6 +14,7 @@ ifeq ($(TESTING),1)
 endif
 
 DEBUG ?= 0
+TARGET = debug
 ifeq ($(DEBUG),0)
 	ARGS += "--release"
 	TARGET = release
@@ -50,9 +49,8 @@ install: all
 	install -Dm0644 "data/$(BIN)-init.service" "$(DESTDIR)/lib/systemd/system/$(BIN)-init.service"
 	install -Dm0644 "data/$(BIN).conf" "$(DESTDIR)$(sysconfdir)/dbus-1/system.d/$(BIN).conf"
 
-target/$(TARGET)/$(BIN): Makefile Cargo.lock Cargo.toml src/* src/*/*
+target/$(TARGET)/$(BIN): $(SRC)
 ifeq ($(VENDORED),1)
-	ls
 	tar pxf vendor.tar.xz
 endif
 	cargo build $(ARGS)
