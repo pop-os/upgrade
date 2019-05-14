@@ -180,7 +180,13 @@ impl<'a> DaemonRuntime<'a> {
 
         // If the first upgrade attempt fails, try to dpkg --configure -a and try again.
         if apt_upgrade(callback).is_err() {
-            dpkg_configure_all().map_err(ReleaseError::DpkgConfigure)?;
+            let dpkg_configure = dpkg_configure_all().is_err();
+            apt_install_fix_broken().map_err(ReleaseError::FixBroken)?;
+
+            if dpkg_configure {
+                dpkg_configure_all().map_err(ReleaseError::DpkgConfigure)?
+            }
+
             apt_upgrade(callback).map_err(ReleaseError::Upgrade)?;
         }
 
