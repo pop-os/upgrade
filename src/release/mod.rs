@@ -36,6 +36,12 @@ const DEPRECATED_PACKAGES: &[&str] = &[
     "ureadahead",
 ];
 
+pub enum RefreshOp {
+    Status,
+    Enable,
+    Disable
+}
+
 pub fn check() -> Result<(String, String, Option<u16>), VersionError> {
     find_next_release(Version::detect, Release::exists)
 }
@@ -45,9 +51,16 @@ pub fn check_current(version: Option<&str>) -> Option<(String, u16)> {
 }
 
 /// Configure the system to refresh the OS in the recovery partition.
-pub fn refresh_os() -> Result<(), ReleaseError> {
+pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
     recovery_prereq()?;
-    set_recovery_as_default_boot_option("REFRESH")
+
+    let action = match op {
+        RefreshOp::Disable => unset_recovery_as_default_boot_option,
+        RefreshOp::Enable => set_recovery_as_default_boot_option,
+        RefreshOp::Status => get_recovery_value_set,
+    };
+
+    action("REFRESH")
 }
 
 #[repr(u8)]
@@ -281,7 +294,7 @@ impl<'a> DaemonRuntime<'a> {
             }
             UpgradeMethod::Recovery => {
                 (*logger)(UpgradeEvent::AttemptingRecovery);
-                set_recovery_as_default_boot_option("UPGRADE")
+                set_recovery_as_default_boot_option("UPGRADE").map(|_| ())
             }
         }
     }
@@ -370,35 +383,71 @@ fn rollback<E: ::std::fmt::Display>(upgrader: &mut Upgrader, why: &E) {
     }
 }
 
+fn get_recovery_value_set(option: &str) -> RelResult<bool> {
+    Ok(
+        EnvFile::new(Path::new("/recovery/recovery.conf"))
+            .map_err(ReleaseError::RecoveryConfOpen)?
+            .get(option)
+            .unwrap_or("0") == "1"
+    )
+}
+
+enum LoaderEntry {
+    Current,
+    Recovery,
+}
+
 /// Fetch the systemd-boot configuration, and designate the recovery partition as the default
 /// boot option.
 ///
 /// It will be up to the recovery partition to revert this change once it has completed its job.
-fn set_recovery_as_default_boot_option(option: &str) -> RelResult<()> {
+fn set_recovery_as_default_boot_option(option: &str) -> RelResult<bool> {
+    systemd_boot_loader_swap(LoaderEntry::Recovery, "recovery partition")?;
+
+    EnvFile::new(Path::new("/recovery/recovery.conf"))
+        .map_err(ReleaseError::RecoveryConfOpen)?
+        .update(option, "1")
+        .write()
+        .map_err(ReleaseError::RecoveryUpdate)?;
+
+    Ok(true)
+}
+
+fn unset_recovery_as_default_boot_option(option: &str) -> RelResult<bool> {
+    systemd_boot_loader_swap(LoaderEntry::Current, "os partition")?;
+
+    let mut envfile = EnvFile::new(Path::new("/recovery/recovery.conf"))
+        .map_err(ReleaseError::RecoveryConfOpen)?;
+
+    // TODO: Add a convenience method to envfile.
+    envfile.store.remove("REFRESH");
+
+    envfile.write().map_err(ReleaseError::RecoveryUpdate)?;
+    Ok(false)
+}
+
+fn systemd_boot_loader_swap(loader: LoaderEntry, description: &str) -> RelResult<()> {
     info!("gathering systemd-boot configuration information");
 
     let mut systemd_boot_conf =
         SystemdBootConf::new("/boot/efi").map_err(ReleaseError::SystemdBootConf)?;
 
     {
-        info!("found the systemd-boot config -- searching for the recovery partition");
+        info!("found the systemd-boot config -- searching for the {}", description);
         let SystemdBootConf { ref entries, ref mut loader_conf, .. } = systemd_boot_conf;
         let recovery_entry = entries
             .iter()
-            .find(|e| e.title.to_lowercase() == "pop!_os recovery")
+            .find(|e| match loader {
+                LoaderEntry::Current => e.filename.to_lowercase().ends_with("current.conf"),
+                LoaderEntry::Recovery => e.filename.to_lowercase().starts_with("Recovery"),
+            })
             .ok_or(ReleaseError::MissingRecoveryEntry)?;
 
         loader_conf.default = Some(recovery_entry.filename.to_owned());
     }
 
-    info!("found the recovery partition -- setting it as the default boot entry");
-    systemd_boot_conf.overwrite_loader_conf().map_err(ReleaseError::SystemdBootConfOverwrite)?;
-
-    EnvFile::new(Path::new("/recovery/recovery.conf"))
-        .map_err(ReleaseError::RecoveryConfOpen)?
-        .update(option, "1")
-        .write()
-        .map_err(ReleaseError::RecoveryUpdate)
+    info!("found the {} -- setting it as the default boot entry", description);
+    systemd_boot_conf.overwrite_loader_conf().map_err(ReleaseError::SystemdBootConfOverwrite)
 }
 
 pub enum FetchEvent {

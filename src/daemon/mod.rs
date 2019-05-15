@@ -16,7 +16,7 @@ use crate::{
         self, RecoveryError, ReleaseFlags as RecoveryReleaseFlags,
         RecoveryVersion, UpgradeMethod as RecoveryUpgradeMethod,
     },
-    release::{self, FetchEvent, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod},
+    release::{self, FetchEvent, RefreshOp, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod},
     signal_handler, DBUS_IFACE, DBUS_NAME, DBUS_PATH,
 };
 use apt_cli_wrappers::apt_upgrade;
@@ -563,9 +563,9 @@ impl Daemon {
         Ok(version)
     }
 
-    fn refresh_os(&mut self) -> Result<(), String> {
+    fn refresh_os(&mut self, flag: RefreshOp) -> Result<bool, String> {
         info!("preparing to refresh OS");
-        crate::release::refresh_os().map_err(|why| format!("{}", why))
+        crate::release::refresh_os(flag).map_err(|why| format!("{}", why))
     }
 
     fn release_check(&mut self) -> Result<(String, String, Option<u16>), String> {

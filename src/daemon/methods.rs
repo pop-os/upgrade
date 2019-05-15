@@ -6,6 +6,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::atomic::Ordering};
 
 use super::result_signal;
 use crate::daemon::{dbus_helper::DbusFactory, Daemon, DaemonStatus};
+use crate::release::RefreshOp;
 
 // Methods supported by the daemon.
 pub const FETCH_UPDATES: &str = "FetchUpdates";
@@ -143,12 +144,18 @@ pub const REFRESH_OS: &str = "RefreshOS";
 pub fn refresh_os(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method<MTFn<()>, ()> {
     let daemon = daemon.clone();
 
-    let method = dbus_factory.method::<_, String>(REFRESH_OS, move |_message| {
-        daemon.borrow_mut().refresh_os()?;
-        Ok(Vec::new())
+    let method = dbus_factory.method::<_, String>(REFRESH_OS, move |message| {
+        let enable = message.read1().map_err(|why| format!("{}", why))?;
+        let value = daemon.borrow_mut().refresh_os(match enable {
+            1u8 => RefreshOp::Enable,
+            2u8 => RefreshOp::Disable,
+            _ => RefreshOp::Status,
+        })?;
+
+        Ok(vec![value.into()])
     });
 
-    method.outarg::<u8>("result").consume()
+    method.outarg::<bool>("enabled").consume()
 }
 
 pub const RELEASE_CHECK: &str = "ReleaseCheck";
