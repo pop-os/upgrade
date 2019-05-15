@@ -207,8 +207,14 @@ impl Client {
             }
             // Set the recovery partition as the next boot target, and configure it to
             // automatically switch to the refresh view.
-            ("refresh", Some(_)) => {
-                let _ = self.call_method(methods::REFRESH_OS, iter::empty())?;
+            ("refresh", Some(matches)) => {
+                let action = match () {
+                    _ if matches.is_present("enable") => 1,
+                    _ if matches.is_present("disable") => 2,
+                    _ => 0
+                };
+
+                let _ = self.call_method(methods::REFRESH_OS, iter::once(action.into()))?;
                 println!("reboot to boot into the recovery partition to begin the refresh install");
             }
             ("repair", Some(_)) => {
