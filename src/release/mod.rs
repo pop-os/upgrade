@@ -420,7 +420,7 @@ fn unset_recovery_as_default_boot_option(option: &str) -> RelResult<bool> {
         .map_err(ReleaseError::RecoveryConfOpen)?;
 
     // TODO: Add a convenience method to envfile.
-    envfile.store.remove("REFRESH");
+    envfile.store.remove(option);
 
     envfile.write().map_err(ReleaseError::RecoveryUpdate)?;
     Ok(false)
@@ -438,8 +438,8 @@ fn systemd_boot_loader_swap(loader: LoaderEntry, description: &str) -> RelResult
         let recovery_entry = entries
             .iter()
             .find(|e| match loader {
-                LoaderEntry::Current => e.filename.to_lowercase().ends_with("current.conf"),
-                LoaderEntry::Recovery => e.filename.to_lowercase().starts_with("Recovery"),
+                LoaderEntry::Current => e.filename.to_lowercase().ends_with("current"),
+                LoaderEntry::Recovery => e.filename.to_lowercase().starts_with("recovery"),
             })
             .ok_or(ReleaseError::MissingRecoveryEntry)?;
 

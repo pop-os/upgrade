@@ -155,7 +155,7 @@ pub fn refresh_os(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Me
         Ok(vec![value.into()])
     });
 
-    method.outarg::<bool>("enabled").consume()
+    method.inarg::<u8>("input").outarg::<bool>("enabled").consume()
 }
 
 pub const RELEASE_CHECK: &str = "ReleaseCheck";
