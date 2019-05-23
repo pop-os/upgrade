@@ -32,7 +32,7 @@ sha2 = "0.8.0"
 sys-mount = "1.2.0"
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
 systemd-boot-conf = "0.1.0"
-tempfile = "3.0.7"
+tempfile = "3.0.8"
 tokio = "0.1.19"
 tokio-process = "0.2.3"
 yansi = "0.5.0"
