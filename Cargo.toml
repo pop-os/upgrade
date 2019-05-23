@@ -18,7 +18,7 @@ distinst-disks = { git = "https://github.com/pop-os/distinst/" }
 err-derive = "0.1.5"
 fern = "0.5.8"
 futures = "0.1.26"
-libc = "0.2.54"
+libc = "0.2.55"
 log = "0.4.6"
 md-5 = "0.8.0"
 os-release = "0.1.0"
