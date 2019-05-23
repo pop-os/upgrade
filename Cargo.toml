@@ -9,7 +9,7 @@ apt-fetcher = { git = "https://github.com/pop-os/apt-fetcher" }
 apt-keyring = { git = "https://github.com/pop-os/apt-keyring" }
 apt-sources-lists = { git = "https://github.com/pop-os/apt-sources-lists" }
 async-fetcher = { git = "https://github.com/pop-os/async-fetcher" }
-atomic = "0.4.4"
+atomic = "0.4.5"
 clap = "2.33.0"
 dbus = "0.6.4"
 disk-types = "0.1.2"
