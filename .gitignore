@@ -3,3 +3,4 @@ target
 .cargo/
 debian/*.log
 vendor.tar.xz
+gtk/ffi/examples/c/build

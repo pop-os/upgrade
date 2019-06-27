@@ -99,7 +99,7 @@ impl UpgradeWidget {
         exists() || (self.client.release_repair().is_ok() && exists())
     }
 
-    pub fn scan_options(&self) -> Result<(), Error> {
+    pub fn scan(&self) -> Result<(), Error> {
         self.container.hide();
         self.option_refresh.hide();
 
