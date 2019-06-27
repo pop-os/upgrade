@@ -4,12 +4,15 @@ version = "0.1.0"
 authors = ["Michael Aaron Murphy <mmstickman@gmail.com>"]
 edition = "2018"
 
+[workspace]
+members = [ "gtk" ]
+
 [dependencies]
 apt-fetcher = { git = "https://github.com/pop-os/apt-fetcher" }
 apt-keyring = { git = "https://github.com/pop-os/apt-keyring" }
 apt-sources-lists = { git = "https://github.com/pop-os/apt-sources-lists" }
 async-fetcher = { git = "https://github.com/pop-os/async-fetcher" }
-atomic = "0.4.4"
+atomic = "0.4.5"
 clap = "2.33.0"
 dbus = "0.6.4"
 disk-types = "0.1.2"
@@ -17,28 +20,28 @@ distinst-chroot = { git = "https://github.com/pop-os/distinst/" }
 distinst-disks = { git = "https://github.com/pop-os/distinst/" }
 err-derive = "0.1.5"
 fern = "0.5.8"
-futures = "0.1.26"
-libc = "0.2.54"
+futures = "0.1.28"
+libc = "0.2.58"
 log = "0.4.6"
 md-5 = "0.8.0"
 os-release = "0.1.0"
 parallel-getter = "0.2.0"
 promptly = "0.1.5"
-reqwest = "0.9.16"
-serde = "1.0.90"
-serde_derive = "1.0.90"
+reqwest = "0.9.18"
+serde = "1.0.93"
+serde_derive = "1.0.93"
 serde_json = "1.0.39"
 sha2 = "0.8.0"
 sys-mount = "1.2.0"
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
 systemd-boot-conf = "0.1.0"
-tempfile = "3.0.7"
-tokio = "0.1.19"
-tokio-process = "0.2.3"
+tempfile = "3.0.8"
+tokio = "0.1.21"
+tokio-process = "0.2.4"
 yansi = "0.5.0"
-bitflags = "1.0.4"
+bitflags = "1.1.0"
 num-derive = "0.2.5"
-num-traits = "0.2.6"
+num-traits = "0.2.8"
 envfile = "0.2.1"
 proc-mounts = "0.2.2"
 partition-identity = "0.2.6"
@@ -46,6 +49,7 @@ ubuntu-version = "0.1.2"
 logind-dbus = "0.1.1"
 apt-cli-wrappers = { git = "https://github.com/pop-os/apt-cli-wrappers" }
 crossbeam = "0.7.1"
+shrinkwraprs = "0.2.1"
 
 [patch.crates-io]
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }

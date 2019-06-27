@@ -44,9 +44,12 @@ impl Display for SignalEvent {
                 write!(fmt, "fetched {}/{}: {}", progress, total, package)
             }
             Fetching(package) => write!(fmt, "fetching {}", package),
-            RecoveryDownloadProgress(progress, total) => {
-                write!(fmt, "recovery download: {}/{} MiB", progress / 1024, total / 1024)
-            }
+            RecoveryDownloadProgress(progress, total) => write!(
+                fmt,
+                "recovery download: {}/{} MiB",
+                progress / 1024,
+                total / 1024
+            ),
             RecoveryUpgradeEvent(event) => {
                 write!(fmt, "recovery upgrade: {}", <&'static str>::from(*event))
             }

@@ -28,7 +28,10 @@ pub fn validate_checksum(file: &mut File, checksum: &str) -> Result<(), Validate
 
     let found = format!("{:x}", hasher.result());
     if found != checksum {
-        return Err(ValidateError::Checksum { expected: checksum.into(), found });
+        return Err(ValidateError::Checksum {
+            expected: checksum.into(),
+            found,
+        });
     }
 
     Ok(())

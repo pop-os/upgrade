@@ -1,46 +1,27 @@
-#![deny(clippy::all)]
-#![allow(clippy::new_ret_no_self)]
-#![allow(clippy::useless_attribute)]
-
-#[macro_use]
-extern crate bitflags;
 #[macro_use]
 extern crate err_derive;
 #[macro_use]
 extern crate log;
 #[macro_use]
-extern crate num_derive;
+extern crate shrinkwraprs;
 
-mod checksum;
-mod client;
-mod daemon;
-mod external;
+mod cli;
 mod logging;
-mod misc;
-mod recovery;
-mod release;
-mod release_api;
-mod release_architecture;
-mod repair;
-mod repos;
-mod signal_handler;
-mod system_environment;
 
-use self::{client::Client, daemon::Daemon, logging::setup_logging};
-
-pub static DBUS_NAME: &'static str = "com.system76.PopUpgrade";
-pub static DBUS_PATH: &'static str = "/com/system76/PopUpgrade";
-pub static DBUS_IFACE: &'static str = "com.system76.PopUpgrade";
+use crate::cli::Client;
+use crate::logging::setup_logging;
+use pop_upgrade::daemon::Daemon;
 
 pub mod error {
-    use super::{
-        client::ClientError, daemon::DaemonError, recovery::RecoveryError, release::ReleaseError,
+    use pop_upgrade::{
+        client::Error as ClientError, daemon::DaemonError, recovery::RecoveryError,
+        release::ReleaseError,
     };
     use std::io;
 
     #[derive(Debug, Error)]
     pub enum Error {
-        #[error(display = "{}", _0)]
+        #[error(display = "dbus client error: {}", _0)]
         Client(ClientError),
         #[error(display = "daemon initialization error: {}", _0)]
         Daemon(DaemonError),
@@ -53,28 +34,41 @@ pub mod error {
     }
 
     impl From<ClientError> for Error {
-        fn from(why: ClientError) -> Self { Error::Client(why) }
+        fn from(why: ClientError) -> Self {
+            Error::Client(why)
+        }
     }
 
     impl From<DaemonError> for Error {
-        fn from(why: DaemonError) -> Self { Error::Daemon(why) }
+        fn from(why: DaemonError) -> Self {
+            Error::Daemon(why)
+        }
     }
 
     impl From<RecoveryError> for Error {
-        fn from(why: RecoveryError) -> Self { Error::Recovery(why) }
+        fn from(why: RecoveryError) -> Self {
+            Error::Recovery(why)
+        }
     }
 
     impl From<ReleaseError> for Error {
-        fn from(why: ReleaseError) -> Self { Error::Release(why) }
+        fn from(why: ReleaseError) -> Self {
+            Error::Release(why)
+        }
     }
 
     impl From<InitError> for Error {
-        fn from(why: InitError) -> Self { Error::Init(why) }
+        fn from(why: InitError) -> Self {
+            Error::Init(why)
+        }
     }
 
     #[derive(Debug, Error)]
     pub enum InitError {
-        #[error(display = "failure to create /var/cache/apt/archives/partial directories: {}", _0)]
+        #[error(
+            display = "failure to create /var/cache/apt/archives/partial directories: {}",
+            _0
+        )]
         AptCacheDirectories(io::Error),
     }
 }
@@ -95,11 +89,11 @@ pub fn main() {
         // Recovery partition tools.
         .subcommand(
             SubCommand::with_name("daemon")
-                .about("launch a daemon for integration with control centers like GNOME's"),
+                .about("launch a daemon for integration witsuper control centers like GNOME's"),
         )
         .subcommand(
             SubCommand::with_name("recovery")
-                .about("tools for managing the recovery partition")
+                .about("tools for managing the recovery parsuperition")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 // Reboot into the recovery partition.
                 .subcommand(
