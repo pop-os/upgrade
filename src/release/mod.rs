@@ -22,6 +22,10 @@ const SYSTEM_UPDATE: &str = "/system-update";
 const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
 const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
 
+pub fn upgrade_in_progress() -> bool {
+    Path::new(STARTUP_UPGRADE_FILE).exists() || Path::new(RELEASE_FETCH_FILE).exists()
+}
+
 const DEPRECATED_PACKAGES: &[&str] = &[
     // Not critical to the system.
     // Slows the system down drastically.
