@@ -9,9 +9,9 @@ use self::widgets::*;
 use gtk::prelude::*;
 use pop_upgrade::{
     client::{Client, Error},
-    release,
+    release::{self, RefreshOp},
 };
-use std::{borrow::Cow, path::Path, rc::Rc};
+use std::{borrow::Cow, path::Path, process::Command, rc::Rc};
 
 #[derive(Shrinkwrap)]
 pub struct UpgradeWidget(Rc<InnerWidget>);
@@ -26,7 +26,15 @@ pub struct InnerWidget {
 
 impl InnerWidget {
     pub fn refresh_os(&self) {
-        eprintln!("refreshing OS");
+        eprintln!("sending refresh OS signal to upgrade daemon");
+        self.option_upgrade.hide();
+        if let Err(why) = self.client.refresh_os(RefreshOp::Enable) {
+            eprintln!("failed to enable refresh OS option: {}", why);
+            self.option_upgrade.show();
+            return;
+        }
+
+        let _ = Command::new("systemctl").arg("reboot").status();
     }
 
     pub fn upgrade_release(&self) {
