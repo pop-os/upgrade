@@ -5,7 +5,7 @@ authors = ["Michael Aaron Murphy <mmstickman@gmail.com>"]
 edition = "2018"
 
 [workspace]
-members = [ "gtk" ]
+members = [ "gtk", "gtk/ffi" ]
 
 [dependencies]
 apt-fetcher = { git = "https://github.com/pop-os/apt-fetcher" }
