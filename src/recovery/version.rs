@@ -18,7 +18,7 @@ pub enum RecoveryVersionError {
 #[derive(Debug, Clone)]
 pub struct RecoveryVersion {
     pub version: String,
-    pub build: u16
+    pub build: u16,
 }
 
 impl FromStr for RecoveryVersion {
@@ -27,17 +27,22 @@ impl FromStr for RecoveryVersion {
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let mut iter = input.split_whitespace();
         let version = iter.next().ok_or(RecoveryVersionError::NoVersion)?;
-        let build = iter.next()
+        let build = iter
+            .next()
             .ok_or(RecoveryVersionError::NoBuild)?
             .parse::<u16>()
             .map_err(|_| RecoveryVersionError::BuildNaN)?;
 
-        Ok(RecoveryVersion { version: version.to_owned(), build })
+        Ok(RecoveryVersion {
+            version: version.to_owned(),
+            build,
+        })
     }
 }
 
 pub fn version() -> Result<RecoveryVersion, RecoveryVersionError> {
-    recovery_file().map_err(RecoveryVersionError::File)?
+    recovery_file()
+        .map_err(RecoveryVersionError::File)?
         .parse::<RecoveryVersion>()
 }
 

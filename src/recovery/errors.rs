@@ -28,7 +28,10 @@ pub enum RecoveryError {
     TempDir(io::Error),
     #[error(display = "recovery partition was not found")]
     RecoveryNotFound,
-    #[error(display = "failed to apply system repair before recovery upgrade: {}", _0)]
+    #[error(
+        display = "failed to apply system repair before recovery upgrade: {}",
+        _0
+    )]
     Repair(RepairError),
     #[error(display = "EFI partition was not found")]
     EfiNotFound,
@@ -46,13 +49,19 @@ pub enum RecoveryError {
 }
 
 impl From<io::Error> for RecoveryError {
-    fn from(why: io::Error) -> Self { RecoveryError::Io(why) }
+    fn from(why: io::Error) -> Self {
+        RecoveryError::Io(why)
+    }
 }
 
 impl From<VersionError> for RecoveryError {
-    fn from(why: VersionError) -> Self { RecoveryError::ReleaseVersion(why) }
+    fn from(why: VersionError) -> Self {
+        RecoveryError::ReleaseVersion(why)
+    }
 }
 
 impl From<ReleaseArchError> for RecoveryError {
-    fn from(why: ReleaseArchError) -> Self { RecoveryError::ReleaseArch(why) }
+    fn from(why: ReleaseArchError) -> Self {
+        RecoveryError::ReleaseArch(why)
+    }
 }

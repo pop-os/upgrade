@@ -13,8 +13,8 @@ use self::dbus_helper::DbusFactory;
 use crate::{
     misc,
     recovery::{
-        self, RecoveryError, ReleaseFlags as RecoveryReleaseFlags,
-        RecoveryVersion, UpgradeMethod as RecoveryUpgradeMethod,
+        self, RecoveryError, RecoveryVersion, ReleaseFlags as RecoveryReleaseFlags,
+        UpgradeMethod as RecoveryUpgradeMethod,
     },
     release::{self, FetchEvent, RefreshOp, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod},
     signal_handler, DBUS_IFACE, DBUS_NAME, DBUS_PATH,
@@ -46,33 +46,44 @@ use tokio::runtime::Runtime;
 
 #[derive(Debug)]
 pub enum Event {
-    FetchUpdates { apt_uris: Vec<AptUri>, download_only: bool },
+    FetchUpdates {
+        apt_uris: Vec<AptUri>,
+        download_only: bool,
+    },
     PackageUpgrade,
     RecoveryUpgrade(RecoveryUpgradeMethod),
-    ReleaseUpgrade { how: ReleaseUpgradeMethod, from: String, to: String },
+    ReleaseUpgrade {
+        how: ReleaseUpgradeMethod,
+        from: String,
+        to: String,
+    },
 }
 
 pub struct LastKnown {
-    fetch:            Result<(), ReleaseError>,
+    fetch: Result<(), ReleaseError>,
     recovery_upgrade: Result<(), RecoveryError>,
-    release_upgrade:  Result<(), ReleaseError>,
+    release_upgrade: Result<(), ReleaseError>,
 }
 
 impl Default for LastKnown {
     fn default() -> Self {
-        Self { fetch: Ok(()), recovery_upgrade: Ok(()), release_upgrade: Ok(()) }
+        Self {
+            fetch: Ok(()),
+            recovery_upgrade: Ok(()),
+            release_upgrade: Ok(()),
+        }
     }
 }
 
 pub struct Daemon {
-    event_tx:       Sender<Event>,
-    dbus_rx:        Receiver<SignalEvent>,
-    connection:     Arc<Connection>,
-    status:         Arc<Atomic<DaemonStatus>>,
-    sub_status:     Arc<Atomic<u8>>,
+    event_tx: Sender<Event>,
+    dbus_rx: Receiver<SignalEvent>,
+    connection: Arc<Connection>,
+    status: Arc<Atomic<DaemonStatus>>,
+    sub_status: Arc<Atomic<u8>>,
     fetching_state: Arc<Atomic<(u64, u64)>>,
-    last_known:     LastKnown,
-    retain_repos:   Arc<Mutex<HashSet<Box<str>>>>,
+    last_known: LastKnown,
+    retain_repos: Arc<Mutex<HashSet<Box<str>>>>,
 }
 
 impl Daemon {
@@ -160,7 +171,10 @@ impl Daemon {
                     });
 
                     match event {
-                        Event::FetchUpdates { apt_uris, download_only } => {
+                        Event::FetchUpdates {
+                            apt_uris,
+                            download_only,
+                        } => {
                             info!("fetching packages for {:?}", apt_uris);
                             let npackages = apt_uris.len() as u32;
                             prog_state.store((0, u64::from(npackages)), Ordering::SeqCst);
@@ -284,7 +298,10 @@ impl Daemon {
         );
 
         let fetching_package = Arc::new(
-            dbus_factory.signal(signals::PACKAGE_FETCHING).sarg::<&str>("package").consume(),
+            dbus_factory
+                .signal(signals::PACKAGE_FETCHING)
+                .sarg::<&str>("package")
+                .consume(),
         );
 
         let fetched_package = Arc::new(
@@ -304,8 +321,12 @@ impl Daemon {
                 .consume(),
         );
 
-        let recovery_event =
-            Arc::new(dbus_factory.signal(signals::RECOVERY_EVENT).sarg::<u8>("event").consume());
+        let recovery_event = Arc::new(
+            dbus_factory
+                .signal(signals::RECOVERY_EVENT)
+                .sarg::<u8>("event")
+                .consume(),
+        );
 
         let recovery_result = Arc::new(
             dbus_factory
@@ -315,8 +336,12 @@ impl Daemon {
                 .consume(),
         );
 
-        let release_event =
-            Arc::new(dbus_factory.signal(signals::RELEASE_EVENT).sarg::<u8>("event").consume());
+        let release_event = Arc::new(
+            dbus_factory
+                .signal(signals::RELEASE_EVENT)
+                .sarg::<u8>("event")
+                .consume(),
+        );
 
         let release_result = Arc::new(
             dbus_factory
@@ -346,14 +371,26 @@ impl Daemon {
             .add_m(methods::fetch_updates_status(daemon.clone(), &dbus_factory))
             .add_m(methods::fetch_updates(daemon.clone(), &dbus_factory))
             .add_m(methods::package_upgrade(daemon.clone(), &dbus_factory))
-            .add_m(methods::recovery_upgrade_file(daemon.clone(), &dbus_factory))
-            .add_m(methods::recovery_upgrade_release(daemon.clone(), &dbus_factory))
-            .add_m(methods::recovery_upgrade_status(daemon.clone(), &dbus_factory))
+            .add_m(methods::recovery_upgrade_file(
+                daemon.clone(),
+                &dbus_factory,
+            ))
+            .add_m(methods::recovery_upgrade_release(
+                daemon.clone(),
+                &dbus_factory,
+            ))
+            .add_m(methods::recovery_upgrade_status(
+                daemon.clone(),
+                &dbus_factory,
+            ))
             .add_m(methods::recovery_version(daemon.clone(), &dbus_factory))
             .add_m(methods::refresh_os(daemon.clone(), &dbus_factory))
             .add_m(methods::release_check(daemon.clone(), &dbus_factory))
             .add_m(methods::release_repair(daemon.clone(), &dbus_factory))
-            .add_m(methods::release_upgrade_status(daemon.clone(), &dbus_factory))
+            .add_m(methods::release_upgrade_status(
+                daemon.clone(),
+                &dbus_factory,
+            ))
             .add_m(methods::release_upgrade(daemon.clone(), &dbus_factory))
             .add_m(methods::repo_modify(daemon.clone(), &dbus_factory))
             .add_m(methods::status(daemon.clone(), &dbus_factory))
@@ -371,11 +408,15 @@ impl Daemon {
             (daemon.connection.clone(), daemon.dbus_rx.clone())
         };
 
-        let tree = factory
-            .tree(())
-            .add(factory.object_path(DBUS_PATH, ()).introspectable().add(interface));
+        let tree = factory.tree(()).add(
+            factory
+                .object_path(DBUS_PATH, ())
+                .introspectable()
+                .add(interface),
+        );
 
-        tree.set_registered(&connection, true).map_err(DaemonError::TreeRegister)?;
+        tree.set_registered(&connection, true)
+            .map_err(DaemonError::TreeRegister)?;
 
         connection.add_handler(tree);
 
@@ -434,7 +475,10 @@ impl Daemon {
                         }
                         SignalEvent::ReleaseUpgradeResult(result) => {
                             if let Err(ReleaseError::Check(
-                                DistUpgradeError::SourcesUnavailable { ref success, ref failure },
+                                DistUpgradeError::SourcesUnavailable {
+                                    ref success,
+                                    ref failure,
+                                },
                             )) = result
                             {
                                 let failure: Vec<(String, String)> = failure
@@ -506,7 +550,10 @@ impl Daemon {
         additional_packages: &[String],
         download_only: bool,
     ) -> Result<(bool, u32), String> {
-        info!("fetching updates for the system, including {:?}", additional_packages);
+        info!(
+            "fetching updates for the system, including {:?}",
+            additional_packages
+        );
 
         let apt_uris = Self::fetch_apt_uris(additional_packages)?;
 
@@ -516,7 +563,10 @@ impl Daemon {
         }
 
         let npackages = apt_uris.len() as u32;
-        let event = Event::FetchUpdates { apt_uris, download_only };
+        let event = Event::FetchUpdates {
+            apt_uris,
+            download_only,
+        };
         self.submit_event(event)?;
 
         Ok((true, npackages))
@@ -547,9 +597,17 @@ impl Daemon {
         info!("upgrading the recovery partition to {}-{}", version, arch);
 
         let event = Event::RecoveryUpgrade(RecoveryUpgradeMethod::FromRelease {
-            version: if version.is_empty() { None } else { Some(version.into()) },
-            arch:    if arch.is_empty() { None } else { Some(arch.into()) },
-            flags:   RecoveryReleaseFlags::from_bits_truncate(flags),
+            version: if version.is_empty() {
+                None
+            } else {
+                Some(version.into())
+            },
+            arch: if arch.is_empty() {
+                None
+            } else {
+                Some(arch.into())
+            },
+            flags: RecoveryReleaseFlags::from_bits_truncate(flags),
         });
 
         self.submit_event(event)?;
@@ -590,7 +648,11 @@ impl Daemon {
         let how = ReleaseUpgradeMethod::from_u8(how)
             .ok_or("provided upgrade `how` value is out of range")?;
 
-        let event = Event::ReleaseUpgrade { how, from: from.into(), to: to.into() };
+        let event = Event::ReleaseUpgrade {
+            how,
+            from: from.into(),
+            to: to.into(),
+        };
         self.submit_event(event)?;
 
         Ok(())
@@ -649,7 +711,10 @@ pub fn result_signal<E: ::std::fmt::Display>(result: Result<&(), &E>) -> (u8, St
         Err(_) => 1,
     };
 
-    let why: String = result.err().map(|why| format!("{}", why)).unwrap_or_default();
+    let why: String = result
+        .err()
+        .map(|why| format!("{}", why))
+        .unwrap_or_default();
 
     (status, why)
 }

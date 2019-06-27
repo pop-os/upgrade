@@ -22,11 +22,7 @@ use crate::{
 
 pub use self::errors::{RecResult, RecoveryError};
 pub use self::version::{
-    recovery_file,
-    version,
-    RecoveryVersion,
-    RecoveryVersionError,
-    RECOVERY_VERSION
+    recovery_file, version, RecoveryVersion, RecoveryVersionError, RECOVERY_VERSION,
 };
 
 bitflags! {
@@ -58,7 +54,11 @@ impl From<RecoveryEvent> for &'static str {
 #[derive(Debug, Clone)]
 pub enum UpgradeMethod {
     FromFile(PathBuf),
-    FromRelease { version: Option<String>, arch: Option<String>, flags: ReleaseFlags },
+    FromRelease {
+        version: Option<String>,
+        arch: Option<String>,
+        flags: ReleaseFlags,
+    },
 }
 
 pub fn recovery<F, E>(action: &UpgradeMethod, progress: F, event: E) -> RecResult<()>
@@ -78,7 +78,8 @@ where
     }
 
     fn verify(version: &str, build: u16) -> bool {
-        recovery_file().ok()
+        recovery_file()
+            .ok()
             .and_then(move |string| {
                 let mut iter = string.split_whitespace();
                 let current_version = iter.next()?;
@@ -109,7 +110,10 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     recovery_path: P,
 ) -> RecResult<Option<(String, u16)>> {
     let recovery_path = recovery_path.as_ref();
-    info!("fetching ISO to upgrade recovery partition at {}", recovery_path.display());
+    info!(
+        "fetching ISO to upgrade recovery partition at {}",
+        recovery_path.display()
+    );
     (*event)(RecoveryEvent::Fetching);
 
     if !recovery_path.exists() {
@@ -127,15 +131,22 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
 
     let mut temp_iso_dir = None;
     let (build, version, iso) = match action {
-        UpgradeMethod::FromRelease { ref version, ref arch, flags } => {
+        UpgradeMethod::FromRelease {
+            ref version,
+            ref arch,
+            flags,
+        } => {
             let version_ = version.as_ref().map(String::as_str);
             let arch = arch.as_ref().map(String::as_str);
 
-            let (version, build) = crate::release::check_current(version_)
-                .ok_or(RecoveryError::NoBuildAvailable)?;
+            let (version, build) =
+                crate::release::check_current(version_).ok_or(RecoveryError::NoBuildAvailable)?;
 
             if verify(&version, build) {
-                info!("recovery partition is already upgraded to {}b{}", version, build);
+                info!(
+                    "recovery partition is already upgraded to {}b{}",
+                    version, build
+                );
                 return Ok(None);
             }
 
@@ -164,7 +175,11 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     let casper_vmlinuz = recovery_path.join([&casper, "/vmlinuz.efi"].concat());
     let recovery_str = recovery_path.to_str().unwrap();
 
-    rsync(&[&disk, &dists, &pool], recovery_str, &["-KLavc", "--inplace", "--delete"])?;
+    rsync(
+        &[&disk, &dists, &pool],
+        recovery_str,
+        &["-KLavc", "--inplace", "--delete"],
+    )?;
 
     rsync(
         &[&casper_p],
@@ -224,8 +239,12 @@ fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
     let temp = tempdir().map_err(RecoveryError::TempDir)?;
     let path = temp.path().join("new.iso");
 
-    let mut file =
-        OpenOptions::new().create(true).write(true).read(true).truncate(true).open(&path)?;
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .read(true)
+        .truncate(true)
+        .open(&path)?;
 
     let progress_ = progress.clone();
     let total = Arc::new(Atomic::new(0));
@@ -240,7 +259,10 @@ fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
             }),
         )
         .get()
-        .map_err(|why| RecoveryError::Fetch { url: url.to_owned(), why })?;
+        .map_err(|why| RecoveryError::Fetch {
+            url: url.to_owned(),
+            why,
+        })?;
 
     let total = total.load(Ordering::SeqCst);
     (*progress)(total, total);
@@ -249,8 +271,10 @@ fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
     file.flush()?;
     file.seek(SeekFrom::Start(0))?;
 
-    validate_checksum(&mut file, checksum)
-        .map_err(|why| RecoveryError::Checksum { path: path.clone(), why })?;
+    validate_checksum(&mut file, checksum).map_err(|why| RecoveryError::Checksum {
+        path: path.clone(),
+        why,
+    })?;
 
     *temp_dir = Some(temp);
     Ok(path)
