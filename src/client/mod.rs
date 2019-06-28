@@ -29,6 +29,7 @@ const UPGRADE_RESULT_STR: &str = "Release upgrade status";
 const UPGRADE_RESULT_SUCCESS: &str = "systems are go for launch: reboot now";
 const UPGRADE_RESULT_ERROR: &str = "release upgrade aborted";
 
+// Information about the current fetch progress.
 #[derive(Clone, Debug)]
 pub struct FetchStatus {
     pub package: Box<str>,
@@ -36,18 +37,21 @@ pub struct FetchStatus {
     pub total: u32,
 }
 
+/// Data for tracking progress of an action.
 #[derive(Clone, Debug)]
 pub struct Progress {
     pub progress: u64,
     pub total: u64,
 }
 
+/// Contains information about good and bad repositories.
 #[derive(Clone, Debug)]
 pub struct RepoCompatError {
     pub success: Vec<String>,
     pub failure: Vec<(String, String)>,
 }
 
+/// A signal received by the daemon.
 pub enum Signal {
     PackageFetchResult(Status),
     PackageFetched(FetchStatus),
@@ -61,15 +65,18 @@ pub enum Signal {
     RepoCompatError(RepoCompatError),
 }
 
+/// Designates if the signal event loop should continue listening for signals.
 #[derive(Clone, Debug)]
 pub struct Continue(pub bool);
 
+/// The status of the daemon that was retrieved.
 #[derive(Clone, Debug)]
 pub struct DaemonStatus {
     pub status: u8,
     pub sub_status: u8,
 }
 
+/// Information about available system updates.
 #[derive(Clone, Debug)]
 pub struct Fetched {
     pub updates_available: bool,
@@ -77,12 +84,17 @@ pub struct Fetched {
     pub total: u32,
 }
 
+/// The version of the recovery partition's image.
 #[derive(Clone, Debug)]
 pub struct RecoveryVersion {
     pub version: Box<str>,
     pub build: u16,
 }
 
+/// Information about the current and next release.
+///
+/// The build is set to `-1` if the next release is
+/// not available.
 #[derive(Clone, Debug)]
 pub struct ReleaseInfo {
     pub current: Box<str>,
@@ -90,6 +102,7 @@ pub struct ReleaseInfo {
     pub build: i16,
 }
 
+/// The status of an action, and a description of why.
 #[derive(Clone, Debug)]
 pub struct Status {
     pub status: u8,
@@ -117,6 +130,7 @@ pub struct Client {
 }
 
 impl Client {
+    /// Attempts to create a new dbus connection to the upgrade daemon.
     pub fn new() -> Result<Self, Error> {
         fn add_match(cbus: &Connection, member: &'static str) -> Result<(), Error> {
             cbus.add_match(&format!("interface='{}',member='{}'", DBUS_IFACE, member))
@@ -146,6 +160,10 @@ impl Client {
             })
     }
 
+    /// Initiates fetching system updates (not release updates).
+    ///
+    /// By default, the system is updated once updates have been fetched. This
+    /// can be disabled by setting the `download_only` argument to `false`.
     pub fn fetch_updates(
         &self,
         additional_packages: Vec<String>,
@@ -174,6 +192,7 @@ impl Client {
             })
     }
 
+    /// Retrieves the last known status of a system update.
     pub fn fetch_updates_status(&self) -> Result<Status, Error> {
         self.call_method(methods::FETCH_UPDATES_STATUS, |m| m)?
             .read2::<u8, &str>()
@@ -184,11 +203,13 @@ impl Client {
             })
     }
 
+    /// Initiates upgrading the system packages.
     pub fn package_upgrade(&self) -> Result<(), Error> {
         self.call_method(methods::PACKAGE_UPGRADE, |m| m)?;
         Ok(())
     }
 
+    /// Initiates upgrading the recovery partition via a recovery image file.
     pub fn recovery_upgrade_file<P: AsRef<str>>(&self, path: P) -> Result<u8, Error> {
         self.call_method(methods::RECOVERY_UPGRADE_FILE, move |m| {
             m.append1(path.as_ref())
@@ -197,6 +218,7 @@ impl Client {
         .map_err(|why| Error::ArgumentMismatch(methods::RECOVERY_UPGRADE_FILE, why))
     }
 
+    /// Initiates upgrading the recovery partition via the release API
     pub fn recovery_upgrade_release(
         &self,
         version: &str,
@@ -210,6 +232,7 @@ impl Client {
             .map_err(|why| Error::ArgumentMismatch(methods::RECOVERY_UPGRADE_RELEASE, why))
     }
 
+    /// Retrieves the last known status of a recovery upgrade.
     pub fn recovery_upgrade_release_status(&self) -> Result<Status, Error> {
         self.call_method(methods::RECOVERY_UPGRADE_RELEASE_STATUS, |m| m)?
             .read2::<u8, &str>()
@@ -220,6 +243,7 @@ impl Client {
             })
     }
 
+    /// Fetches the version of the recovery partition currently-installed.
     pub fn recovery_version(&self) -> Result<RecoveryVersion, Error> {
         self.call_method(methods::RECOVERY_VERSION, |m| m)?
             .read2::<&str, u16>()
@@ -230,12 +254,16 @@ impl Client {
             })
     }
 
+    /// Configures the system to perform a system refresh on the next system boot.
     pub fn refresh_os(&self, operation: RefreshOp) -> Result<bool, Error> {
         self.call_method(methods::REFRESH_OS, |m| m.append1(operation as u8))?
             .read1::<bool>()
             .map_err(|why| Error::ArgumentMismatch(methods::REFRESH_OS, why))
     }
 
+    /// Check the current release information
+    ///
+    /// Used to determine if a release upgrade is available.
     pub fn release_check(&self) -> Result<ReleaseInfo, Error> {
         self.call_method(methods::RELEASE_CHECK, |m| m)?
             .read3::<&str, &str, i16>()
@@ -247,6 +275,7 @@ impl Client {
             })
     }
 
+    /// Initiates a release upgrade using the given method.
     pub fn release_upgrade(&self, how: UpgradeMethod, from: &str, to: &str) -> Result<(), Error> {
         self.call_method(methods::RELEASE_UPGRADE, move |m| {
             m.append3(how as u8, from, to)
@@ -255,6 +284,7 @@ impl Client {
         Ok(())
     }
 
+    /// Retrieves the last known status of a release upgrade.
     pub fn release_upgrade_status(&self) -> Result<Status, Error> {
         self.call_method(methods::RELEASE_UPGRADE_STATUS, |m| m)?
             .read2::<u8, &str>()
@@ -265,11 +295,13 @@ impl Client {
             })
     }
 
+    /// Attempts to repair any system issues detected.
     pub fn release_repair(&self) -> Result<(), Error> {
         self.call_method(methods::RELEASE_REPAIR, |m| m)?;
         Ok(())
     }
 
+    /// Retrieves the status of the daemon.
     pub fn status(&self) -> Result<DaemonStatus, Error> {
         self.call_method(methods::STATUS, |m| m)?
             .read2::<u8, u8>()
@@ -277,6 +309,13 @@ impl Client {
             .map(|(status, sub_status)| DaemonStatus { status, sub_status })
     }
 
+    /// Verifies if a recovery partition exists.
+    pub fn recovery_exists(&self) -> bool {
+        let exists = || Path::new("/recovery").exists();
+        exists() || (self.release_repair().is_ok() && exists())
+    }
+
+    /// Applies modifications to system repositories.
     pub fn repo_modify<S: AsRef<str>>(
         &self,
         repos: impl Iterator<Item = (S, bool)>,
@@ -297,21 +336,7 @@ impl Client {
         Ok(())
     }
 
-    pub fn call_method<F: FnMut(Message) -> Message>(
-        &self,
-        method: &'static str,
-        mut append_args: F,
-    ) -> Result<Message, Error> {
-        let mut m = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, method)
-            .map_err(|why| Error::NewMethodCall(method, why))?;
-
-        m = append_args(m);
-
-        self.bus
-            .send_with_reply_and_block(m, TIMEOUT)
-            .map_err(|why| Error::Call(method, why))
-    }
-
+    /// An event loop for listening to signals from the daemon.
     pub fn event_listen(
         &self,
         expected_status: PrimaryStatus,
@@ -413,6 +438,21 @@ impl Client {
         }
 
         Ok(())
+    }
+
+    fn call_method<F: FnMut(Message) -> Message>(
+        &self,
+        method: &'static str,
+        mut append_args: F,
+    ) -> Result<Message, Error> {
+        let mut m = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, method)
+            .map_err(|why| Error::NewMethodCall(method, why))?;
+
+        m = append_args(m);
+
+        self.bus
+            .send_with_reply_and_block(m, TIMEOUT)
+            .map_err(|why| Error::Call(method, why))
     }
 
     fn status_is(&self, expected: PrimaryStatus) -> Result<bool, Error> {

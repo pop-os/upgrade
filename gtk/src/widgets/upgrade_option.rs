@@ -11,6 +11,8 @@ pub struct UpgradeOption {
     container: gtk::Stack,
     label: gtk::Label,
     progress: gtk::ProgressBar,
+    progress_container: gtk::Box,
+    progress_label: gtk::Label,
     sublabel: gtk::Label,
 }
 
@@ -43,15 +45,29 @@ impl UpgradeOption {
         let progress = cascade! {
             gtk::ProgressBar::new();
             ..set_ellipsize(pango::EllipsizeMode::End);
+            ..set_hexpand(true);
             ..show();
+        };
+
+        let progress_label = cascade! {
+            gtk::Label::new("");
+            ..set_xalign(0.0);
+            ..set_hexpand(true);
+            ..show();
+        };
+
+        let progress_container = cascade! {
+            gtk::Box::new(gtk::Orientation::Vertical, 12);
+            ..add(&progress_label);
+            ..add(&progress);
         };
 
         let button_view = cascade! {
             gtk::Grid::new();
             ..set_column_spacing(12);
-            ..attach(&label,     0, 0, 1, 1);
+            ..attach(&label,    0, 0, 1, 1);
             ..attach(&sublabel, 0, 1, 1, 1);
-            ..attach(&button,    1, 0, 1, 2);
+            ..attach(&button,   1, 0, 1, 2);
             ..show();
         };
 
@@ -62,7 +78,7 @@ impl UpgradeOption {
             ..set_margin_top(9);
             ..set_margin_bottom(9);
             ..add(&button_view);
-            ..add(&progress);
+            ..add(&progress_container);
             ..set_visible_child(&button_view);
             ..show();
         };
@@ -74,8 +90,30 @@ impl UpgradeOption {
             container,
             label,
             progress,
+            progress_container,
+            progress_label,
             sublabel,
         }
+    }
+
+    pub fn button_view(&self) -> &Self {
+        self.container.set_visible_child(&self.button_view);
+        self
+    }
+
+    pub fn progress(&self, current: u64, total: u64) -> &Self {
+        self.progress.set_fraction(current as f64 / total as f64);
+        self
+    }
+
+    pub fn progress_label(&self, label: &str) -> &Self {
+        self.progress_label.set_text(label);
+        self
+    }
+
+    pub fn progress_view(&self) -> &Self {
+        self.container.set_visible_child(&self.progress_container);
+        self
     }
 
     pub fn set_label(&self, label: &str) -> &Self {

@@ -12,23 +12,14 @@ pub extern "C" fn pop_upgrade_widget_new() -> *mut PopUpgradeWidget {
         gtk::set_initialized();
     }
 
-    UpgradeWidget::new()
-        .map_err(|why| eprintln!("failed to create upgrade widget: {}", why))
-        .map(Box::new)
-        .map(Box::into_raw)
-        .unwrap_or(ptr::null_mut()) as *mut _
+    Box::into_raw(Box::new(UpgradeWidget::new())) as *mut _
 }
 
 #[no_mangle]
-pub extern "C" fn pop_upgrade_widget_scan(ptr: *mut PopUpgradeWidget) -> i32 {
-    let widget = unsafe { (ptr as *mut UpgradeWidget).as_mut() };
-    widget.map_or(-1, |widget| match widget.scan() {
-        Ok(_) => 0,
-        Err(why) => {
-            eprintln!("failed to get upgrade options: {}", why);
-            -1
-        }
-    })
+pub extern "C" fn pop_upgrade_widget_scan(ptr: *mut PopUpgradeWidget) {
+    if let Some(widget) = unsafe { (ptr as *mut UpgradeWidget).as_mut() } {
+        widget.scan();
+    }
 }
 
 #[no_mangle]
@@ -36,7 +27,7 @@ pub extern "C" fn pop_upgrade_widget_container(
     ptr: *const PopUpgradeWidget,
 ) -> *mut gtk_sys::GtkContainer {
     let value = unsafe { (ptr as *const UpgradeWidget).as_ref() };
-    value.map_or(ptr::null_mut(), |widget| widget.container().as_ptr())
+    value.map_or(ptr::null_mut(), |widget| widget.as_ref().as_ptr())
 }
 
 #[no_mangle]

@@ -20,11 +20,8 @@ fn main() {
     });
 
     application.connect_startup(|app| {
-        let widget = UpgradeWidget::new().expect("failed to create widget");
-
-        if let Err(why) = widget.scan_options() {
-            eprintln!("failed to get upgrade options: {}", why);
-        }
+        let widget = UpgradeWidget::new();
+        widget.scan();
 
         let headerbar = cascade! {
             gtk::HeaderBar::new();
@@ -40,7 +37,7 @@ fn main() {
             ..set_keep_above(true);
             ..set_property_window_position(gtk::WindowPosition::Center);
             ..add(cascade! {
-                widget.container();
+                widget.as_ref();
                 ..set_border_width(12);
                 ..set_margin_top(24);
                 ..set_halign(gtk::Align::Center);
