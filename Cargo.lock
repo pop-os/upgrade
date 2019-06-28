@@ -1935,6 +1935,7 @@ dependencies = [
 name = "pop-upgrade-gtk"
 version = "0.1.0"
 dependencies = [
+ "apt-cli-wrappers 0.1.0 (git+https://github.com/pop-os/apt-cli-wrappers)",
  "cascade 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "err-derive 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "gio 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",

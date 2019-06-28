@@ -8,10 +8,11 @@ extern crate shrinkwraprs;
 mod widgets;
 
 use self::widgets::*;
+use apt_cli_wrappers::AptUpgradeEvent;
 use gtk::prelude::*;
 use num_traits::cast::FromPrimitive;
 use pop_upgrade::{
-    client::{self, Client, Error, ReleaseInfo, RepoCompatError, Signal},
+    client::{self, Client, Error, ReleaseInfo, RepoCompatError, Signal, Status},
     daemon::DaemonStatus,
     recovery::ReleaseFlags,
     release::{self, RefreshOp, UpgradeMethod},
@@ -86,9 +87,15 @@ impl UpgradeWidget {
             let sender = Arc::downgrade(&bg_sender);
             gui_receiver.attach(None, move |event| {
                 match event {
-                    UiEvent::ProgressRecovery(progress, total)
+                    UiEvent::ProgressFetching(progress, total)
+                    | UiEvent::ProgressRecovery(progress, total)
                     | UiEvent::ProgressUpgrade(progress, total) => {
                         option_upgrade.progress(progress, total);
+                    }
+                    UiEvent::ProgressUpdates(percent) => {
+                        option_upgrade
+                            .progress_exact(percent)
+                            .progress_label("Upgrading packages for current release");
                     }
                     UiEvent::Quit => return glib::Continue(false),
                     UiEvent::CommencedRefresh => {
@@ -100,13 +107,15 @@ impl UpgradeWidget {
                     }
                     UiEvent::CommencedRecovery => {
                         option_refresh.hide();
-                        option_upgrade.progress_view();
-                        option_upgrade.progress_label("Upgrading recovery partition");
+                        option_upgrade
+                            .progress_view()
+                            .progress_label("Upgrading recovery partition");
                     }
                     UiEvent::CommencedUpgrade => {
                         option_refresh.hide();
-                        option_upgrade.progress_view();
-                        option_upgrade.progress_label("Preparing to upgrade OS");
+                        option_upgrade
+                            .progress_view()
+                            .progress_label("Preparing to upgrade OS");
                     }
                     UiEvent::CompleteRecovery => {
                         eprintln!("successfully upgraded recovery partition");
@@ -174,6 +183,12 @@ impl UpgradeWidget {
                         if let Some(sender) = sender.upgrade() {
                             let _ = sender.send(BackgroundEvent::GetStatus(from));
                         }
+                    }
+                    UiEvent::Updates(total) => {
+                        option_refresh.hide();
+                        option_upgrade
+                            .progress_view()
+                            .progress_label(&format!("Fetching {} packages", total));
                     }
                     UiEvent::Error(why) => {
                         eprintln!("{}", why);
@@ -258,9 +273,12 @@ enum UiEvent {
     CompleteScan(Box<str>, Option<ReleaseInfo>, bool),
     IncompatibleRepos(RepoCompatError),
     Error(UiError),
+    ProgressFetching(u64, u64),
     ProgressRecovery(u64, u64),
+    ProgressUpdates(u8),
     ProgressUpgrade(u64, u64),
     StatusChanged(DaemonStatus, DaemonStatus, Box<str>),
+    Updates(u32),
     Quit,
 }
 
@@ -272,6 +290,8 @@ enum UiError {
     Refresh(#[error(cause)] UnderlyingError),
     #[error(display = "failed to modify repos")]
     Repos(#[error(cause)] UnderlyingError),
+    #[error(display = "failed to update system")]
+    Updates(#[error(cause)] UnderlyingError),
     #[error(display = "failed to upgrade OS")]
     Upgrade(#[error(cause)] UnderlyingError),
 }
@@ -387,7 +407,72 @@ fn repo_modify(
     }
 }
 
+fn status_changed(sender: &glib::Sender<UiEvent>, new_status: Status, expected: DaemonStatus) {
+    let status = DaemonStatus::from_u8(new_status.status).expect("unknown daemon status value");
+    let _ = sender.send(UiEvent::StatusChanged(expected, status, new_status.why));
+}
+
+fn update_system(client: &Client, sender: &glib::Sender<UiEvent>) -> bool {
+    let updates = match client.fetch_updates(Vec::new(), false) {
+        Ok(updates) => updates,
+        Err(why) => {
+            let _ = sender.send(UiEvent::Error(UiError::Updates(why.into())));
+            return false;
+        }
+    };
+
+    if updates.updates_available {
+        let _ = sender.send(UiEvent::Updates(updates.total));
+
+        let error = &mut None;
+
+        client.event_listen(
+            DaemonStatus::FetchingPackages,
+            Client::fetch_updates_status,
+            |status| status_changed(sender, status, DaemonStatus::FetchingPackages),
+            |client, signal| {
+                match signal {
+                    Signal::PackageFetchResult(status) => {
+                        if status.status != 0 {
+                            *error = Some(status.why);
+                        }
+
+                        return Ok(client::Continue(false));
+                    }
+                    Signal::PackageFetched(status) => {
+                        let _ = sender.send(UiEvent::ProgressFetching(
+                            status.completed as u64,
+                            status.total as u64,
+                        ));
+                    }
+                    Signal::PackageUpgrade(event) => {
+                        if let Ok(AptUpgradeEvent::Progress { percent }) =
+                            AptUpgradeEvent::from_dbus_map(event.into_iter())
+                        {
+                            let _ = sender.send(UiEvent::ProgressUpdates(percent));
+                        }
+                    }
+                    _ => (),
+                }
+
+                Ok(client::Continue(true))
+            },
+        );
+
+        if let Some(why) = error.take() {
+            let _ = sender.send(UiEvent::Error(UiError::Updates(why.into())));
+            return false;
+        }
+    }
+
+    true
+}
+
 fn upgrade_os(client: &Client, sender: &glib::Sender<UiEvent>, info: ReleaseInfo) {
+    if !update_system(client, sender) {
+        return;
+    }
+
     let &ReleaseInfo {
         ref current,
         ref next,
@@ -417,15 +502,7 @@ fn upgrade_os(client: &Client, sender: &glib::Sender<UiEvent>, info: ReleaseInfo
     client.event_listen(
         DaemonStatus::ReleaseUpgrade,
         Client::release_upgrade_status,
-        |new_status| {
-            let status =
-                DaemonStatus::from_u8(new_status.status).expect("unknown daemon status value");
-            let _ = sender.send(UiEvent::StatusChanged(
-                DaemonStatus::ReleaseUpgrade,
-                status,
-                new_status.why,
-            ));
-        },
+        |status| status_changed(sender, status, DaemonStatus::ReleaseUpgrade),
         |client, signal| {
             match signal {
                 Signal::PackageFetchResult(status) => {
@@ -475,15 +552,7 @@ fn upgrade_recovery(client: &Client, sender: &glib::Sender<UiEvent>, version: &s
     client.event_listen(
         DaemonStatus::RecoveryUpgrade,
         Client::recovery_upgrade_release_status,
-        |new_status| {
-            let status =
-                DaemonStatus::from_u8(new_status.status).expect("unknown daemon status value");
-            let _ = sender.send(UiEvent::StatusChanged(
-                DaemonStatus::RecoveryUpgrade,
-                status,
-                new_status.why,
-            ));
-        },
+        |status| status_changed(sender, status, DaemonStatus::RecoveryUpgrade),
         |client, signal| {
             match signal {
                 Signal::RecoveryDownloadProgress(progress) => {
