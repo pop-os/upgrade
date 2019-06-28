@@ -11,16 +11,14 @@ use self::widgets::*;
 use gtk::prelude::*;
 use num_traits::cast::FromPrimitive;
 use pop_upgrade::{
-    client::{self, Client, Error, ReleaseInfo, Signal},
+    client::{self, Client, Error, ReleaseInfo, RepoCompatError, Signal},
     daemon::DaemonStatus,
     recovery::ReleaseFlags,
     release::{self, RefreshOp, UpgradeMethod},
 };
 use std::{
     borrow::Cow,
-    path::Path,
     process::Command,
-    rc::Rc,
     sync::{mpsc, Arc},
     thread,
 };
@@ -124,7 +122,8 @@ impl UpgradeWidget {
                                 let sender = sender.clone();
                                 let action = move || {
                                     if let Some(sender) = sender.upgrade() {
-                                        sender.send(BackgroundEvent::UpgradeOS(info.clone()));
+                                        let _ =
+                                            sender.send(BackgroundEvent::UpgradeOS(info.clone()));
                                     }
                                 };
                                 Some(("", action))
@@ -137,7 +136,7 @@ impl UpgradeWidget {
                             let sender = sender.clone();
                             let action = move || {
                                 if let Some(sender) = sender.upgrade() {
-                                    sender.send(BackgroundEvent::RefreshOS);
+                                    let _ = sender.send(BackgroundEvent::RefreshOS);
                                 }
                             };
 
@@ -146,10 +145,34 @@ impl UpgradeWidget {
 
                         container.show();
                     }
+                    UiEvent::IncompatibleRepos(repos) => {
+                        if let Some(sender) = sender.upgrade() {
+                            let failures = repos
+                                .failure
+                                .into_iter()
+                                .map(|(repo, why)| {
+                                    eprintln!("cannot upgrade {}: {}", repo, why);
+                                    Box::from(repo)
+                                })
+                                .collect::<Vec<Box<str>>>();
+
+                            let dialog = RepositoryDialog::new(failures.iter());
+
+                            let expected: i32 = gtk::ResponseType::Accept.into();
+                            if expected == dialog.run() {
+                                let _ = sender.send(BackgroundEvent::RepoModify(
+                                    failures,
+                                    dialog.answers().collect::<Vec<bool>>(),
+                                ));
+                            }
+
+                            dialog.destroy();
+                        }
+                    }
                     UiEvent::StatusChanged(from, to, why) => {
                         eprintln!("status changed from {} to {}: {}", from, to, why);
                         if let Some(sender) = sender.upgrade() {
-                            sender.send(BackgroundEvent::GetStatus(from));
+                            let _ = sender.send(BackgroundEvent::GetStatus(from));
                         }
                     }
                     UiEvent::Error(why) => {
@@ -194,6 +217,9 @@ impl UpgradeWidget {
                         BackgroundEvent::RefreshOS => {
                             refresh_os(client, &sender);
                         }
+                        BackgroundEvent::RepoModify(failures, answers) => {
+                            repo_modify(client, &sender, failures, answers);
+                        }
                         BackgroundEvent::Scan => scan(client, &sender),
                         BackgroundEvent::UpgradeOS(info) => {
                             upgrade_os(client, &sender, info);
@@ -214,6 +240,7 @@ enum BackgroundEvent {
     GetStatus(DaemonStatus),
     IsActive(mpsc::SyncSender<bool>),
     RefreshOS,
+    RepoModify(Vec<Box<str>>, Vec<bool>),
     Scan,
     UpgradeOS(ReleaseInfo),
     Quit,
@@ -229,6 +256,7 @@ enum UiEvent {
     CompleteRefresh,
     CompleteUpgrade,
     CompleteScan(Box<str>, Option<ReleaseInfo>, bool),
+    IncompatibleRepos(RepoCompatError),
     Error(UiError),
     ProgressRecovery(u64, u64),
     ProgressUpgrade(u64, u64),
@@ -242,6 +270,8 @@ enum UiError {
     Recovery(#[error(cause)] UnderlyingError),
     #[error(display = "failed to set up OS refresh")]
     Refresh(#[error(cause)] UnderlyingError),
+    #[error(display = "failed to modify repos")]
+    Repos(#[error(cause)] UnderlyingError),
     #[error(display = "failed to upgrade OS")]
     Upgrade(#[error(cause)] UnderlyingError),
 }
@@ -344,6 +374,19 @@ fn refresh_os(client: &Client, sender: &glib::Sender<UiEvent>) {
     let _ = sender.send(UiEvent::CompleteRefresh);
 }
 
+fn repo_modify(
+    client: &Client,
+    sender: &glib::Sender<UiEvent>,
+    failures: Vec<Box<str>>,
+    answers: Vec<bool>,
+) {
+    let input = failures.into_iter().zip(answers.into_iter());
+    if let Err(why) = client.repo_modify(input) {
+        let _ = sender.send(UiEvent::Error(UiError::Repos(why.into())));
+        return;
+    }
+}
+
 fn upgrade_os(client: &Client, sender: &glib::Sender<UiEvent>, info: ReleaseInfo) {
     let &ReleaseInfo {
         ref current,
@@ -397,6 +440,9 @@ fn upgrade_os(client: &Client, sender: &glib::Sender<UiEvent>, info: ReleaseInfo
                         package.completed as u64,
                         package.total as u64,
                     ));
+                }
+                Signal::RepoCompatError(repositories) => {
+                    let _ = sender.send(UiEvent::IncompatibleRepos(repositories));
                 }
                 _ => (),
             }
