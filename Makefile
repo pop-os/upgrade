@@ -51,6 +51,11 @@ vendor:
 	tar pcfJ vendor.tar.xz vendor
 	rm -rf vendor
 
+extract-vendor:
+ifeq ($(VENDORED),1)
+	tar pxf vendor.tar.xz
+endif
+
 install:
 	install -Dm04755 "$(BINARY)" "$(DESTDIR)$(bindir)/$(BIN)"
 	install -Dm04755 "data/$(BIN).sh" "$(DESTDIR)$(libdir)/$(BIN)/upgrade.sh"
@@ -61,10 +66,10 @@ install:
 	install -Dm0644 "$(PKGCONFIG)" "$(DESTDIR)$(libdir)/pkgconfig/$(PACKAGE).pc"
 	install -Dm0644 "$(HEADER)" "$(DESTDIR)$(includedir)/$(PACKAGE).h"
 
-$(BINARY): $(SRC)
+$(BINARY): $(SRC) extract-vendor
 	cargo build $(ARGS)
 
-$(LIBRARY): $(LIB_SRC)
+$(LIBRARY): $(LIB_SRC) extract-vendor
 	cargo build $(ARGS) -p pop-upgrade-gtk-ffi
 
 $(PKGCONFIG):

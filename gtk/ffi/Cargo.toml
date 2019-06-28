@@ -11,7 +11,7 @@ cdylib-link-lines = "0.1"
 pop-upgrade-gtk = { path = "../" }
 glib = "0.7.1"
 gtk-sys = "0.8.0"
-gtk = "0.6.0"
+gtk = { version = "0.6.0", features = [ "v3_22" ] }
 
 [lib]
 name = "pop_upgrade_gtk"
