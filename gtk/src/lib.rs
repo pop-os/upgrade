@@ -84,7 +84,7 @@ impl UpgradeWidget {
 
         {
             let container = container.clone();
-            let sender = Arc::downgrade(&bg_sender);
+            let sender = bg_sender.clone();
             gui_receiver.attach(None, move |event| {
                 match event {
                     UiEvent::ProgressFetching(progress, total)
@@ -128,21 +128,21 @@ impl UpgradeWidget {
                             .set_label(&upgrade_text)
                             .set_sublabel(None)
                             .set_button(if let Some(info) = upgrade {
-                                let sender = sender.clone();
+                                let sender = Arc::downgrade(&sender);
                                 let action = move || {
                                     if let Some(sender) = sender.upgrade() {
                                         let _ =
                                             sender.send(BackgroundEvent::UpgradeOS(info.clone()));
                                     }
                                 };
-                                Some(("", action))
+                                Some(("Upgrade", action))
                             } else {
                                 None
                             })
                             .show();
 
                         if refresh {
-                            let sender = sender.clone();
+                            let sender = Arc::downgrade(&sender);
                             let action = move || {
                                 if let Some(sender) = sender.upgrade() {
                                     let _ = sender.send(BackgroundEvent::RefreshOS);
@@ -155,34 +155,30 @@ impl UpgradeWidget {
                         container.show();
                     }
                     UiEvent::IncompatibleRepos(repos) => {
-                        if let Some(sender) = sender.upgrade() {
-                            let failures = repos
-                                .failure
-                                .into_iter()
-                                .map(|(repo, why)| {
-                                    eprintln!("cannot upgrade {}: {}", repo, why);
-                                    Box::from(repo)
-                                })
-                                .collect::<Vec<Box<str>>>();
+                        let failures = repos
+                            .failure
+                            .into_iter()
+                            .map(|(repo, why)| {
+                                eprintln!("cannot upgrade {}: {}", repo, why);
+                                Box::from(repo)
+                            })
+                            .collect::<Vec<Box<str>>>();
 
-                            let dialog = RepositoryDialog::new(failures.iter());
+                        let dialog = RepositoryDialog::new(failures.iter());
 
-                            let expected: i32 = gtk::ResponseType::Accept.into();
-                            if expected == dialog.run() {
-                                let _ = sender.send(BackgroundEvent::RepoModify(
-                                    failures,
-                                    dialog.answers().collect::<Vec<bool>>(),
-                                ));
-                            }
-
-                            dialog.destroy();
+                        let expected: i32 = gtk::ResponseType::Accept.into();
+                        if expected == dialog.run() {
+                            let _ = sender.send(BackgroundEvent::RepoModify(
+                                failures,
+                                dialog.answers().collect::<Vec<bool>>(),
+                            ));
                         }
+
+                        dialog.destroy();
                     }
                     UiEvent::StatusChanged(from, to, why) => {
                         eprintln!("status changed from {} to {}: {}", from, to, why);
-                        if let Some(sender) = sender.upgrade() {
-                            let _ = sender.send(BackgroundEvent::GetStatus(from));
-                        }
+                        let _ = sender.send(BackgroundEvent::GetStatus(from));
                     }
                     UiEvent::Updates(total) => {
                         option_refresh.hide();
@@ -220,24 +216,25 @@ impl UpgradeWidget {
         sender: glib::Sender<UiEvent>,
     ) {
         thread::spawn(move || {
+            let sender = &sender;
             if let Ok(ref client) = Client::new() {
-                for event in receiver.recv() {
+                while let Ok(event) = receiver.recv() {
                     match event {
                         BackgroundEvent::GetStatus(from) => {
-                            get_status(client, &sender, from);
+                            get_status(client, sender, from);
                         }
                         BackgroundEvent::IsActive(tx) => {
                             let _ = tx.send(client.status().is_ok());
                         }
                         BackgroundEvent::RefreshOS => {
-                            refresh_os(client, &sender);
+                            refresh_os(client, sender);
                         }
                         BackgroundEvent::RepoModify(failures, answers) => {
-                            repo_modify(client, &sender, failures, answers);
+                            repo_modify(client, sender, failures, answers);
                         }
-                        BackgroundEvent::Scan => scan(client, &sender),
+                        BackgroundEvent::Scan => scan(client, sender),
                         BackgroundEvent::UpgradeOS(info) => {
-                            upgrade_os(client, &sender, info);
+                            upgrade_os(client, sender, info);
                         }
                         BackgroundEvent::Quit => {
                             eprintln!("stopping background thread");
@@ -246,6 +243,8 @@ impl UpgradeWidget {
                     }
                 }
             }
+
+            eprintln!("breaking free");
         });
     }
 }
@@ -321,6 +320,7 @@ impl From<Error> for UnderlyingError {
 }
 
 fn scan(client: &Client, sender: &glib::Sender<UiEvent>) {
+    eprintln!("scanning");
     let _ = sender.send(UiEvent::CommencedScanning);
     let mut upgrade_text = Cow::Borrowed("No upgrades available");
     let mut upgrade = None;
@@ -413,6 +413,7 @@ fn status_changed(sender: &glib::Sender<UiEvent>, new_status: Status, expected: 
 }
 
 fn update_system(client: &Client, sender: &glib::Sender<UiEvent>) -> bool {
+    eprintln!("checking if updates are required");
     let updates = match client.fetch_updates(Vec::new(), false) {
         Ok(updates) => updates,
         Err(why) => {
@@ -426,6 +427,7 @@ fn update_system(client: &Client, sender: &glib::Sender<UiEvent>) -> bool {
 
         let error = &mut None;
 
+        eprintln!("listening for package fetching signals");
         client.event_listen(
             DaemonStatus::FetchingPackages,
             Client::fetch_updates_status,
@@ -469,6 +471,7 @@ fn update_system(client: &Client, sender: &glib::Sender<UiEvent>) -> bool {
 }
 
 fn upgrade_os(client: &Client, sender: &glib::Sender<UiEvent>, info: ReleaseInfo) {
+    eprintln!("upgrading OS");
     if !update_system(client, sender) {
         return;
     }
