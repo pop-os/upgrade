@@ -106,6 +106,11 @@ impl UpgradeOption {
         self
     }
 
+    pub fn progress_exact(&self, percent: u8) -> &Self {
+        self.progress.set_fraction(percent as f64 / 100f64);
+        self
+    }
+
     pub fn progress_label(&self, label: &str) -> &Self {
         self.progress_label.set_text(label);
         self
