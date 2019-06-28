@@ -1,9 +1,14 @@
 use gtk::prelude::*;
 
-pub struct RepositoryDialog(gtk::Dialog);
+#[derive(Shrinkwrap)]
+pub struct RepositoryDialog {
+    #[shrinkwrap(main_field)]
+    dialog: gtk::Dialog,
+    entries: gtk::ListBox,
+}
 
 impl RepositoryDialog {
-    pub fn new<S: AsRef<str>>(repositories: &[S]) -> Self {
+    pub fn new<S: AsRef<str>>(repositories: impl Iterator<Item = S>) -> Self {
         let entries = cascade! {
             list: gtk::ListBox::new();
             ..set_selection_mode(gtk::SelectionMode::None);
@@ -17,9 +22,6 @@ impl RepositoryDialog {
         let accept = cascade! {
             gtk::Button::new_with_label("Accept".into());
             ..get_style_context().add_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION);
-            ..connect_clicked(move |_| {
-
-            });
         };
 
         let dialog = cascade! {
@@ -70,6 +72,28 @@ impl RepositoryDialog {
             });
         };
 
-        Self(dialog)
+        {
+            let dialog = dialog.clone();
+            cancel.connect_clicked(move |_| {
+                dialog.response(gtk::ResponseType::Cancel);
+            });
+        }
+
+        {
+            let dialog = dialog.clone();
+            accept.connect_clicked(move |_| {
+                dialog.response(gtk::ResponseType::Accept);
+            });
+        }
+
+        Self { dialog, entries }
+    }
+
+    pub fn answers(&self) -> impl Iterator<Item = bool> {
+        self.entries
+            .get_children()
+            .into_iter()
+            .filter_map(|w| w.downcast::<gtk::ToggleButton>().ok())
+            .map(|w| w.get_active())
     }
 }
