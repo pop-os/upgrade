@@ -1,3 +1,5 @@
+use std::fmt::{self, Display};
+
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 pub enum DaemonStatus {
@@ -17,5 +19,11 @@ impl From<DaemonStatus> for &'static str {
             DaemonStatus::ReleaseUpgrade => "upgrading distribution release",
             DaemonStatus::PackageUpgrade => "upgrading packages",
         }
+    }
+}
+
+impl Display for DaemonStatus {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.write_str(<&'static str>::from(*self))
     }
 }

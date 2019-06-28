@@ -12,3 +12,5 @@ pango = "0.6.0"
 pop-upgrade = { path = "../" }
 shrinkwraprs = "0.2.1"
 gio = "0.6.0"
+err-derive = "0.1.5"
+num-traits = "0.2.8"
