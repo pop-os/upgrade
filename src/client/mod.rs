@@ -428,7 +428,7 @@ impl Client {
                         .map_err(|why| Error::ArgumentMismatch(signals::REPO_COMPAT_ERROR, why))
                         .map(|(success, failure)| RepoCompatError { success, failure })
                         .map(Signal::RepoCompatError)?,
-                    _ => unimplemented!(),
+                    signal => unimplemented!("signal: {}", signal),
                 };
 
                 if !event(self, signal)?.0 {
