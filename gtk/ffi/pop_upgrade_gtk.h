@@ -2,7 +2,15 @@
 
 typedef struct { } PopUpgradeWidget;
 
+typedef void (*PopUpgradeWidgetErrorCallback)(const uint8_t*, size_t, void*);
+
 PopUpgradeWidget *pop_upgrade_widget_new (void);
+
+void pop_upgrade_widget_callback_error (
+    const PopUpgradeWidget *self,
+    PopUpgradeWidgetErrorCallback callback,
+    void *user_data
+);
 
 GtkWidget *pop_upgrade_widget_container (const PopUpgradeWidget *self);
 
