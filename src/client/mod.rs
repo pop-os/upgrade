@@ -211,12 +211,11 @@ impl Client {
         version: &str,
         arch: &str,
         flags: RecoveryReleaseFlags,
-    ) -> Result<u8, Error> {
+    ) -> Result<(), Error> {
         let cb = move |message: Message| message.append3(version, arch, flags.bits());
 
-        self.call_method(methods::RECOVERY_UPGRADE_RELEASE, cb)?
-            .read1::<u8>()
-            .map_err(|why| Error::ArgumentMismatch(methods::RECOVERY_UPGRADE_RELEASE, why))
+        self.call_method(methods::RECOVERY_UPGRADE_RELEASE, cb)?;
+        Ok(())
     }
 
     /// Retrieves the last known status of a recovery upgrade.
