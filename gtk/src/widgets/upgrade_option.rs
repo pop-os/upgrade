@@ -23,7 +23,6 @@ impl UpgradeOption {
             ..set_hexpand(true);
             ..set_halign(gtk::Align::End);
             ..set_can_focus(true);
-            ..show();
             ..get_style_context().add_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION);
         };
 
@@ -32,28 +31,24 @@ impl UpgradeOption {
             ..set_xalign(0.0);
             ..set_vexpand(true);
             ..set_mnemonic_widget(&button);
-            ..show();
         };
 
         let sublabel = cascade! {
             gtk::Label::new(None);
             ..set_xalign(0.0);
             ..get_style_context().add_class(&gtk::STYLE_CLASS_DIM_LABEL);
-            ..show();
         };
 
         let progress = cascade! {
             gtk::ProgressBar::new();
             ..set_ellipsize(pango::EllipsizeMode::End);
             ..set_hexpand(true);
-            ..show();
         };
 
         let progress_label = cascade! {
             gtk::Label::new("");
             ..set_xalign(0.0);
             ..set_hexpand(true);
-            ..show();
         };
 
         let progress_container = cascade! {
@@ -68,7 +63,6 @@ impl UpgradeOption {
             ..attach(&label,    0, 0, 1, 1);
             ..attach(&sublabel, 0, 1, 1, 1);
             ..attach(&button,   1, 0, 1, 2);
-            ..show();
         };
 
         let container = cascade! {
@@ -80,7 +74,7 @@ impl UpgradeOption {
             ..add(&button_view);
             ..add(&progress_container);
             ..set_visible_child(&button_view);
-            ..show();
+            ..show_all();
         };
 
         Self {

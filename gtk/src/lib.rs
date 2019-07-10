@@ -19,14 +19,20 @@ use pop_upgrade::{
 };
 use std::{
     borrow::Cow,
+    cell::RefCell,
+    error::Error as ErrorTrait,
     process::Command,
+    rc::Rc,
     sync::{mpsc, Arc},
     thread,
 };
 
+pub type ErrorCallback = Rc<RefCell<Box<dyn Fn(&str)>>>;
+
 #[derive(Shrinkwrap)]
 pub struct UpgradeWidget {
     sender: Arc<mpsc::SyncSender<BackgroundEvent>>,
+    callback_error: ErrorCallback,
     #[shrinkwrap(main_field)]
     container: gtk::Container,
 }
@@ -82,10 +88,16 @@ impl UpgradeWidget {
             ..show();
         };
 
+        let callback_error: ErrorCallback = Rc::new(RefCell::new(Box::new(|_| ())));
+
         {
             let container = container.clone();
             let sender = bg_sender.clone();
+            let mut refresh_found = false;
+            let mut upgrade_found = false;
+            let callback_error = Rc::downgrade(&callback_error);
             gui_receiver.attach(None, move |event| {
+                eprintln!("received event: {:?}", event);
                 match event {
                     UiEvent::ProgressFetching(progress, total)
                     | UiEvent::ProgressRecovery(progress, total)
@@ -115,7 +127,8 @@ impl UpgradeWidget {
                         option_refresh.hide();
                         option_upgrade
                             .progress_view()
-                            .progress_label("Preparing to upgrade OS");
+                            .progress_label("Preparing to upgrade OS")
+                            .show();
                     }
                     UiEvent::CompleteRecovery => {
                         eprintln!("successfully upgraded recovery partition");
@@ -124,6 +137,9 @@ impl UpgradeWidget {
                         let _ = Command::new("systemctl").arg("reboot").status();
                     }
                     UiEvent::CompleteScan(upgrade_text, upgrade, refresh) => {
+                        upgrade_found = upgrade.is_some();
+                        refresh_found = refresh;
+
                         option_upgrade
                             .set_label(&upgrade_text)
                             .set_sublabel(None)
@@ -187,7 +203,26 @@ impl UpgradeWidget {
                             .progress_label(&format!("Fetching {} packages", total));
                     }
                     UiEvent::Error(why) => {
-                        eprintln!("{}", why);
+                        if refresh_found {
+                            option_upgrade.button_view().show();
+                        }
+
+                        if upgrade_found {
+                            option_upgrade.button_view().show();
+                        }
+
+                        let error_message = &mut format!("{}", why);
+                        why.iter_sources().for_each(|source| {
+                            error_message.push_str(": ");
+                            error_message.push_str(format!("{}", source).as_str());
+                        });
+                        let error_message = error_message.as_str();
+
+                        if let Some(callback) = callback_error.upgrade() {
+                            (*callback.borrow())(error_message);
+                        }
+
+                        eprintln!("{}", error_message);
                     }
                 }
                 glib::Continue(true)
@@ -197,12 +232,17 @@ impl UpgradeWidget {
         Self {
             container: container.upcast::<gtk::Container>(),
             sender: bg_sender,
+            callback_error,
         }
     }
 
     pub fn scan(&self) {
         self.hide();
         let _ = self.sender.send(BackgroundEvent::Scan);
+    }
+
+    pub fn callback_error<F: Fn(&str) + 'static>(&self, func: F) {
+        *self.callback_error.borrow_mut() = Box::from(func);
     }
 
     pub fn upgrade_daemon_is_active(&self) -> bool {
@@ -250,6 +290,7 @@ impl UpgradeWidget {
 }
 
 /// Events sent to this widget's background thread.
+#[derive(Debug)]
 enum BackgroundEvent {
     GetStatus(DaemonStatus),
     IsActive(mpsc::SyncSender<bool>),
@@ -261,6 +302,7 @@ enum BackgroundEvent {
 }
 
 /// Events received for the UI to handle.
+#[derive(Debug)]
 enum UiEvent {
     CommencedRecovery,
     CommencedRefresh,
@@ -293,6 +335,14 @@ enum UiError {
     Updates(#[error(cause)] UnderlyingError),
     #[error(display = "failed to upgrade OS")]
     Upgrade(#[error(cause)] UnderlyingError),
+}
+
+impl UiError {
+    pub fn iter_sources(&self) -> ErrorIter<'_> {
+        ErrorIter {
+            current: self.source(),
+        }
+    }
 }
 
 #[derive(Debug, Error)]
@@ -583,4 +633,18 @@ fn upgrade_recovery(client: &Client, sender: &glib::Sender<UiEvent>, version: &s
 
     let _ = sender.send(UiEvent::CompleteRecovery);
     true
+}
+
+pub struct ErrorIter<'a> {
+    current: Option<&'a (dyn ErrorTrait + 'static)>,
+}
+
+impl<'a> Iterator for ErrorIter<'a> {
+    type Item = &'a (dyn ErrorTrait + 'static);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current = self.current;
+        self.current = self.current.and_then(|ref why| why.source());
+        current
+    }
 }
