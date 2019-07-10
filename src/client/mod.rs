@@ -1,7 +1,6 @@
 use crate::{
     daemon::DaemonStatus as PrimaryStatus,
     daemon::*,
-    misc,
     recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags},
     release::{RefreshOp, UpgradeEvent, UpgradeMethod},
     DBUS_IFACE, DBUS_NAME, DBUS_PATH,
@@ -13,21 +12,9 @@ use dbus::{
     self, BusType, Connection, ConnectionItem, Message, MessageItem, MessageItemArray, Signature,
 };
 
-use std::{collections::HashMap, iter, path::Path};
+use std::{collections::HashMap, path::Path};
 
 const TIMEOUT: i32 = 3000;
-
-const FETCH_RESULT_STR: &str = "Package fetch status";
-const FETCH_RESULT_SUCCESS: &str = "cargo has been loaded successfully";
-const FETCH_RESULT_ERROR: &str = "package-fetching aborted";
-
-const RECOVERY_RESULT_STR: &str = "Recovery upgrade status";
-const RECOVERY_RESULT_SUCCESS: &str = "recovery partition refueled and ready to go";
-const RECOVERY_RESULT_ERROR: &str = "recovery upgrade aborted";
-
-const UPGRADE_RESULT_STR: &str = "Release upgrade status";
-const UPGRADE_RESULT_SUCCESS: &str = "systems are go for launch: reboot now";
-const UPGRADE_RESULT_ERROR: &str = "release upgrade aborted";
 
 // Information about the current fetch progress.
 #[derive(Clone, Debug)]
@@ -428,7 +415,7 @@ impl Client {
                         .map_err(|why| Error::ArgumentMismatch(signals::REPO_COMPAT_ERROR, why))
                         .map(|(success, failure)| RepoCompatError { success, failure })
                         .map(Signal::RepoCompatError)?,
-                    signal => unimplemented!("signal: {}", signal),
+                    _ => continue,
                 };
 
                 if !event(self, signal)?.0 {
