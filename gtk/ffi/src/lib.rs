@@ -1,9 +1,12 @@
 use glib::object::ObjectType;
 use pop_upgrade_gtk::*;
-use std::ptr;
+use std::{ffi, ptr};
 
 #[no_mangle]
 pub struct PopUpgradeWidget;
+
+pub type PopUpgradeWidgetErrorCallback =
+    extern "C" fn(message: *const u8, message_len: usize, user_data: *mut ffi::c_void);
 
 #[no_mangle]
 pub extern "C" fn pop_upgrade_widget_new() -> *mut PopUpgradeWidget {
@@ -19,6 +22,19 @@ pub extern "C" fn pop_upgrade_widget_new() -> *mut PopUpgradeWidget {
 pub extern "C" fn pop_upgrade_widget_scan(ptr: *mut PopUpgradeWidget) {
     if let Some(widget) = unsafe { (ptr as *mut UpgradeWidget).as_mut() } {
         widget.scan();
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn pop_upgrade_widget_callback_error(
+    ptr: *const PopUpgradeWidget,
+    callback: PopUpgradeWidgetErrorCallback,
+    user_data: *mut ffi::c_void,
+) {
+    if let Some(widget) = unsafe { (ptr as *const UpgradeWidget).as_ref() } {
+        widget.callback_error(move |message| {
+            callback(message.as_bytes().as_ptr(), message.len(), user_data)
+        });
     }
 }
 
