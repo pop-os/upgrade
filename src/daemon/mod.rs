@@ -17,7 +17,7 @@ use crate::{
         UpgradeMethod as RecoveryUpgradeMethod,
     },
     release::{self, FetchEvent, RefreshOp, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod},
-    signal_handler, DBUS_IFACE, DBUS_NAME, DBUS_PATH,
+    DBUS_IFACE, DBUS_NAME, DBUS_PATH,
 };
 use apt_cli_wrappers::apt_upgrade;
 use apt_fetcher::{
