@@ -41,7 +41,7 @@ impl Client {
     pub fn recovery(&self, matches: &ArgMatches) -> Result<(), client::Error> {
         match matches.subcommand() {
             ("upgrade", Some(matches)) => {
-                let _ = match matches.subcommand() {
+                match matches.subcommand() {
                     ("from-release", Some(matches)) => {
                         let version = matches.value_of("VERSION").unwrap_or("");
                         let arch = matches.value_of("ARCH").unwrap_or("");
@@ -51,17 +51,17 @@ impl Client {
                             RecoveryReleaseFlags::empty()
                         };
 
-                        self.recovery_upgrade_release(version, arch, flags)
+                        let _ = self.recovery_upgrade_release(version, arch, flags)?;
                     }
                     ("from-file", Some(matches)) => {
                         let path = matches
                             .value_of("PATH")
                             .expect("missing reqired PATH argument");
 
-                        self.recovery_upgrade_file(path)
+                        let _ = self.recovery_upgrade_file(path)?;
                     }
                     _ => unreachable!(),
-                }?;
+                }
 
                 self.event_listen_recovery_upgrade()?;
             }
