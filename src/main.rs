@@ -93,7 +93,7 @@ pub fn main() {
         )
         .subcommand(
             SubCommand::with_name("recovery")
-                .about("tools for managing the recovery parsuperition")
+                .about("tools for managing the recovery partition")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 // Reboot into the recovery partition.
                 .subcommand(
