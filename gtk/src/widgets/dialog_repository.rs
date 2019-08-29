@@ -24,16 +24,12 @@ impl RepositoryDialog {
             ..get_style_context().add_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION);
         };
 
-        let dialog = cascade! {
-            unsafe {
-                gtk::Object::new(gtk::Dialog::static_type(), &[("use-header-bar", &true)])
-                    .unwrap()
-                    .unsafe_cast::<gtk::Dialog>()
-            };
-            ..set_accept_focus(true);
-            ..set_deletable(true);
-            ..set_destroy_with_parent(true);
-        };
+        let dialog = gtk::DialogBuilder::new()
+            .accept_focus(true)
+            .deletable(true)
+            .destroy_with_parent(true)
+            .use_header_bar(1i32)
+            .build();
 
         cascade! {
             dialog
@@ -41,7 +37,7 @@ impl RepositoryDialog {
                 .expect("dialog generated without header bar")
                 .downcast::<gtk::HeaderBar>()
                 .expect("dialog header bar is not a header bar");
-            ..set_custom_title(&gtk::Label::new("Unsupported repositories detected"));
+            ..set_custom_title(Some(&gtk::Label::new(Some("Unsupported repositories detected"))));
             ..set_show_close_button(false);
             ..pack_end(&accept);
             ..pack_start(&cancel);
@@ -52,17 +48,18 @@ impl RepositoryDialog {
             ..set_orientation(gtk::Orientation::Horizontal);
             ..set_border_width(12);
             ..set_spacing(12);
-            ..add(&cascade! {
-                gtk::Image::new_from_icon_name("application-x-deb", gtk::IconSize::Dialog);
-                ..set_valign(gtk::Align::Start);
-            });
+            ..add(
+                &gtk::ImageBuilder::new()
+                    .icon_name("application-x-deb")
+                    .icon_size(gtk::IconSize::Dialog.into())
+                    .valign(gtk::Align::Start)
+                    .build()
+            );
             ..add(&cascade! {
                 gtk::Box::new(gtk::Orientation::Vertical, 12);
                 ..set_hexpand(true);
                 ..set_vexpand(true);
-                ..add(&cascade! {
-                    gtk::Label::new("Select which repositories to keep.");
-                });
+                ..add(&gtk::LabelBuilder::new().label("Select which repositories to keep.").build());
                 ..add(&cascade! {
                     gtk::ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
                     ..set_hexpand(true);
