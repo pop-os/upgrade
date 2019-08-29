@@ -9,9 +9,7 @@ pub struct DbusFactory<'a> {
 }
 
 impl<'a> DbusFactory<'a> {
-    pub fn new(factory: &'a Factory<MTFn<()>, ()>) -> Self {
-        DbusFactory { factory }
-    }
+    pub fn new(factory: &'a Factory<MTFn<()>, ()>) -> Self { DbusFactory { factory } }
 
     pub fn method<I, E>(&self, name: &'static str, ins: I) -> MethodInstance
     where
@@ -44,27 +42,17 @@ impl<'a> DbusFactory<'a> {
 pub struct MethodInstance(Method<MTFn<()>, ()>);
 
 impl MethodInstance {
-    pub fn inarg<T: Arg>(self, s: &str) -> Self {
-        MethodInstance(self.0.inarg::<T, _>(s))
-    }
+    pub fn inarg<T: Arg>(self, s: &str) -> Self { MethodInstance(self.0.inarg::<T, _>(s)) }
 
-    pub fn outarg<T: Arg>(self, s: &str) -> Self {
-        MethodInstance(self.0.outarg::<T, _>(s))
-    }
+    pub fn outarg<T: Arg>(self, s: &str) -> Self { MethodInstance(self.0.outarg::<T, _>(s)) }
 
-    pub fn consume(self) -> Method<MTFn<()>, ()> {
-        self.0
-    }
+    pub fn consume(self) -> Method<MTFn<()>, ()> { self.0 }
 }
 
 pub struct SignalInstance(Signal<()>);
 
 impl SignalInstance {
-    pub fn sarg<T: Arg>(self, name: &str) -> Self {
-        SignalInstance(self.0.sarg::<T, _>(name))
-    }
+    pub fn sarg<T: Arg>(self, name: &str) -> Self { SignalInstance(self.0.sarg::<T, _>(name)) }
 
-    pub fn consume(self) -> Signal<()> {
-        self.0
-    }
+    pub fn consume(self) -> Signal<()> { self.0 }
 }

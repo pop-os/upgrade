@@ -23,9 +23,7 @@ pub fn modify_repos(
 
     for (&repo, &enabled) in repos {
         if !lists.repo_modify(repo, enabled) {
-            return Err(RepoError::NotFound {
-                repo: repo.to_string(),
-            });
+            return Err(RepoError::NotFound { repo: repo.to_string() });
         }
 
         if enabled && !retain.contains(repo) {

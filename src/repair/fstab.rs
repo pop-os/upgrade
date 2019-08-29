@@ -22,10 +22,7 @@ pub enum FstabError {
         why,
         original
     )]
-    BackupRestore {
-        why: io::Error,
-        original: Box<FstabError>,
-    },
+    BackupRestore { why: io::Error, original: Box<FstabError> },
     #[error(display = "failed to open the fstab file for writing: {}", _0)]
     Create(io::Error),
     #[error(display = "failed to probe disk for missing mount point")]
@@ -42,9 +39,7 @@ pub enum FstabError {
     ProcRead(io::Error),
     #[error(display = "failed to read the fstab file: {}", _0)]
     Read(io::Error),
-    #[error(
-        display = "root partition's device path was not found (maybe it is a logical device?)"
-    )]
+    #[error(display = "root partition's device path was not found (maybe it is a logical device?)")]
     RootDeviceNotFound,
     #[error(display = "root partition was not found in the fstab file")]
     RootNotFound,
@@ -52,15 +47,9 @@ pub enum FstabError {
     RootNotMounted,
     #[error(display = "failed to find the source ID by its path: {:?}", _0)]
     SourceNotFound(PathBuf),
-    #[error(
-        display = "failed to find a device path for a fstab source ID: {:?}",
-        _0
-    )]
+    #[error(display = "failed to find a device path for a fstab source ID: {:?}", _0)]
     SourceWithoutDevice(PathBuf),
-    #[error(
-        display = "failed to find either a PartUUID or UUID for a fstab source: {:?}",
-        _0
-    )]
+    #[error(display = "failed to find either a PartUUID or UUID for a fstab source: {:?}", _0)]
     SourceWithoutIDs(PathBuf),
     #[error(display = "failed to write to fstab: {}", _0)]
     Write(io::Error),
@@ -112,11 +101,7 @@ pub fn repair() -> Result<(), FstabError> {
             }
         }
 
-        (
-            fstab_check_root(root)?,
-            fstab_fix_source(efi)?,
-            fstab_fix_source(recovery)?,
-        )
+        (fstab_check_root(root)?, fstab_fix_source(efi)?, fstab_fix_source(recovery)?)
     };
 
     for (target, source) in &[("/", root_id), (EFI, efi_id), (RECOVERY, recovery_id)] {
@@ -179,29 +164,22 @@ pub fn repair() -> Result<(), FstabError> {
     mount_all().map_err(FstabError::MountFailure)
 }
 
-fn mount_all() -> io::Result<()> {
-    Command::new("mount").arg("-a").run()
-}
+fn mount_all() -> io::Result<()> { Command::new("mount").arg("-a").run() }
 
 fn fstab_check_root(root: Option<&MountInfo>) -> Result<Option<PartitionID>, FstabError> {
     let root = root.ok_or(FstabError::RootNotFound)?;
-    let root = root
-        .source
-        .to_str()
-        .expect("root partition has a source entry which is not UTF-8");
+    let root = root.source.to_str().expect("root partition has a source entry which is not UTF-8");
 
-    let mut root_id = root
-        .parse::<PartitionID>()
-        .map_err(|_| FstabError::InvalidSourceId(root.to_owned()))?;
+    let mut root_id =
+        root.parse::<PartitionID>().map_err(|_| FstabError::InvalidSourceId(root.to_owned()))?;
 
     if root_id.variant != PartitionSource::UUID {
-        root_id = root_id
-            .get_device_path()
-            .ok_or(FstabError::RootDeviceNotFound)
-            .and_then(|ref path| {
+        root_id = root_id.get_device_path().ok_or(FstabError::RootDeviceNotFound).and_then(
+            |ref path| {
                 PartitionID::get_source(PartitionSource::UUID, path)
                     .ok_or_else(|| FstabError::SourceWithoutDevice(PathBuf::from(path)))
-            })?;
+            },
+        )?;
 
         return Ok(Some(root_id));
     }
@@ -218,10 +196,7 @@ fn fstab_fix_source(mount: Option<&MountInfo>) -> Result<(bool, Option<Partition
     // If the mount was found, ensure that it has the correct identifier.
     if let Some(mount) = mount {
         // If the mount partition is not mounted via PartUUID, change it to do precisely that.
-        let source = mount
-            .source
-            .to_str()
-            .expect("device path with non-UTF8 source");
+        let source = mount.source.to_str().expect("device path with non-UTF8 source");
 
         let source_id = source
             .parse::<PartitionID>()
@@ -318,10 +293,7 @@ fn fstab_write(buffer: &MountTab) -> Result<(), FstabError> {
     fs::copy(ORIG, BACK).map_err(FstabError::BackupCreate)?;
     if let Err(cause) = write(buffer) {
         if let Err(why) = fs::copy(BACK, ORIG) {
-            return Err(FstabError::BackupRestore {
-                why,
-                original: Box::new(cause),
-            });
+            return Err(FstabError::BackupRestore { why, original: Box::new(cause) });
         }
 
         return Err(cause);

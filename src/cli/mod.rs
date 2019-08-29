@@ -33,9 +33,7 @@ const UPGRADE_RESULT_ERROR: &str = "release upgrade aborted";
 pub struct Client(client::Client);
 
 impl Client {
-    pub fn new() -> Result<Self, client::Error> {
-        client::Client::new().map(Client)
-    }
+    pub fn new() -> Result<Self, client::Error> { client::Client::new().map(Client) }
 
     /// Executes the recovery subcommand of the client.
     pub fn recovery(&self, matches: &ArgMatches) -> Result<(), client::Error> {
@@ -54,9 +52,7 @@ impl Client {
                         let _ = self.recovery_upgrade_release(version, arch, flags)?;
                     }
                     ("from-file", Some(matches)) => {
-                        let path = matches
-                            .value_of("PATH")
-                            .expect("missing reqired PATH argument");
+                        let path = matches.value_of("PATH").expect("missing reqired PATH argument");
 
                         let _ = self.recovery_upgrade_file(path)?;
                     }
@@ -90,20 +86,13 @@ impl Client {
                 let updates =
                     self.fetch_updates(Vec::new(), matches.is_present("download-only"))?;
 
-                let client::Fetched {
-                    updates_available,
-                    completed,
-                    total,
-                } = updates;
+                let client::Fetched { updates_available, completed, total } = updates;
 
                 eprintln!("{} {} {}", updates_available, completed, total);
                 if !updates_available || total == 0 {
                     println!("no updates available to fetch");
                 } else {
-                    println!(
-                        "fetching updates: {} of {} updates fetched",
-                        completed, total
-                    );
+                    println!("fetching updates: {} of {} updates fetched", completed, total);
                     self.event_listen_fetch_updates()?;
                 }
             }
@@ -198,11 +187,7 @@ impl Client {
     fn release_check<'a>(&self) -> Result<(Box<str>, Box<str>, Option<u16>), client::Error> {
         let info = self.0.release_check()?;
 
-        let build = if info.build < 0 {
-            None
-        } else {
-            Some(info.build as u16)
-        };
+        let build = if info.build < 0 { None } else { Some(info.build as u16) };
 
         Ok((info.current, info.next, build))
     }
@@ -360,11 +345,7 @@ impl Client {
                         );
                     }
                     client::Signal::PackageFetching(package) => {
-                        println!(
-                            "{} {}",
-                            color_primary("Fetching"),
-                            color_secondary(&package)
-                        );
+                        println!("{} {}", color_primary("Fetching"), color_secondary(&package));
                     }
                     client::Signal::PackageUpgrade(event) => {
                         if let Ok(event) = AptUpgradeEvent::from_dbus_map(event.into_iter()) {
@@ -449,26 +430,12 @@ fn write_apt_event(event: AptUpgradeEvent) {
             );
         }
         AptUpgradeEvent::Progress { percent } => {
-            println!(
-                "{}: {}: {}%",
-                dpkg,
-                color_secondary("Progress"),
-                color_info(percent)
-            );
+            println!("{}: {}: {}%", dpkg, color_secondary("Progress"), color_info(percent));
         }
         AptUpgradeEvent::SettingUp { package } => {
-            println!(
-                "{}: {} {}",
-                dpkg,
-                color_secondary("Setting up"),
-                color_tertiary(package)
-            );
+            println!("{}: {} {}", dpkg, color_secondary("Setting up"), color_tertiary(package));
         }
-        AptUpgradeEvent::Unpacking {
-            package,
-            version,
-            over,
-        } => {
+        AptUpgradeEvent::Unpacking { package, version, over } => {
             println!(
                 "{}: {} {} ({}) over ({})",
                 dpkg,

@@ -1,6 +1,5 @@
 use crate::{
-    daemon::DaemonStatus as PrimaryStatus,
-    daemon::*,
+    daemon::{DaemonStatus as PrimaryStatus, *},
     recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags},
     release::{RefreshOp, UpgradeEvent, UpgradeMethod},
     DBUS_IFACE, DBUS_NAME, DBUS_PATH,
@@ -19,16 +18,16 @@ const TIMEOUT: i32 = 3000;
 // Information about the current fetch progress.
 #[derive(Clone, Debug)]
 pub struct FetchStatus {
-    pub package: Box<str>,
+    pub package:   Box<str>,
     pub completed: u32,
-    pub total: u32,
+    pub total:     u32,
 }
 
 /// Data for tracking progress of an action.
 #[derive(Clone, Debug)]
 pub struct Progress {
     pub progress: u64,
-    pub total: u64,
+    pub total:    u64,
 }
 
 /// Contains information about good and bad repositories.
@@ -59,7 +58,7 @@ pub struct Continue(pub bool);
 /// The status of the daemon that was retrieved.
 #[derive(Clone, Debug)]
 pub struct DaemonStatus {
-    pub status: u8,
+    pub status:     u8,
     pub sub_status: u8,
 }
 
@@ -67,15 +66,15 @@ pub struct DaemonStatus {
 #[derive(Clone, Debug)]
 pub struct Fetched {
     pub updates_available: bool,
-    pub completed: u32,
-    pub total: u32,
+    pub completed:         u32,
+    pub total:             u32,
 }
 
 /// The version of the recovery partition's image.
 #[derive(Clone, Debug)]
 pub struct RecoveryVersion {
     pub version: Box<str>,
-    pub build: u16,
+    pub build:   u16,
 }
 
 /// Information about the current and next release.
@@ -85,15 +84,15 @@ pub struct RecoveryVersion {
 #[derive(Clone, Debug)]
 pub struct ReleaseInfo {
     pub current: Box<str>,
-    pub next: Box<str>,
-    pub build: i16,
+    pub next:    Box<str>,
+    pub build:   i16,
 }
 
 /// The status of an action, and a description of why.
 #[derive(Clone, Debug)]
 pub struct Status {
     pub status: u8,
-    pub why: Box<str>,
+    pub why:    Box<str>,
 }
 
 #[derive(Debug, Error)]
@@ -126,25 +125,23 @@ impl Client {
             Ok(())
         }
 
-        Connection::get_private(BusType::System)
-            .map_err(Error::Connection)
-            .and_then(|bus| {
-                {
-                    let bus = &bus;
-                    add_match(bus, signals::PACKAGE_FETCH_RESULT)?;
-                    add_match(bus, signals::PACKAGE_FETCHED)?;
-                    add_match(bus, signals::PACKAGE_FETCHING)?;
-                    add_match(bus, signals::PACKAGE_UPGRADE)?;
-                    add_match(bus, signals::RECOVERY_DOWNLOAD_PROGRESS)?;
-                    add_match(bus, signals::RECOVERY_RESULT)?;
-                    add_match(bus, signals::RECOVERY_EVENT)?;
-                    add_match(bus, signals::RELEASE_RESULT)?;
-                    add_match(bus, signals::RELEASE_EVENT)?;
-                    add_match(bus, signals::REPO_COMPAT_ERROR)?;
-                }
+        Connection::get_private(BusType::System).map_err(Error::Connection).and_then(|bus| {
+            {
+                let bus = &bus;
+                add_match(bus, signals::PACKAGE_FETCH_RESULT)?;
+                add_match(bus, signals::PACKAGE_FETCHED)?;
+                add_match(bus, signals::PACKAGE_FETCHING)?;
+                add_match(bus, signals::PACKAGE_UPGRADE)?;
+                add_match(bus, signals::RECOVERY_DOWNLOAD_PROGRESS)?;
+                add_match(bus, signals::RECOVERY_RESULT)?;
+                add_match(bus, signals::RECOVERY_EVENT)?;
+                add_match(bus, signals::RELEASE_RESULT)?;
+                add_match(bus, signals::RELEASE_EVENT)?;
+                add_match(bus, signals::REPO_COMPAT_ERROR)?;
+            }
 
-                Ok(Client { bus })
-            })
+            Ok(Client { bus })
+        })
     }
 
     /// Initiates fetching system updates (not release updates).
@@ -157,10 +154,7 @@ impl Client {
         download_only: bool,
     ) -> Result<Fetched, Error> {
         let packages = MessageItemArray::new(
-            additional_packages
-                .into_iter()
-                .map(MessageItem::from)
-                .collect(),
+            additional_packages.into_iter().map(MessageItem::from).collect(),
             Signature::from_slice(b"as\0").unwrap(),
         )
         .unwrap();
@@ -184,10 +178,7 @@ impl Client {
         self.call_method(methods::FETCH_UPDATES_STATUS, |m| m)?
             .read2::<u8, &str>()
             .map_err(|why| Error::ArgumentMismatch(methods::FETCH_UPDATES_STATUS, why))
-            .map(|(status, why)| Status {
-                status,
-                why: why.into(),
-            })
+            .map(|(status, why)| Status { status, why: why.into() })
     }
 
     /// Initiates upgrading the system packages.
@@ -198,11 +189,9 @@ impl Client {
 
     /// Initiates upgrading the recovery partition via a recovery image file.
     pub fn recovery_upgrade_file<P: AsRef<str>>(&self, path: P) -> Result<u8, Error> {
-        self.call_method(methods::RECOVERY_UPGRADE_FILE, move |m| {
-            m.append1(path.as_ref())
-        })?
-        .read1::<u8>()
-        .map_err(|why| Error::ArgumentMismatch(methods::RECOVERY_UPGRADE_FILE, why))
+        self.call_method(methods::RECOVERY_UPGRADE_FILE, move |m| m.append1(path.as_ref()))?
+            .read1::<u8>()
+            .map_err(|why| Error::ArgumentMismatch(methods::RECOVERY_UPGRADE_FILE, why))
     }
 
     /// Initiates upgrading the recovery partition via the release API
@@ -223,10 +212,7 @@ impl Client {
         self.call_method(methods::RECOVERY_UPGRADE_RELEASE_STATUS, |m| m)?
             .read2::<u8, &str>()
             .map_err(|why| Error::ArgumentMismatch(methods::RECOVERY_UPGRADE_RELEASE_STATUS, why))
-            .map(|(status, why)| Status {
-                status,
-                why: why.into(),
-            })
+            .map(|(status, why)| Status { status, why: why.into() })
     }
 
     /// Fetches the version of the recovery partition currently-installed.
@@ -234,10 +220,7 @@ impl Client {
         self.call_method(methods::RECOVERY_VERSION, |m| m)?
             .read2::<&str, u16>()
             .map_err(|why| Error::ArgumentMismatch(methods::RECOVERY_VERSION, why))
-            .map(|(version, build)| RecoveryVersion {
-                version: version.into(),
-                build,
-            })
+            .map(|(version, build)| RecoveryVersion { version: version.into(), build })
     }
 
     /// Configures the system to perform a system refresh on the next system boot.
@@ -263,9 +246,7 @@ impl Client {
 
     /// Initiates a release upgrade using the given method.
     pub fn release_upgrade(&self, how: UpgradeMethod, from: &str, to: &str) -> Result<(), Error> {
-        self.call_method(methods::RELEASE_UPGRADE, move |m| {
-            m.append3(how as u8, from, to)
-        })?;
+        self.call_method(methods::RELEASE_UPGRADE, move |m| m.append3(how as u8, from, to))?;
 
         Ok(())
     }
@@ -275,10 +256,7 @@ impl Client {
         self.call_method(methods::RELEASE_UPGRADE_STATUS, |m| m)?
             .read2::<u8, &str>()
             .map_err(|why| Error::ArgumentMismatch(methods::RELEASE_UPGRADE_STATUS, why))
-            .map(|(status, why)| Status {
-                status,
-                why: why.into(),
-            })
+            .map(|(status, why)| Status { status, why: why.into() })
     }
 
     /// Attempts to repair any system issues detected.
@@ -341,10 +319,7 @@ impl Client {
                 let signal = match &*signal.member().unwrap() {
                     signals::PACKAGE_FETCH_RESULT => signal
                         .read2::<u8, String>()
-                        .map(|(status, why)| Status {
-                            status,
-                            why: why.into(),
-                        })
+                        .map(|(status, why)| Status { status, why: why.into() })
                         .map(Signal::PackageFetchResult)
                         .map_err(|why| {
                             Error::ArgumentMismatch(signals::PACKAGE_FETCH_RESULT, why)
@@ -389,10 +364,7 @@ impl Client {
                     signals::RECOVERY_RESULT => signal
                         .read2::<u8, String>()
                         .map_err(|why| Error::ArgumentMismatch(signals::RECOVERY_RESULT, why))
-                        .map(|(status, why)| Status {
-                            status,
-                            why: why.into(),
-                        })
+                        .map(|(status, why)| Status { status, why: why.into() })
                         .map(Signal::RecoveryResult)?,
                     signals::RELEASE_EVENT => signal
                         .read1::<u8>()
@@ -404,10 +376,7 @@ impl Client {
                     signals::RELEASE_RESULT => signal
                         .read2::<u8, String>()
                         .map_err(|why| Error::ArgumentMismatch(signals::RELEASE_RESULT, why))
-                        .map(|(status, why)| Status {
-                            status,
-                            why: why.into(),
-                        })
+                        .map(|(status, why)| Status { status, why: why.into() })
                         .map(Signal::ReleaseResult)?,
                     signals::REPO_COMPAT_ERROR => signal
                         .read2::<Vec<String>, Vec<(String, String)>>()
@@ -436,9 +405,7 @@ impl Client {
 
         m = append_args(m);
 
-        self.bus
-            .send_with_reply_and_block(m, TIMEOUT)
-            .map_err(|why| Error::Call(method, why))
+        self.bus.send_with_reply_and_block(m, TIMEOUT).map_err(|why| Error::Call(method, why))
     }
 
     fn status_is(&self, expected: PrimaryStatus) -> Result<bool, Error> {

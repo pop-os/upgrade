@@ -5,8 +5,10 @@ use dbus::{
 use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::atomic::Ordering};
 
 use super::result_signal;
-use crate::daemon::{dbus_helper::DbusFactory, Daemon, DaemonStatus};
-use crate::release::RefreshOp;
+use crate::{
+    daemon::{dbus_helper::DbusFactory, Daemon, DaemonStatus},
+    release::RefreshOp,
+};
 
 // Methods supported by the daemon.
 pub const FETCH_UPDATES: &str = "FetchUpdates";
@@ -17,24 +19,21 @@ pub fn fetch_updates(
 ) -> Method<MTFn<()>, ()> {
     let method = dbus_factory.method(FETCH_UPDATES, move |message| {
         let mut daemon = daemon.borrow_mut();
-        daemon.set_status(
-            DaemonStatus::FetchingPackages,
-            move |daemon, already_active| {
-                if already_active {
-                    let (completed, total) = daemon.fetching_state.load(Ordering::SeqCst);
-                    let completed = completed as u32;
-                    let total = total as u32;
-                    Ok(vec![true.into(), completed.into(), total.into()])
-                } else {
-                    let (value, download_only): (Vec<String>, bool) =
-                        message.read2().map_err(|why| format!("{}", why))?;
+        daemon.set_status(DaemonStatus::FetchingPackages, move |daemon, already_active| {
+            if already_active {
+                let (completed, total) = daemon.fetching_state.load(Ordering::SeqCst);
+                let completed = completed as u32;
+                let total = total as u32;
+                Ok(vec![true.into(), completed.into(), total.into()])
+            } else {
+                let (value, download_only): (Vec<String>, bool) =
+                    message.read2().map_err(|why| format!("{}", why))?;
 
-                    daemon
-                        .fetch_updates(&value, download_only)
-                        .map(|(x, t)| vec![x.into(), 0u32.into(), t.into()])
-                }
-            },
-        )
+                daemon
+                    .fetch_updates(&value, download_only)
+                    .map(|(x, t)| vec![x.into(), 0u32.into(), t.into()])
+            }
+        })
     });
 
     method
@@ -57,10 +56,7 @@ pub fn fetch_updates_status(
         Ok(vec![status.into(), why.into()])
     });
 
-    method
-        .outarg::<u8>("status")
-        .outarg::<&str>("why")
-        .consume()
+    method.outarg::<u8>("status").outarg::<&str>("why").consume()
 }
 
 pub const PACKAGE_UPGRADE: &str = "UpgradePackages";
@@ -72,15 +68,13 @@ pub fn package_upgrade(
     let daemon = daemon.clone();
 
     let method = dbus_factory.method::<_, String>(PACKAGE_UPGRADE, move |_| {
-        daemon
-            .borrow_mut()
-            .set_status(DaemonStatus::PackageUpgrade, move |daemon, active| {
-                if !active {
-                    daemon.package_upgrade()?;
-                }
+        daemon.borrow_mut().set_status(DaemonStatus::PackageUpgrade, move |daemon, active| {
+            if !active {
+                daemon.package_upgrade()?;
+            }
 
-                Ok(Vec::new())
-            })
+            Ok(Vec::new())
+        })
     });
 
     method.consume()
@@ -106,10 +100,7 @@ pub fn recovery_upgrade_file(
         })
     });
 
-    method
-        .inarg::<&str>("path")
-        .outarg::<u8>("result")
-        .consume()
+    method.inarg::<&str>("path").outarg::<u8>("result").consume()
 }
 
 pub const RECOVERY_UPGRADE_RELEASE: &str = "RecoveryUpgradeRelease";
@@ -151,10 +142,7 @@ pub fn recovery_upgrade_status(
         Ok(vec![status.into(), why.into()])
     });
 
-    method
-        .outarg::<u8>("status")
-        .outarg::<&str>("why")
-        .consume()
+    method.outarg::<u8>("status").outarg::<&str>("why").consume()
 }
 
 pub const RECOVERY_VERSION: &str = "RecoveryVersion";
@@ -172,10 +160,7 @@ pub fn recovery_version(
             .map(|version| vec![version.version.into(), version.build.into()])
     });
 
-    method
-        .outarg::<&str>("version")
-        .outarg::<u16>("build")
-        .consume()
+    method.outarg::<&str>("version").outarg::<u16>("build").consume()
 }
 
 pub const REFRESH_OS: &str = "RefreshOS";
@@ -196,10 +181,7 @@ pub fn refresh_os(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Me
         Ok(vec![value.into()])
     });
 
-    method
-        .inarg::<u8>("input")
-        .outarg::<bool>("enabled")
-        .consume()
+    method.inarg::<u8>("input").outarg::<bool>("enabled").consume()
 }
 
 pub const RELEASE_CHECK: &str = "ReleaseCheck";
@@ -211,23 +193,12 @@ pub fn release_check(
     let daemon = daemon.clone();
 
     let method = dbus_factory.method(RELEASE_CHECK, move |_message| {
-        daemon
-            .borrow_mut()
-            .release_check()
-            .map(|(current, next, available)| {
-                vec![
-                    current.into(),
-                    next.into(),
-                    available.map_or(-1, |a| a as i16).into(),
-                ]
-            })
+        daemon.borrow_mut().release_check().map(|(current, next, available)| {
+            vec![current.into(), next.into(), available.map_or(-1, |a| a as i16).into()]
+        })
     });
 
-    method
-        .outarg::<&str>("current")
-        .outarg::<&str>("next")
-        .outarg::<i16>("build")
-        .consume()
+    method.outarg::<&str>("current").outarg::<&str>("next").outarg::<i16>("build").consume()
 }
 
 pub const RELEASE_UPGRADE: &str = "ReleaseUpgrade";
@@ -250,11 +221,7 @@ pub fn release_upgrade(
         })
     });
 
-    method
-        .inarg::<u8>("how")
-        .inarg::<&str>("from")
-        .inarg::<&str>("to")
-        .consume()
+    method.inarg::<u8>("how").inarg::<&str>("from").inarg::<&str>("to").consume()
 }
 
 pub const RELEASE_UPGRADE_STATUS: &str = "ReleaseUpgradeStatus";
@@ -268,10 +235,7 @@ pub fn release_upgrade_status(
         Ok(vec![status.into(), why.into()])
     });
 
-    method
-        .outarg::<u8>("status")
-        .outarg::<&str>("why")
-        .consume()
+    method.outarg::<u8>("status").outarg::<&str>("why").consume()
 }
 
 pub const RELEASE_REPAIR: &str = "ReleaseRepair";
@@ -301,9 +265,7 @@ pub fn repo_modify(
 
     let method = dbus_factory.method::<_, String>(REPO_MODIFY, move |message| {
         info!("received {}", REPO_MODIFY);
-        let repos = message
-            .read1::<HashMap<&str, bool>>()
-            .map_err(|why| format!("{}", why))?;
+        let repos = message.read1::<HashMap<&str, bool>>().map_err(|why| format!("{}", why))?;
         daemon.borrow_mut().repo_modify(&repos)?;
         Ok(Vec::new())
     });
@@ -324,8 +286,5 @@ pub fn status(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method
         Ok(vec![status.into(), sub_status.into()])
     });
 
-    method
-        .outarg::<u8>("status")
-        .outarg::<u8>("sub_status")
-        .consume()
+    method.outarg::<u8>("status").outarg::<u8>("sub_status").consume()
 }

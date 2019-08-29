@@ -4,7 +4,7 @@ use tokio::runtime::Runtime;
 
 pub struct DaemonRuntime<'a> {
     pub runtime: &'a mut Runtime,
-    pub client: Arc<Client>,
+    pub client:  Arc<Client>,
 }
 
 impl<'a> DaemonRuntime<'a> {

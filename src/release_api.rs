@@ -17,46 +17,30 @@ pub enum ApiError {
 #[derive(Debug, Deserialize)]
 pub struct RawRelease {
     pub version: String,
-    pub url: String,
-    pub size: u64,
+    pub url:     String,
+    pub size:    u64,
     pub sha_sum: String,
     pub channel: String,
-    pub build: String,
+    pub build:   String,
 }
 
 impl RawRelease {
     fn into_release(self) -> Result<Release, ApiError> {
-        let RawRelease {
-            version,
-            url,
-            size,
-            sha_sum,
-            channel,
-            build,
-        } = self;
-        let build = build
-            .parse::<u16>()
-            .map_err(|_| ApiError::BuildNaN(build))?;
+        let RawRelease { version, url, size, sha_sum, channel, build } = self;
+        let build = build.parse::<u16>().map_err(|_| ApiError::BuildNaN(build))?;
 
-        Ok(Release {
-            version,
-            url,
-            size,
-            sha_sum,
-            channel,
-            build,
-        })
+        Ok(Release { version, url, size, sha_sum, channel, build })
     }
 }
 
 #[derive(Debug)]
 pub struct Release {
     pub version: String,
-    pub url: String,
-    pub size: u64,
+    pub url:     String,
+    pub size:    u64,
     pub sha_sum: String,
     pub channel: String,
-    pub build: u16,
+    pub build:   u16,
 }
 
 impl Release {
@@ -71,9 +55,7 @@ impl Release {
             .error_for_status()
             .map_err(ApiError::Get)?;
 
-        serde_json::from_reader::<_, RawRelease>(response)
-            .map_err(ApiError::Json)?
-            .into_release()
+        serde_json::from_reader::<_, RawRelease>(response).map_err(ApiError::Json)?.into_release()
     }
 
     pub fn exists(current: &str, iso: &str) -> Option<u16> {
