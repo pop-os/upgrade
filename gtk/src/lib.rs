@@ -111,7 +111,7 @@ impl UpgradeWidget {
                             .progress_exact(percent)
                             .progress_label("Upgrading packages for current release");
                     }
-                    UiEvent::Quit => return glib::Continue(false),
+                    UiEvent::Shutdown => return glib::Continue(false),
                     UiEvent::CommencedRefresh => {
                         option_upgrade.hide();
                     }
@@ -238,6 +238,8 @@ impl UpgradeWidget {
         let _ = self.sender.send(BackgroundEvent::Scan);
     }
 
+    pub fn shutdown(&self) { let _ = self.sender.send(BackgroundEvent::Shutdown); }
+
     pub fn callback_error<F: Fn(&str) + 'static>(&self, func: F) {
         *self.callback_error.borrow_mut() = Box::from(func);
     }
@@ -273,7 +275,8 @@ impl UpgradeWidget {
                         BackgroundEvent::UpgradeOS(info) => {
                             upgrade_os(client, sender, info);
                         }
-                        BackgroundEvent::Quit => {
+                        BackgroundEvent::Shutdown => {
+                            let _ = sender.send(UiEvent::Shutdown);
                             eprintln!("stopping background thread");
                             break;
                         }
@@ -295,7 +298,7 @@ enum BackgroundEvent {
     RepoModify(Vec<Box<str>>, Vec<bool>),
     Scan,
     UpgradeOS(ReleaseInfo),
-    Quit,
+    Shutdown,
 }
 
 /// Events received for the UI to handle.
@@ -317,7 +320,7 @@ enum UiEvent {
     ProgressUpgrade(u64, u64),
     StatusChanged(DaemonStatus, DaemonStatus, Box<str>),
     Updates(u32),
-    Quit,
+    Shutdown,
 }
 
 #[derive(Debug, Error)]
