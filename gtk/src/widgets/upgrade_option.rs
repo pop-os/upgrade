@@ -27,10 +27,10 @@ impl UpgradeOption {
         };
 
         let label = cascade! {
-            gtk::Label::new("");
+            gtk::Label::new(None);
             ..set_xalign(0.0);
             ..set_vexpand(true);
-            ..set_mnemonic_widget(&button);
+            ..set_mnemonic_widget(Some(&button));
         };
 
         let sublabel = cascade! {
@@ -46,7 +46,7 @@ impl UpgradeOption {
         };
 
         let progress_label = cascade! {
-            gtk::Label::new("");
+            gtk::Label::new(None);
             ..set_xalign(0.0);
             ..set_hexpand(true);
         };

@@ -75,9 +75,11 @@ impl UpgradeWidget {
         let container = cascade! {
             gtk::Box::new(gtk::Orientation::Vertical, 12);
             ..add(&cascade! {
-                gtk::Label::new("<b>OS Upgrade &amp; Refresh</b>");
-                ..set_use_markup(true);
-                ..set_xalign(0.0);
+                gtk::LabelBuilder::new()
+                    .label("<b>OS Upgrade &amp; Refresh</b>")
+                    .use_markup(true)
+                    .xalign(0.0)
+                    .build();
                 ..show();
             });
             ..add(&cascade! {
@@ -182,8 +184,7 @@ impl UpgradeWidget {
 
                         let dialog = RepositoryDialog::new(failures.iter());
 
-                        let expected: i32 = gtk::ResponseType::Accept.into();
-                        if expected == dialog.run() {
+                        if gtk::ResponseType::Accept == dialog.run() {
                             let _ = sender.send(BackgroundEvent::RepoModify(
                                 failures,
                                 dialog.answers().collect::<Vec<bool>>(),
@@ -229,11 +230,7 @@ impl UpgradeWidget {
             });
         }
 
-        Self {
-            container: container.upcast::<gtk::Container>(),
-            sender: bg_sender,
-            callback_error,
-        }
+        Self { container: container.upcast::<gtk::Container>(), sender: bg_sender, callback_error }
     }
 
     pub fn scan(&self) {
@@ -338,11 +335,7 @@ enum UiError {
 }
 
 impl UiError {
-    pub fn iter_sources(&self) -> ErrorIter<'_> {
-        ErrorIter {
-            current: self.source(),
-        }
-    }
+    pub fn iter_sources(&self) -> ErrorIter<'_> { ErrorIter { current: self.source() } }
 }
 
 #[derive(Debug, Error)]
@@ -358,15 +351,11 @@ enum UnderlyingError {
 }
 
 impl From<Box<str>> for UnderlyingError {
-    fn from(why: Box<str>) -> Self {
-        UnderlyingError::Status(StatusError(why))
-    }
+    fn from(why: Box<str>) -> Self { UnderlyingError::Status(StatusError(why)) }
 }
 
 impl From<Error> for UnderlyingError {
-    fn from(why: Error) -> Self {
-        UnderlyingError::Client(why)
-    }
+    fn from(why: Error) -> Self { UnderlyingError::Client(why) }
 }
 
 fn scan(client: &Client, sender: &glib::Sender<UiEvent>) {
@@ -380,10 +369,7 @@ fn scan(client: &Client, sender: &glib::Sender<UiEvent>) {
     } else {
         if let Ok(info) = client.release_check() {
             if info.build > 0 {
-                eprintln!(
-                    "upgrade from {} to {} is available",
-                    info.current, info.next
-                );
+                eprintln!("upgrade from {} to {} is available", info.current, info.next);
 
                 upgrade_text =
                     Cow::Owned(format!("Upgrade from {} to {}", info.current, info.next));
@@ -526,11 +512,7 @@ fn upgrade_os(client: &Client, sender: &glib::Sender<UiEvent>, info: ReleaseInfo
         return;
     }
 
-    let &ReleaseInfo {
-        ref current,
-        ref next,
-        ..
-    } = &info;
+    let &ReleaseInfo { ref current, ref next, .. } = &info;
 
     let how = if client.recovery_exists() {
         // Upgrade the recovery partition in addition to the OS.
