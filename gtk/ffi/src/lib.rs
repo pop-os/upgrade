@@ -48,5 +48,6 @@ pub extern "C" fn pop_upgrade_widget_container(
 
 #[no_mangle]
 pub extern "C" fn pop_upgrade_widget_free(widget: *mut PopUpgradeWidget) {
-    unsafe { Box::from_raw(widget as *mut UpgradeWidget) };
+    let widget = unsafe { Box::from_raw(widget as *mut UpgradeWidget) };
+    widget.shutdown();
 }
