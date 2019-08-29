@@ -1,8 +1,6 @@
 use yansi::Paint;
 
-pub(crate) fn color_error<T: ::std::fmt::Display>(value: T) -> Paint<T> {
-    Paint::red(value).bold()
-}
+pub(crate) fn color_error<T: ::std::fmt::Display>(value: T) -> Paint<T> { Paint::red(value).bold() }
 
 pub(crate) fn color_error_desc<T: ::std::fmt::Display>(value: T) -> Paint<T> {
     Paint::red(value).bold().dimmed()

@@ -8,8 +8,7 @@ extern crate shrinkwraprs;
 mod cli;
 mod logging;
 
-use crate::cli::Client;
-use crate::logging::setup_logging;
+use crate::{cli::Client, logging::setup_logging};
 use pop_upgrade::daemon::Daemon;
 
 pub mod error {
@@ -34,41 +33,28 @@ pub mod error {
     }
 
     impl From<ClientError> for Error {
-        fn from(why: ClientError) -> Self {
-            Error::Client(why)
-        }
+        fn from(why: ClientError) -> Self { Error::Client(why) }
     }
 
     impl From<DaemonError> for Error {
-        fn from(why: DaemonError) -> Self {
-            Error::Daemon(why)
-        }
+        fn from(why: DaemonError) -> Self { Error::Daemon(why) }
     }
 
     impl From<RecoveryError> for Error {
-        fn from(why: RecoveryError) -> Self {
-            Error::Recovery(why)
-        }
+        fn from(why: RecoveryError) -> Self { Error::Recovery(why) }
     }
 
     impl From<ReleaseError> for Error {
-        fn from(why: ReleaseError) -> Self {
-            Error::Release(why)
-        }
+        fn from(why: ReleaseError) -> Self { Error::Release(why) }
     }
 
     impl From<InitError> for Error {
-        fn from(why: InitError) -> Self {
-            Error::Init(why)
-        }
+        fn from(why: InitError) -> Self { Error::Init(why) }
     }
 
     #[derive(Debug, Error)]
     pub enum InitError {
-        #[error(
-            display = "failure to create /var/cache/apt/archives/partial directories: {}",
-            _0
-        )]
+        #[error(display = "failure to create /var/cache/apt/archives/partial directories: {}", _0)]
         AptCacheDirectories(io::Error),
     }
 }

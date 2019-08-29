@@ -1,5 +1,4 @@
-use std::str::FromStr;
-use std::{fs, io};
+use std::{fs, io, str::FromStr};
 
 pub const RECOVERY_VERSION: &str = "/recovery/version";
 
@@ -18,7 +17,7 @@ pub enum RecoveryVersionError {
 #[derive(Debug, Clone)]
 pub struct RecoveryVersion {
     pub version: String,
-    pub build: u16,
+    pub build:   u16,
 }
 
 impl FromStr for RecoveryVersion {
@@ -33,19 +32,12 @@ impl FromStr for RecoveryVersion {
             .parse::<u16>()
             .map_err(|_| RecoveryVersionError::BuildNaN)?;
 
-        Ok(RecoveryVersion {
-            version: version.to_owned(),
-            build,
-        })
+        Ok(RecoveryVersion { version: version.to_owned(), build })
     }
 }
 
 pub fn version() -> Result<RecoveryVersion, RecoveryVersionError> {
-    recovery_file()
-        .map_err(RecoveryVersionError::File)?
-        .parse::<RecoveryVersion>()
+    recovery_file().map_err(RecoveryVersionError::File)?.parse::<RecoveryVersion>()
 }
 
-pub fn recovery_file() -> io::Result<String> {
-    fs::read_to_string(RECOVERY_VERSION)
-}
+pub fn recovery_file() -> io::Result<String> { fs::read_to_string(RECOVERY_VERSION) }

@@ -163,22 +163,14 @@ impl<'a> DaemonRuntime<'a> {
             .map(<&'static str>::from)
             .unwrap_or(current);
 
-        let new = new
-            .parse::<Version>()
-            .map(Codename::from)
-            .map(<&'static str>::from)
-            .unwrap_or(new);
+        let new =
+            new.parse::<Version>().map(Codename::from).map(<&'static str>::from).unwrap_or(new);
 
         let sources = SourcesLists::scan().unwrap();
 
-        info!(
-            "checking if release can be upgraded from {} to {}",
-            current, new
-        );
+        info!("checking if release can be upgraded from {} to {}", current, new);
         let request = UpgradeRequest::new(self.client.clone(), sources, self.runtime);
-        let mut upgrade = request
-            .send(retain, current, new)
-            .map_err(ReleaseError::Check)?;
+        let mut upgrade = request.send(retain, current, new).map_err(ReleaseError::Check)?;
 
         // In case the system abruptly shuts down after this point, create a file to signal
         // that packages were being fetched for a new release.
@@ -186,9 +178,7 @@ impl<'a> DaemonRuntime<'a> {
             .map_err(ReleaseError::ReleaseFetchFile)?;
 
         info!("upgrade is possible -- updating release files");
-        upgrade
-            .overwrite_apt_sources()
-            .map_err(ReleaseError::Overwrite)?;
+        upgrade.overwrite_apt_sources().map_err(ReleaseError::Overwrite)?;
 
         Ok(upgrade)
     }
@@ -332,17 +322,10 @@ impl<'a> DaemonRuntime<'a> {
 
     /// Create the system upgrade files that systemd will check for at startup.
     fn systemd_upgrade_set(from: &str, to: &str) -> RelResult<()> {
-        let current = from
-            .parse::<Version>()
-            .map(Codename::from)
-            .map(<&'static str>::from)
-            .unwrap_or(from);
+        let current =
+            from.parse::<Version>().map(Codename::from).map(<&'static str>::from).unwrap_or(from);
 
-        let new = to
-            .parse::<Version>()
-            .map(Codename::from)
-            .map(<&'static str>::from)
-            .unwrap_or(to);
+        let new = to.parse::<Version>().map(Codename::from).map(<&'static str>::from).unwrap_or(to);
 
         fs::write(STARTUP_UPGRADE_FILE, &format!("{} {}", current, new))
             .and_then(|_| symlink("/var/cache/apt/archives", SYSTEM_UPDATE))
@@ -392,10 +375,7 @@ fn rollback<E: ::std::fmt::Display>(upgrader: &mut Upgrader, why: &E) {
     error!("failed to fetch packages: {}", why);
     warn!("attempting to roll back apt release files");
     if let Err(why) = upgrader.revert_apt_sources() {
-        error!(
-            "failed to revert release name changes to source lists in /etc/apt/: {}",
-            why
-        );
+        error!("failed to revert release name changes to source lists in /etc/apt/: {}", why);
     }
 }
 
@@ -448,15 +428,8 @@ fn systemd_boot_loader_swap(loader: LoaderEntry, description: &str) -> RelResult
         SystemdBootConf::new("/boot/efi").map_err(ReleaseError::SystemdBootConf)?;
 
     {
-        info!(
-            "found the systemd-boot config -- searching for the {}",
-            description
-        );
-        let SystemdBootConf {
-            ref entries,
-            ref mut loader_conf,
-            ..
-        } = systemd_boot_conf;
+        info!("found the systemd-boot config -- searching for the {}", description);
+        let SystemdBootConf { ref entries, ref mut loader_conf, .. } = systemd_boot_conf;
         let recovery_entry = entries
             .iter()
             .find(|e| match loader {
@@ -468,13 +441,8 @@ fn systemd_boot_loader_swap(loader: LoaderEntry, description: &str) -> RelResult
         loader_conf.default = Some(recovery_entry.filename.to_owned());
     }
 
-    info!(
-        "found the {} -- setting it as the default boot entry",
-        description
-    );
-    systemd_boot_conf
-        .overwrite_loader_conf()
-        .map_err(ReleaseError::SystemdBootConfOverwrite)
+    info!("found the {} -- setting it as the default boot entry", description);
+    systemd_boot_conf.overwrite_loader_conf().map_err(ReleaseError::SystemdBootConfOverwrite)
 }
 
 pub enum FetchEvent {
@@ -525,9 +493,7 @@ fn recovery_prereq() -> RelResult<()> {
     }
 }
 
-fn format_version(version: Version) -> String {
-    format!("{}.{:02}", version.major, version.minor)
-}
+fn format_version(version: Version) -> String { format!("{}.{:02}", version.major, version.minor) }
 
 fn find_current_release(
     version_detect: fn() -> Result<Version, VersionError>,
@@ -586,29 +552,11 @@ mod tests {
     use super::*;
     use ubuntu_version::{Version, VersionError};
 
-    fn v1804() -> Result<Version, VersionError> {
-        Ok(Version {
-            major: 18,
-            minor: 4,
-            patch: 0,
-        })
-    }
+    fn v1804() -> Result<Version, VersionError> { Ok(Version { major: 18, minor: 4, patch: 0 }) }
 
-    fn v1810() -> Result<Version, VersionError> {
-        Ok(Version {
-            major: 18,
-            minor: 10,
-            patch: 0,
-        })
-    }
+    fn v1810() -> Result<Version, VersionError> { Ok(Version { major: 18, minor: 10, patch: 0 }) }
 
-    fn v1904() -> Result<Version, VersionError> {
-        Ok(Version {
-            major: 19,
-            minor: 4,
-            patch: 0,
-        })
-    }
+    fn v1904() -> Result<Version, VersionError> { Ok(Version { major: 19, minor: 4, patch: 0 }) }
 
     fn releases_up_to_1904(release: &str, _kind: &str) -> Option<u16> {
         match release {

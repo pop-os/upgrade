@@ -7,10 +7,7 @@ use ubuntu_version::Codename;
 
 #[derive(Debug, Error)]
 pub enum SourcesError {
-    #[error(
-        display = "/etc/apt/sources.list was missing, and we failed to create it: {}",
-        _0
-    )]
+    #[error(display = "/etc/apt/sources.list was missing, and we failed to create it: {}", _0)]
     ListCreation(io::Error),
     #[error(display = "failed to read sources: {}", _0)]
     ListRead(SourceError),
@@ -21,9 +18,7 @@ pub enum SourcesError {
 }
 
 impl From<SourceError> for SourcesError {
-    fn from(why: SourceError) -> Self {
-        SourcesError::ListRead(why)
-    }
+    fn from(why: SourceError) -> Self { SourcesError::ListRead(why) }
 }
 
 const MAIN_SOURCES: &str = "/etc/apt/sources.list";
@@ -52,10 +47,7 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
 
     for ppa in POP_PPAS {
         let url = ["http://ppa.launchpad.net/", *ppa, "/ubuntu"].concat();
-        if sources_list
-            .iter()
-            .any(|file| file.contains_entry(&url).is_some())
-        {
+        if sources_list.iter().any(|file| file.contains_entry(&url).is_some()) {
             info!("PPA {} found: not adding", *ppa);
         } else {
             info!("adding PPA: {}", *ppa);
@@ -84,11 +76,11 @@ fn insert_entry<P: AsRef<Path>>(
     sources_list.insert_entry(
         preferred,
         SourceEntry {
-            enabled: true,
-            source: false,
-            options: None,
-            url: url.to_owned(),
-            suite: suite.to_owned(),
+            enabled:    true,
+            source:     false,
+            options:    None,
+            url:        url.to_owned(),
+            suite:      suite.to_owned(),
             components: components.iter().cloned().map(String::from).collect(),
         },
     )?;
