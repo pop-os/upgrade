@@ -43,16 +43,9 @@ fn main() {
                 ..set_halign(gtk::Align::Center);
             });
             ..show();
-            ..connect_delete_event(move |window, _| {
-                window.destroy();
-
-                // Allow this closure to attain ownership of our firmware widget,
-                // so that this widget will exist for as long as the window exists.
-                let _widget = &widget;
-
-                Inhibit(false)
-            });
         };
+
+        app.connect_shutdown(move |_| widget.shutdown());
     });
 
     application.run(&[]);
