@@ -302,7 +302,7 @@ impl Client {
         &self,
         expected_status: PrimaryStatus,
         status_func: fn(&Client) -> Result<Status, Error>,
-        log_cb: impl Fn(Status),
+        mut log_cb: impl FnMut(Status),
         mut event: impl FnMut(&Self, Signal) -> Result<Continue, Error>,
     ) -> Result<(), Error> {
         for item in self.bus.iter(3000) {
