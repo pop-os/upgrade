@@ -22,6 +22,8 @@ pub enum RecoveryError {
     Io(io::Error),
     #[error(display = "ISO does not exist at path")]
     IsoNotFound,
+    #[error(display = "failed to fetch mount points")]
+    Mounts(#[error(cause)] io::Error),
     #[error(display = "no build was found to fetch")]
     NoBuildAvailable,
     #[error(display = "failed to create temporary directory for ISO: {}", _0)]

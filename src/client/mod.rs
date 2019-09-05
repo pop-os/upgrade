@@ -274,10 +274,7 @@ impl Client {
     }
 
     /// Verifies if a recovery partition exists.
-    pub fn recovery_exists(&self) -> bool {
-        let exists = || Path::new("/recovery").exists();
-        exists() || (self.release_repair().is_ok() && exists())
-    }
+    pub fn recovery_exists(&self) -> bool { crate::recovery::recovery_exists().unwrap_or(false) }
 
     /// Applies modifications to system repositories.
     pub fn repo_modify<S: AsRef<str>>(

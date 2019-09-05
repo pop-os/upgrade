@@ -69,7 +69,7 @@ where
     // Check the system and perform any repairs necessary for success.
     crate::repair::repair().map_err(RecoveryError::Repair)?;
 
-    if !Path::new("/recovery").is_dir() {
+    if !recovery_exists()? {
         return Err(RecoveryError::RecoveryNotFound);
     }
 
@@ -96,6 +96,19 @@ where
     }
 
     Ok(())
+}
+
+pub fn recovery_exists() -> Result<bool, RecoveryError> {
+    let mut mounts = proc_mounts::MountIter::new().map_err(RecoveryError::Mounts)?;
+
+    for mount in mounts {
+        let mount = mount.map_err(RecoveryError::Mounts)?;
+        if &mount.dest == Path::new("/recovery") {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 
 fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
