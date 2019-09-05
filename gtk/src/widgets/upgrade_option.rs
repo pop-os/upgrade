@@ -4,15 +4,15 @@ use std::cell::RefCell;
 
 #[derive(Shrinkwrap)]
 pub struct UpgradeOption {
-    button_view: gtk::Grid,
+    #[shrinkwrap(main_field)]
+    container: gtk::Container,
     pub(crate) button: gtk::Button,
     button_signal: RefCell<Option<SignalHandlerId>>,
-    #[shrinkwrap(main_field)]
-    container: gtk::Stack,
     label: gtk::Label,
     progress: gtk::ProgressBar,
     progress_container: gtk::Box,
     progress_label: gtk::Label,
+    stack: gtk::Stack,
     sublabel: gtk::Label,
 }
 
@@ -57,41 +57,42 @@ impl UpgradeOption {
             ..add(&progress);
         };
 
-        let button_view = cascade! {
-            gtk::Grid::new();
-            ..set_column_spacing(12);
-            ..attach(&label,    0, 0, 1, 1);
-            ..attach(&sublabel, 0, 1, 1, 1);
-            ..attach(&button,   1, 0, 1, 2);
+        let stack = cascade! {
+            gtk::Stack::new();
+            ..add(&button);
+            ..add(&progress_container);
+            ..set_visible_child(&button);
+            ..show_all();
         };
 
         let container = cascade! {
-            gtk::Stack::new();
+            gtk::Grid::new();
             ..set_margin_start(20);
             ..set_margin_end(20);
             ..set_margin_top(9);
             ..set_margin_bottom(9);
-            ..add(&button_view);
-            ..add(&progress_container);
-            ..set_visible_child(&button_view);
+            ..set_column_spacing(12);
+            ..attach(&label,    0, 0, 1, 1);
+            ..attach(&sublabel, 0, 1, 1, 1);
+            ..attach(&stack,   1, 0, 1, 2);
             ..show_all();
         };
 
         Self {
             button_signal: RefCell::new(None),
-            button_view,
             button,
-            container,
+            container: container.upcast::<gtk::Container>(),
             label,
             progress,
             progress_container,
             progress_label,
+            stack,
             sublabel,
         }
     }
 
     pub fn button_view(&self) -> &Self {
-        self.container.set_visible_child(&self.button_view);
+        self.stack.set_visible_child(&self.button);
         self
     }
 
@@ -111,7 +112,7 @@ impl UpgradeOption {
     }
 
     pub fn progress_view(&self) -> &Self {
-        self.container.set_visible_child(&self.progress_container);
+        self.stack.set_visible_child(&self.progress_container);
         self
     }
 
