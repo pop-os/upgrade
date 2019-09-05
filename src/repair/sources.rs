@@ -3,7 +3,7 @@
 use apt_sources_lists::{SourceEntry, SourceError, SourcesLists};
 use distinst_chroot::Command;
 use std::{fs, io, path::Path};
-use ubuntu_version::Codename;
+use ubuntu_version::{Codename, Version};
 
 #[derive(Debug, Error)]
 pub enum SourcesError {
@@ -26,6 +26,8 @@ const MAIN_SOURCES: &str = "/etc/apt/sources.list";
 const POP_PPAS: &[&str] = &["system76/pop"];
 
 pub fn repair(codename: Codename) -> Result<(), SourcesError> {
+    let eol = is_eol(codename);
+
     let current_release = <&'static str>::from(codename);
     if !Path::new(MAIN_SOURCES).exists() {
         info!("/etc/apt/sources.list did not exist: creating a new one");
@@ -35,13 +37,33 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
     info!("ensuring that the proprietary pop repo is added");
     let mut sources_list = SourcesLists::scan().map_err(SourcesError::ListRead)?;
 
-    insert_entry(
-        &mut sources_list,
-        MAIN_SOURCES,
-        "http://apt.pop-os.org/proprietary",
-        current_release,
-        &["main"],
-    )?;
+    if eol {
+        // When EOL, the Ubuntu archives no longer carry packages for that release.
+        sources_list.entries_mut(|entry| {
+            let mut modified = false;
+
+            if entry.url.contains("us.archive") {
+                entry.url.replace("us.archive", "old-releases");
+                modified = true;
+            }
+
+            // Disable the proprietary repository before upgrading an EOL release.
+            if entry.url == "http://apt.pop-os.org/proprietary" {
+                entry.enabled = false;
+                modified = true;
+            }
+
+            modified
+        });
+    } else {
+        insert_entry(
+            &mut sources_list,
+            MAIN_SOURCES,
+            "http://apt.pop-os.org/proprietary",
+            current_release,
+            &["main"],
+        )?;
+    }
 
     sources_list.write_sync().map_err(SourcesError::ListWrite)?;
 
@@ -56,6 +78,12 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
     }
 
     Ok(())
+}
+
+fn is_eol(codename: Codename) -> bool {
+    let this_version = Version::from(codename);
+    let until_eol = if this_version.is_lts() { 120 } else { 9 };
+    this_version.months_since() > until_eol
 }
 
 fn ppa_add(ppa: &str) -> Result<(), SourcesError> {
@@ -105,4 +133,9 @@ fn create_new_sources_list(release: &str) -> io::Result<()> {
     // TODO: Ensure that the GPG keys are added for the Ubuntu archives.
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 }
