@@ -1,5 +1,7 @@
 #!/usr/bin/make -f
 
+export HOME = .cargo/home
+
 export VENDORED ?= 1
 CLEAN ?= 1
 
