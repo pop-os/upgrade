@@ -183,11 +183,12 @@ impl<'a> DaemonRuntime<'a> {
         Ok(upgrade)
     }
 
-    /// Performs a live release upgrade via the daemon, with a callback for tracking progress.
+    /// Upgrades packages for the current release.
     pub fn package_upgrade<C: Fn(AptUpgradeEvent)>(&mut self, callback: C) -> RelResult<()> {
         let callback = &callback;
 
         apt_hold("pop-upgrade").map_err(ReleaseError::HoldPopUpgrade)?;
+        let _ = apt_hold("libpop-upgrade-gtk");
 
         let _ = apt_autoremove();
 
@@ -206,6 +207,7 @@ impl<'a> DaemonRuntime<'a> {
         let _ = apt_autoremove();
 
         apt_unhold("pop-upgrade").map_err(ReleaseError::UnholdPopUpgrade)?;
+        let _ = apt_unhold("libpop-upgrade-gtk");
 
         Ok(())
     }
