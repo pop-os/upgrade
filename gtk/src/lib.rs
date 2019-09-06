@@ -3,6 +3,8 @@ extern crate cascade;
 #[macro_use]
 extern crate err_derive;
 #[macro_use]
+extern crate log;
+#[macro_use]
 extern crate shrinkwraprs;
 
 mod widgets;
@@ -98,7 +100,7 @@ impl UpgradeWidget {
             let mut upgrade_found = false;
             let callback_error = Rc::downgrade(&callback_error);
             gui_receiver.attach(None, move |event| {
-                eprintln!("received event: {:?}", event);
+                trace!("received event: {:?}", event);
                 match event {
                     UiEvent::UpgradeEvent(event) => {
                         use UpgradeEvent::*;
@@ -164,7 +166,7 @@ impl UpgradeWidget {
                             .show();
                     }
                     UiEvent::CompleteRecovery => {
-                        eprintln!("successfully upgraded recovery partition");
+                        info!("successfully upgraded recovery partition");
                     }
                     UiEvent::CompleteRefresh | UiEvent::CompleteUpgrade => {
                         let _ = Command::new("systemctl").arg("reboot").status();
@@ -203,7 +205,7 @@ impl UpgradeWidget {
                             .failure
                             .into_iter()
                             .map(|(repo, why)| {
-                                eprintln!("cannot upgrade {}: {}", repo, why);
+                                warn!("cannot upgrade {}: {}", repo, why);
                                 Box::from(repo)
                             })
                             .collect::<Vec<Box<str>>>();
@@ -220,7 +222,7 @@ impl UpgradeWidget {
                         dialog.destroy();
                     }
                     UiEvent::StatusChanged(from, to, why) => {
-                        eprintln!("status changed from {} to {}: {}", from, to, why);
+                        warn!("status changed from {} to {}: {}", from, to, why);
                         let _ = sender.send(BackgroundEvent::GetStatus(from));
                     }
                     UiEvent::Error(why) => {
@@ -243,7 +245,7 @@ impl UpgradeWidget {
                             (*callback.borrow())(error_message);
                         }
 
-                        eprintln!("{}", error_message);
+                        error!("{}", error_message);
                     }
                 }
                 glib::Continue(true)
@@ -297,14 +299,14 @@ impl UpgradeWidget {
                         }
                         BackgroundEvent::Shutdown => {
                             let _ = sender.send(UiEvent::Shutdown);
-                            eprintln!("stopping background thread");
+                            debug!("stopping background thread");
                             break;
                         }
                     }
                 }
             }
 
-            eprintln!("breaking free");
+            debug!("breaking free");
         });
     }
 }
@@ -382,7 +384,7 @@ impl From<Error> for UnderlyingError {
 }
 
 fn scan(client: &Client, sender: &glib::Sender<UiEvent>) {
-    eprintln!("scanning");
+    debug!("scanning");
     let _ = sender.send(UiEvent::CommencedScanning);
     let mut upgrade_text = Cow::Borrowed("You are running the most current Pop!_OS version.");
     let mut upgrade = None;
@@ -392,7 +394,7 @@ fn scan(client: &Client, sender: &glib::Sender<UiEvent>) {
     } else {
         if let Ok(info) = client.release_check() {
             if info.build > 0 {
-                eprintln!("upgrade from {} to {} is available", info.current, info.next);
+                info!("upgrade from {} to {} is available", info.current, info.next);
 
                 upgrade_text = Cow::Owned(format!("Pop!_OS {} is available.", info.next));
                 upgrade = Some(info);
@@ -471,7 +473,7 @@ fn status_changed(sender: &glib::Sender<UiEvent>, new_status: Status, expected: 
 }
 
 fn update_system(client: &Client, sender: &glib::Sender<UiEvent>) -> bool {
-    eprintln!("checking if updates are required");
+    info!("checking if updates are required");
     let updates = match client.fetch_updates(Vec::new(), false) {
         Ok(updates) => updates,
         Err(why) => {
@@ -486,7 +488,7 @@ fn update_system(client: &Client, sender: &glib::Sender<UiEvent>) -> bool {
 
         let error = &mut None;
 
-        eprintln!("listening for package fetching signals");
+        debug!("listening for package fetching signals");
         client.event_listen(
             DaemonStatus::FetchingPackages,
             Client::fetch_updates_status,
@@ -533,7 +535,7 @@ fn update_system(client: &Client, sender: &glib::Sender<UiEvent>) -> bool {
 }
 
 fn upgrade_os(client: &Client, sender: &glib::Sender<UiEvent>, info: ReleaseInfo) {
-    eprintln!("upgrading OS");
+    info!("upgrading OS to {}", info.next);
     if !update_system(client, sender) {
         return;
     }

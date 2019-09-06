@@ -15,3 +15,6 @@ num-traits = "0.2.8"
 pango = "0.7.0"
 pop-upgrade = { path = "../" }
 shrinkwraprs = "0.2.1"
+yansi = "0.5.0"
+log = "0.4.8"
+fern = "0.5.8"

@@ -50,3 +50,81 @@ fn main() {
 
     application.run(&[]);
 }
+
+/// Manages argument parsing for the GTK application via clap.
+///
+/// Currently the primary purpose is to determine the logging level.
+fn argument_parsing() {
+    use clap::{App, Arg};
+    use log::LevelFilter;
+
+    let matches = App::new("com.system76.FirmwareManager")
+        .arg(
+            Arg::with_name("verbose")
+                .short("v")
+                .multiple(true)
+                .help("define the logging level; multiple occurrences increases the logging level"),
+        )
+        .get_matches();
+
+    let logging_level = match matches.occurrences_of("verbose") {
+        0 => LevelFilter::Info,
+        1 => LevelFilter::Debug,
+        _ => LevelFilter::Trace,
+    };
+
+    if let Err(why) = install_logging(logging_level) {
+        eprintln!("failed to initiate logging: {}", why);
+    }
+}
+
+use fern::{Dispatch, InitError};
+use log::{Level, LevelFilter, Record};
+use std::io;
+use yansi::Paint;
+
+fn install_logging(filter: LevelFilter) -> Result<(), InitError> {
+    let location = |record: &Record| {
+        let mut target = record.target();
+        if let Some(pos) = target.find(':') {
+            target = &target[..pos];
+        }
+
+        match (record.file(), record.line()) {
+            (Some(file), Some(line)) => format!(
+                "{} {}{}{}",
+                Paint::cyan(target).bold(),
+                Paint::blue(file).bold(),
+                Paint::new(":").bold(),
+                Paint::magenta(line).bold()
+            ),
+            _ => String::new(),
+        }
+    };
+
+    let format_level = |record: &Record| match record.level() {
+        level @ Level::Trace => Paint::green(level).bold(),
+        level @ Level::Warn => Paint::yellow(level).bold(),
+        level @ Level::Error => Paint::red(level).bold(),
+        level => Paint::new(level).bold(),
+    };
+
+    Dispatch::new()
+        // Exclude logs for crates that we use
+        .level(LevelFilter::Off)
+        // Include only the logs for relevant crates of interest
+        .level_for("pop_upgrade", filter)
+        .level_for("pop_upgrade_gtk", filter)
+        .level_for("apt_fetcher", filter)
+        .format(move |out, message, record| {
+            out.finish(format_args!(
+                "[{:5}] {}: {}",
+                format_level(record),
+                location(record),
+                message
+            ))
+        })
+        .chain(io::stderr())
+        .apply()?;
+    Ok(())
+}
