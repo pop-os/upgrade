@@ -96,6 +96,11 @@ impl UpgradeOption {
         self
     }
 
+    pub fn button_label(&self, label: &str) -> &Self {
+        self.button.set_label(label);
+        self
+    }
+
     pub fn progress(&self, current: u64, total: u64) -> &Self {
         self.progress.set_fraction(current as f64 / total as f64);
         self
