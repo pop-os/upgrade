@@ -1,25 +1,47 @@
 use fern::{Dispatch, InitError};
-use log::{Level, LevelFilter};
+use log::{Level, LevelFilter, Record};
 use std::io;
-use yansi::Color;
+use yansi::Paint;
 
 pub fn setup_logging(filter: LevelFilter) -> Result<(), InitError> {
+    let location = |record: &Record| {
+        let mut target = record.target();
+        if let Some(pos) = target.find(':') {
+            target = &target[..pos];
+        }
+
+        match (record.file(), record.line()) {
+            (Some(file), Some(line)) => format!(
+                "{} {}{}{}",
+                Paint::cyan(target).bold(),
+                Paint::blue(file).bold(),
+                Paint::new(":").bold(),
+                Paint::magenta(line).bold()
+            ),
+            _ => String::new(),
+        }
+    };
+
+    let format_level = |record: &Record| match record.level() {
+        level @ Level::Trace => Paint::green(level).bold(),
+        level @ Level::Warn => Paint::yellow(level).bold(),
+        level @ Level::Error => Paint::red(level).bold(),
+        level => Paint::new(level).bold(),
+    };
+
     Dispatch::new()
         // Exclude logs for crates that we use
         .level(LevelFilter::Off)
-        // Include only the logs for this binary
+        // Include only the logs for relevant crates of interest
         .level_for("pop_upgrade", filter)
         .level_for("apt_fetcher", filter)
-        .format(|out, message, record| {
-            let color = match record.level() {
-                Level::Trace => Color::Cyan.style().bold(),
-                Level::Debug => Color::Red.style().bold(),
-                Level::Error => Color::Red.style().bold(),
-                Level::Warn => Color::Yellow.style().bold(),
-                Level::Info => Color::Green.style().bold(),
-            };
-
-            out.finish(format_args!(" {} {}", color.paint(record.level()), message))
+        .format(move |out, message, record| {
+            out.finish(format_args!(
+                "[{:5}] {}: {}",
+                format_level(record),
+                location(record),
+                message
+            ))
         })
         .chain(io::stderr())
         .apply()?;
