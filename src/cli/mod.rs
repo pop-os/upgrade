@@ -88,7 +88,6 @@ impl Client {
 
                 let client::Fetched { updates_available, completed, total } = updates;
 
-                eprintln!("{} {} {}", updates_available, completed, total);
                 if !updates_available || total == 0 {
                     println!("no updates available to fetch");
                 } else {
@@ -234,7 +233,7 @@ impl Client {
                         if let Ok(event) = AptUpgradeEvent::from_dbus_map(event.into_iter()) {
                             write_apt_event(event);
                         } else {
-                            eprintln!("failed to unpack the upgrade event");
+                            error!("failed to unpack the upgrade event");
                         }
                     }
                     _ => (),
@@ -351,7 +350,7 @@ impl Client {
                         if let Ok(event) = AptUpgradeEvent::from_dbus_map(event.into_iter()) {
                             write_apt_event(event);
                         } else {
-                            eprintln!("failed to unpack the upgrade event");
+                            error!("failed to unpack the upgrade event");
                         }
                     }
                     client::Signal::ReleaseResult(status) => {

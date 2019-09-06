@@ -10,11 +10,8 @@ pub struct DaemonRuntime<'a> {
 impl<'a> DaemonRuntime<'a> {
     pub fn new(runtime: &'a mut Runtime) -> Self {
         // This client contains a thread pool for performing HTTP/s requests.
-        let client = Arc::new(
-            Client::builder()
-                .build()
-                .expect("failed to initialize reqwest client"),
-        );
+        let client =
+            Arc::new(Client::builder().build().expect("failed to initialize reqwest client"));
 
         DaemonRuntime { runtime, client }
     }

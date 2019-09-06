@@ -14,7 +14,7 @@ pub enum ValidateError {
 }
 
 pub fn validate_checksum(file: &mut File, checksum: &str) -> Result<(), ValidateError> {
-    eprintln!("validating checksum of downloaded ISO");
+    info!("validating checksum of downloaded ISO");
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; 64 * 1024];
 
