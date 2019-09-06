@@ -7,6 +7,7 @@ extern crate log;
 #[macro_use]
 extern crate shrinkwraprs;
 
+mod notify;
 mod widgets;
 
 use self::widgets::*;
@@ -187,6 +188,14 @@ impl UpgradeWidget {
                     }
                     UiEvent::CompleteDownload => {
                         upgrade_downloaded = true;
+
+                        notify::notify(
+                            "distributor-logo-upgrade-symbolic",
+                            &format!("Pop!_OS {} is ready to upgrade"),
+                            "Click here to restart",
+                            || reboot(),
+                        );
+
                         option_upgrade
                             .button_view()
                             .button_label("Upgrade")
