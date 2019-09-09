@@ -514,16 +514,19 @@ fn download_upgrade(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) 
 
     let &ReleaseInfo { ref current, ref next, .. } = &info;
 
-    let how = if client.recovery_exists() {
-        // Upgrade the recovery partition in addition to the OS.
-        if !upgrade_recovery(client, send, next) {
-            return;
-        }
+// TODO: Re-enable this when QA is ready for testing this behavior.
+//    let how = if client.recovery_exists() {
+//        // Upgrade the recovery partition in addition to the OS.
+//        if !upgrade_recovery(client, send, next) {
+//            return;
+//        }
+//
+//        UpgradeMethod::Recovery
+//    } else {
+//        UpgradeMethod::Offline
+//    };
 
-        UpgradeMethod::Recovery
-    } else {
-        UpgradeMethod::Offline
-    };
+    let how = UpgradeMethod::Offline;
 
     send(UiEvent::Initiated(InitiatedEvent::Download(next.clone())));
 
