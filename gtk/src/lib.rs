@@ -164,7 +164,8 @@ impl UpgradeWidget {
                         option_refresh.hide();
                         option_upgrade
                             .progress_view()
-                            .progress_label("Upgrading recovery partition");
+                            .progress_label("Upgrading recovery partition")
+                            .progress_exact(0);
                     }
                     UiEvent::Initiated(InitiatedEvent::Download(version)) => {
                         option_refresh.hide();
@@ -172,6 +173,7 @@ impl UpgradeWidget {
                             .set_label(&*["Downloading Pop!_OS ", &version].concat())
                             .progress_view()
                             .progress_label("Downloading")
+                            .progress_exact(0)
                             .show();
                         upgrading_to = version;
                     }
@@ -520,7 +522,6 @@ fn download_upgrade(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) 
     }
 
     let &ReleaseInfo { ref current, ref next, .. } = &info;
-
 // TODO: Re-enable this when QA is ready for testing this behavior.
 //    let how = if client.recovery_exists() {
 //        // Upgrade the recovery partition in addition to the OS.
