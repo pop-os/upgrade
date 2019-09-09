@@ -7,15 +7,17 @@ extern crate log;
 #[macro_use]
 extern crate shrinkwraprs;
 
+mod errors;
+mod events;
 mod notify;
 mod widgets;
 
-use self::widgets::*;
+use self::{errors::*, events::*, widgets::*};
 use apt_cli_wrappers::AptUpgradeEvent;
 use gtk::prelude::*;
 use num_traits::cast::FromPrimitive;
 use pop_upgrade::{
-    client::{self, Client, Error, ReleaseInfo, RepoCompatError, Signal, Status},
+    client::{self, Client, ReleaseInfo, Signal, Status},
     daemon::DaemonStatus,
     recovery::ReleaseFlags,
     release::{self, RefreshOp, UpgradeEvent, UpgradeMethod},
@@ -23,7 +25,6 @@ use pop_upgrade::{
 use std::{
     borrow::Cow,
     cell::RefCell,
-    error::Error as ErrorTrait,
     process::Command,
     rc::Rc,
     sync::{mpsc, Arc},
@@ -107,7 +108,7 @@ impl UpgradeWidget {
             let mut refresh_found = false;
             let mut upgrade_found = false;
             let mut upgrade_downloaded = false;
-            let mut upgrade_version = None;
+            let mut upgrade_version = None::<ReleaseInfo>;
             let mut upgrading_to: Box<str> = Box::from("");
 
             let gui_sender = Arc::downgrade(&gui_sender);
@@ -135,63 +136,59 @@ impl UpgradeWidget {
                             option_upgrade.progress_label(message);
                         }
                     }
-                    UiEvent::ProgressFetching(progress, total) => {
+                    UiEvent::Progress(ProgressEvent::Fetching(progress, total)) => {
                         option_upgrade.progress(progress, total).progress_label(&format!(
                             "Fetching packages: {} / {}",
                             progress, total
                         ));
                     }
-                    UiEvent::ProgressRecovery(progress, total) => {
+                    UiEvent::Progress(ProgressEvent::Recovery(progress, total)) => {
                         option_upgrade.progress(progress, total).progress_label(&format!(
                             "Upgrading recovery: {} / {}",
                             progress, total
                         ));
                     }
-                    UiEvent::ProgressUpgrade(progress, total) => {
-                        option_upgrade.progress(progress, total).progress_label(&format!(
-                            "Upgrading packages: {} / {}",
-                            progress, total
-                        ));
-                    }
-                    UiEvent::ProgressUpdates(percent) => {
+                    UiEvent::Progress(ProgressEvent::Updates(percent)) => {
                         option_upgrade
                             .progress_exact(percent)
                             .progress_label(&format!("Upgrading packages: {}%", percent));
                     }
                     UiEvent::Shutdown => return glib::Continue(false),
-                    UiEvent::CommencedRefresh => {
+                    UiEvent::Initiated(InitiatedEvent::Refresh) => {
                         option_upgrade.hide();
                     }
-                    UiEvent::CommencedScanning => {
+                    UiEvent::Initiated(InitiatedEvent::Scanning) => {
                         container.hide();
                     }
-                    UiEvent::CommencedRecovery => {
+                    UiEvent::Initiated(InitiatedEvent::Recovery) => {
                         option_refresh.hide();
                         option_upgrade
                             .progress_view()
                             .progress_label("Upgrading recovery partition");
                     }
-                    UiEvent::CommencedUpgrade(version) => {
+                    UiEvent::Initiated(InitiatedEvent::Download(version)) => {
                         option_refresh.hide();
                         option_upgrade
-                            .set_label(&*["Upgrading to Pop!_OS ", &version].concat())
+                            .set_label(&*["Downloading Pop!_OS ", &version].concat())
                             .progress_view()
-                            .progress_label("Preparing to upgrade OS")
+                            .progress_label("Downloading")
                             .show();
                         upgrading_to = version;
                     }
-                    UiEvent::CompleteRecovery => {
+                    UiEvent::Completed(CompletedEvent::Recovery) => {
                         info!("successfully upgraded recovery partition");
                     }
-                    UiEvent::CompleteRefresh => {
+                    UiEvent::Completed(CompletedEvent::Refresh) => {
                         reboot();
                     }
-                    UiEvent::CompleteDownload => {
+                    UiEvent::Completed(CompletedEvent::Download) => {
                         upgrade_downloaded = true;
 
                         notify::notify(
                             "distributor-logo-upgrade-symbolic",
-                            &format!("Pop!_OS {} is ready to upgrade"),
+                            &format!("Pop!_OS {} is ready to upgrade", {
+                                upgrade_version.as_ref().map(|i| i.next.as_ref()).unwrap_or("N/A")
+                            }),
                             "Click here to restart",
                             || reboot(),
                         );
@@ -201,7 +198,7 @@ impl UpgradeWidget {
                             .button_label("Upgrade")
                             .set_label(&format!("Pop!_OS {} download complete", &*upgrading_to));
                     }
-                    UiEvent::CompleteScan(upgrade_text, upgrade, refresh) => {
+                    UiEvent::Completed(CompletedEvent::Scan(upgrade_text, upgrade, refresh)) => {
                         upgrade_version = upgrade;
                         refresh_found = refresh;
 
@@ -209,6 +206,7 @@ impl UpgradeWidget {
                             .set_label(&upgrade_text)
                             .set_sublabel(None)
                             .set_button(if upgrade_version.is_some() {
+                                upgrade_found = true;
                                 let gui_sender = gui_sender.clone();
                                 let action = move || {
                                     if let Some(sender) = gui_sender.upgrade() {
@@ -281,6 +279,7 @@ impl UpgradeWidget {
                             error_message.push_str(": ");
                             error_message.push_str(format!("{}", source).as_str());
                         });
+
                         let error_message = error_message.as_str();
 
                         if let Some(callback) = callback_error.upgrade() {
@@ -353,87 +352,14 @@ impl UpgradeWidget {
     }
 }
 
-/// Events sent to this widget's background thread.
-#[derive(Debug)]
-enum BackgroundEvent {
-    GetStatus(DaemonStatus),
-    IsActive(mpsc::SyncSender<bool>),
-    RefreshOS,
-    RepoModify(Vec<Box<str>>, Vec<bool>),
-    Scan,
-    DownloadUpgrade(ReleaseInfo),
-    Shutdown,
-}
-
-/// Events received for the UI to handle.
-#[derive(Debug)]
-enum UiEvent {
-    CommencedRecovery,
-    CommencedRefresh,
-    CommencedUpgrade(Box<str>),
-    CommencedScanning,
-    CompleteRecovery,
-    CompleteRefresh,
-    CompleteDownload,
-    CompleteScan(Box<str>, Option<ReleaseInfo>, bool),
-    IncompatibleRepos(RepoCompatError),
-    Error(UiError),
-    ProgressFetching(u64, u64),
-    ProgressRecovery(u64, u64),
-    ProgressUpdates(u8),
-    ProgressUpgrade(u64, u64),
-    StatusChanged(DaemonStatus, DaemonStatus, Box<str>),
-    Shutdown,
-    UpgradeClicked,
-    UpgradeEvent(UpgradeEvent),
-}
-
-#[derive(Debug, Error)]
-enum UiError {
-    #[error(display = "recovery upgrade failed")]
-    Recovery(#[error(cause)] UnderlyingError),
-    #[error(display = "failed to set up OS refresh")]
-    Refresh(#[error(cause)] UnderlyingError),
-    #[error(display = "failed to modify repos")]
-    Repos(#[error(cause)] UnderlyingError),
-    #[error(display = "failed to update system")]
-    Updates(#[error(cause)] UnderlyingError),
-    #[error(display = "failed to upgrade OS")]
-    Upgrade(#[error(cause)] UnderlyingError),
-}
-
-impl UiError {
-    pub fn iter_sources(&self) -> ErrorIter<'_> { ErrorIter { current: self.source() } }
-}
-
-#[derive(Debug, Error)]
-#[error(display = "{}", _0)]
-struct StatusError(Box<str>);
-
-#[derive(Debug, Error)]
-enum UnderlyingError {
-    #[error(display = "client error")]
-    Client(#[error(cause)] Error),
-    #[error(display = "failed status")]
-    Status(#[error(cause)] StatusError),
-}
-
-impl From<Box<str>> for UnderlyingError {
-    fn from(why: Box<str>) -> Self { UnderlyingError::Status(StatusError(why)) }
-}
-
-impl From<Error> for UnderlyingError {
-    fn from(why: Error) -> Self { UnderlyingError::Client(why) }
-}
-
 fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
     debug!("scanning");
-    send(UiEvent::CommencedScanning);
+    send(UiEvent::Initiated(InitiatedEvent::Scanning));
     let mut upgrade_text = Cow::Borrowed("You are running the most current Pop!_OS version.");
     let mut upgrade = None;
 
     if release::upgrade_in_progress() {
-        upgrade_text = Cow::Borrowed("Pop!_OS is currently upgrading.");
+        upgrade_text = Cow::Borrowed("Pop!_OS is currently downloading.");
     } else {
         if let Ok(info) = client.release_check() {
             if info.build > 0 {
@@ -445,11 +371,11 @@ fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
         }
     }
 
-    send(UiEvent::CompleteScan(
+    send(UiEvent::Completed(CompletedEvent::Scan(
         Box::from(upgrade_text.as_ref()),
         upgrade,
         client.recovery_exists(),
-    ));
+    )));
 }
 
 fn get_status(client: &Client, send: &dyn Fn(UiEvent), from: DaemonStatus) {
@@ -458,7 +384,7 @@ fn get_status(client: &Client, send: &dyn Fn(UiEvent), from: DaemonStatus) {
             let event = match client.recovery_upgrade_release_status() {
                 Ok(status) => {
                     if status.status == 0 {
-                        UiEvent::CompleteRecovery
+                        UiEvent::Completed(CompletedEvent::Recovery)
                     } else {
                         UiEvent::Error(UiError::Recovery(status.why.into()))
                     }
@@ -472,7 +398,7 @@ fn get_status(client: &Client, send: &dyn Fn(UiEvent), from: DaemonStatus) {
             let event = match client.release_upgrade_status() {
                 Ok(status) => {
                     if status.status == 0 {
-                        UiEvent::CompleteDownload
+                        UiEvent::Completed(CompletedEvent::Download)
                     } else {
                         UiEvent::Error(UiError::Upgrade(status.why.into()))
                     }
@@ -487,14 +413,14 @@ fn get_status(client: &Client, send: &dyn Fn(UiEvent), from: DaemonStatus) {
 }
 
 fn refresh_os(client: &Client, send: &dyn Fn(UiEvent)) {
-    send(UiEvent::CommencedRefresh);
+    send(UiEvent::Initiated(InitiatedEvent::Refresh));
 
     if let Err(why) = client.refresh_os(RefreshOp::Enable) {
         send(UiEvent::Error(UiError::Refresh(why.into())));
         return;
     }
 
-    send(UiEvent::CompleteRefresh);
+    send(UiEvent::Completed(CompletedEvent::Refresh));
 }
 
 fn repo_modify(
@@ -526,7 +452,10 @@ fn update_system(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
     };
 
     if updates.updates_available {
-        send(UiEvent::ProgressFetching(updates.completed as u64, updates.total as u64));
+        send(UiEvent::Progress(ProgressEvent::Fetching(
+            updates.completed as u64,
+            updates.total as u64,
+        )));
 
         let error = &mut None;
 
@@ -535,7 +464,7 @@ fn update_system(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
             DaemonStatus::FetchingPackages,
             Client::fetch_updates_status,
             |status| status_changed(send, status, DaemonStatus::FetchingPackages),
-            |client, signal| {
+            |_client, signal| {
                 match signal {
                     Signal::PackageFetchResult(status) => {
                         if status.status != 0 {
@@ -545,16 +474,16 @@ fn update_system(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
                         return Ok(client::Continue(false));
                     }
                     Signal::PackageFetched(status) => {
-                        send(UiEvent::ProgressFetching(
+                        send(UiEvent::Progress(ProgressEvent::Fetching(
                             status.completed as u64,
                             status.total as u64,
-                        ));
+                        )));
                     }
                     Signal::PackageUpgrade(event) => {
                         if let Ok(AptUpgradeEvent::Progress { percent }) =
                             AptUpgradeEvent::from_dbus_map(event.into_iter())
                         {
-                            send(UiEvent::ProgressUpdates(percent));
+                            send(UiEvent::Progress(ProgressEvent::Updates(percent)));
                         }
                     }
                     Signal::ReleaseEvent(event) => {
@@ -595,7 +524,7 @@ fn download_upgrade(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) 
         UpgradeMethod::Offline
     };
 
-    send(UiEvent::CommencedUpgrade(next.clone()));
+    send(UiEvent::Initiated(InitiatedEvent::Download(next.clone())));
 
     if let Err(why) = client.release_upgrade(how, current, next) {
         send(UiEvent::Error(UiError::Upgrade(why.into())));
@@ -612,7 +541,7 @@ fn download_upgrade(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) 
             *status_broken = true;
             status_changed(send, status, DaemonStatus::ReleaseUpgrade);
         },
-        |client, signal| {
+        |_client, signal| {
             match signal {
                 Signal::PackageFetchResult(status) | Signal::RecoveryResult(status) => {
                     if status.status != 0 {
@@ -630,11 +559,11 @@ fn download_upgrade(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) 
 
                     return Ok(client::Continue(false));
                 }
-                Signal::PackageFetched(package) => {
-                    send(UiEvent::ProgressFetching(package.completed as u64, package.total as u64));
-                }
                 Signal::RecoveryDownloadProgress(progress) => {
-                    send(UiEvent::ProgressRecovery(progress.progress, progress.total));
+                    send(UiEvent::Progress(ProgressEvent::Recovery(
+                        progress.progress,
+                        progress.total,
+                    )));
                 }
                 Signal::RepoCompatError(repositories) => {
                     send(UiEvent::IncompatibleRepos(repositories));
@@ -652,12 +581,12 @@ fn download_upgrade(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) 
     }
 
     if !*status_broken {
-        send(UiEvent::CompleteDownload);
+        send(UiEvent::Completed(CompletedEvent::Download));
     }
 }
 
 fn upgrade_recovery(client: &Client, send: &dyn Fn(UiEvent), version: &str) -> bool {
-    send(UiEvent::CommencedRecovery);
+    send(UiEvent::Initiated(InitiatedEvent::Recovery));
 
     let arch = "nvidia";
     let flags = ReleaseFlags::empty();
@@ -673,10 +602,13 @@ fn upgrade_recovery(client: &Client, send: &dyn Fn(UiEvent), version: &str) -> b
         DaemonStatus::RecoveryUpgrade,
         Client::recovery_upgrade_release_status,
         |status| status_changed(send, status, DaemonStatus::RecoveryUpgrade),
-        |client, signal| {
+        |_client, signal| {
             match signal {
                 Signal::RecoveryDownloadProgress(progress) => {
-                    send(UiEvent::ProgressRecovery(progress.progress, progress.total));
+                    send(UiEvent::Progress(ProgressEvent::Recovery(
+                        progress.progress,
+                        progress.total,
+                    )));
                 }
                 Signal::RecoveryResult(status) => {
                     if status.status != 0 {
@@ -697,22 +629,8 @@ fn upgrade_recovery(client: &Client, send: &dyn Fn(UiEvent), version: &str) -> b
         return false;
     }
 
-    send(UiEvent::CompleteRecovery);
+    send(UiEvent::Completed(CompletedEvent::Recovery));
     true
-}
-
-pub struct ErrorIter<'a> {
-    current: Option<&'a (dyn ErrorTrait + 'static)>,
-}
-
-impl<'a> Iterator for ErrorIter<'a> {
-    type Item = &'a (dyn ErrorTrait + 'static);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let current = self.current;
-        self.current = self.current.and_then(|ref why| why.source());
-        current
-    }
 }
 
 fn reboot() { let _ = Command::new("systemctl").arg("reboot").status(); }
