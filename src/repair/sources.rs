@@ -43,7 +43,7 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
             let mut modified = false;
 
             if entry.url.contains("us.archive") {
-                entry.url.replace("us.archive", "old-releases");
+                entry.url = entry.url.replace("us.archive", "old-releases");
                 modified = true;
             }
 
