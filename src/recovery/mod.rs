@@ -99,11 +99,11 @@ where
 }
 
 pub fn recovery_exists() -> Result<bool, RecoveryError> {
-    let mut mounts = proc_mounts::MountIter::new().map_err(RecoveryError::Mounts)?;
+    let mounts = proc_mounts::MountIter::new().map_err(RecoveryError::Mounts)?;
 
     for mount in mounts {
         let mount = mount.map_err(RecoveryError::Mounts)?;
-        if &mount.dest == Path::new("/recovery") {
+        if mount.dest == Path::new("/recovery") {
             return Ok(true);
         }
     }
@@ -197,7 +197,7 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
     event: &dyn Fn(RecoveryEvent),
     version: &str,
     arch: Option<&str>,
-    flags: ReleaseFlags,
+    _flags: ReleaseFlags,
 ) -> RecResult<PathBuf> {
     let arch = match arch {
         Some(ref arch) => arch,
@@ -209,15 +209,6 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
         .map_err(|why| RecoveryError::Download(Box::new(why)))?;
 
     Ok(iso_path)
-}
-
-/// Check that the file exist.
-fn from_file(path: &PathBuf) -> RecResult<PathBuf> {
-    if path.exists() {
-        Ok(path.clone())
-    } else {
-        Err(RecoveryError::IsoNotFound)
-    }
 }
 
 /// Downloads the ISO from a remote location, to a temporary local directory.

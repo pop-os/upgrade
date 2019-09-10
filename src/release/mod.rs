@@ -464,7 +464,7 @@ pub fn cleanup() {
         if let Ok(data) = fs::read_to_string(file) {
             info!("cleaning up after {} ({})", file, data);
             let mut iter = data.split_whitespace();
-            if let (Some(current), Some(mut next)) = (iter.next(), iter.next()) {
+            if let (Some(current), Some(next)) = (iter.next(), iter.next()) {
                 info!("current: {}; next: {}", current, next);
                 if let Ok(mut lists) = SourcesLists::scan() {
                     info!("found lists");
