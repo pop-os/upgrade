@@ -56,3 +56,6 @@ sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
 
 [features]
 testing = []
+
+[profile.release]
+lto = true
