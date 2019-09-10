@@ -12,7 +12,14 @@ mod events;
 mod notify;
 mod widgets;
 
-use self::{errors::*, events::*, widgets::*};
+use self::{
+    errors::*,
+    events::*,
+    widgets::{
+        dialogs::{RepositoryDialog, UpgradeDialog},
+        UpgradeOption,
+    },
+};
 use apt_cli_wrappers::AptUpgradeEvent;
 use gtk::prelude::*;
 use num_traits::cast::FromPrimitive;
@@ -257,7 +264,15 @@ impl UpgradeWidget {
                     // When the upgrade button is clicked, we will fetch the OS
                     UiEvent::UpgradeClicked => {
                         if upgrade_downloaded {
-                            reboot();
+                            let dialog = UpgradeDialog::new(&upgrading_to, "Place changelog here");
+
+                            if gtk::ResponseType::Accept == dialog.run() {
+                                reboot()
+                            } else {
+                                return gtk::Continue(true);
+                            }
+
+                            dialog.destroy();
                         }
 
                         if let Some(info) = upgrade_version.clone() {
@@ -515,17 +530,17 @@ fn download_upgrade(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) 
     }
 
     let &ReleaseInfo { ref current, ref next, .. } = &info;
-// TODO: Re-enable this when QA is ready for testing this behavior.
-//    let how = if client.recovery_exists() {
-//        // Upgrade the recovery partition in addition to the OS.
-//        if !upgrade_recovery(client, send, next) {
-//            return;
-//        }
-//
-//        UpgradeMethod::Recovery
-//    } else {
-//        UpgradeMethod::Offline
-//    };
+    // TODO: Re-enable this when QA is ready for testing this behavior.
+    //    let how = if client.recovery_exists() {
+    //        // Upgrade the recovery partition in addition to the OS.
+    //        if !upgrade_recovery(client, send, next) {
+    //            return;
+    //        }
+    //
+    //        UpgradeMethod::Recovery
+    //    } else {
+    //        UpgradeMethod::Offline
+    //    };
 
     let how = UpgradeMethod::Offline;
 
