@@ -334,11 +334,17 @@ impl<'a> DaemonRuntime<'a> {
             .map_err(ReleaseError::StartupFileCreation)
     }
 
-    fn attempt_fetch(&mut self, fetch: Arc<Fn(FetchEvent) + Send + Sync>) -> RelResult<()> {
+    fn attempt_fetch(
+        &mut self,
+        logger: &dyn Fn(UpgradeEvent),
+        fetch: Arc<Fn(FetchEvent) + Send + Sync>,
+    ) -> RelResult<()> {
         info!("updated the package lists for the new relaese");
+        (*logger)(UpgradeEvent::UpdatingPackageLists);
         apt_update().map_err(ReleaseError::ReleaseUpdate)?;
 
         info!("fetching packages for the new release");
+        (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
         let uris = apt_uris(&["full-upgrade"]).map_err(ReleaseError::AptList)?;
         self.apt_fetch(uris, fetch)?;
 
@@ -359,8 +365,7 @@ impl<'a> DaemonRuntime<'a> {
         (*logger)(UpgradeEvent::UpdatingSourceLists);
         let mut upgrader = self.release_upgrade(retain, &current, &next)?;
 
-        (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
-        match self.attempt_fetch(fetch) {
+        match self.attempt_fetch(logger, fetch) {
             Ok(_) => info!("packages fetched successfully"),
             Err(why) => {
                 rollback(&mut upgrader, &why);
