@@ -11,7 +11,7 @@ use dbus::{
     self, BusType, Connection, ConnectionItem, Message, MessageItem, MessageItemArray, Signature,
 };
 
-use std::{collections::HashMap, path::Path};
+use std::collections::HashMap;
 
 const TIMEOUT: i32 = 3000;
 

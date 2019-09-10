@@ -39,21 +39,17 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
 
     if eol {
         // When EOL, the Ubuntu archives no longer carry packages for that release.
+        // Also, disable the proprietary repository before upgrading an EOL release.
         sources_list.entries_mut(|entry| {
-            let mut modified = false;
-
             if entry.url.contains("us.archive") {
                 entry.url = entry.url.replace("us.archive", "old-releases");
-                modified = true;
-            }
-
-            // Disable the proprietary repository before upgrading an EOL release.
-            if entry.url == "http://apt.pop-os.org/proprietary" {
+                true
+            } else if entry.url == "http://apt.pop-os.org/proprietary" {
                 entry.enabled = false;
-                modified = true;
+                true
+            } else {
+                false
             }
-
-            modified
         });
     } else {
         insert_entry(

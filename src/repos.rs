@@ -1,6 +1,7 @@
 use apt_fetcher::{SourceError, SourcesLists};
 use std::{
     collections::{HashMap, HashSet},
+    hash::BuildHasher,
     io,
 };
 
@@ -15,9 +16,9 @@ pub enum RepoError {
 }
 
 /// Modify repos on the system, using the repo instructions provided.
-pub fn modify_repos(
-    retain: &mut HashSet<Box<str>>,
-    repos: &HashMap<&str, bool>,
+pub fn modify_repos<A: BuildHasher, B: BuildHasher>(
+    retain: &mut HashSet<Box<str>, A>,
+    repos: &HashMap<&str, bool, B>,
 ) -> Result<(), RepoError> {
     let mut lists = SourcesLists::scan().map_err(RepoError::ListsScan)?;
 
