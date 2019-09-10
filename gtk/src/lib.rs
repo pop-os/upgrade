@@ -342,6 +342,7 @@ impl UpgradeWidget {
             let send: &dyn Fn(UiEvent) = &send;
             if let Ok(ref client) = Client::new() {
                 while let Ok(event) = receiver.recv() {
+                    trace!("received BackgroundEvent: {:?}", event);
                     match event {
                         BackgroundEvent::GetStatus(from) => {
                             get_status(client, send, from);
@@ -574,6 +575,23 @@ fn download_upgrade(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) 
                     if status.status != 0 {
                         *error = Some(status.why);
                         return Ok(client::Continue(false));
+                    }
+                }
+                Signal::PackageFetched(status) => {
+                    send(UiEvent::Progress(ProgressEvent::Fetching(
+                        status.completed as u64,
+                        status.total as u64,
+                    )));
+                }
+                Signal::PackageUpgrade(event) => {
+                    match AptUpgradeEvent::from_dbus_map(event.into_iter()) {
+                        Ok(AptUpgradeEvent::Progress { percent }) => {
+                            send(UiEvent::Progress(ProgressEvent::Updates(percent)))
+                        }
+                        Ok(AptUpgradeEvent::WaitingOnLock) => {
+                            send(UiEvent::WaitingOnLock);
+                        }
+                        _ => (),
                     }
                 }
                 Signal::ReleaseEvent(event) => {
