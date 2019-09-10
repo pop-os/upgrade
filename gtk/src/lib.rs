@@ -122,7 +122,7 @@ impl UpgradeWidget {
             let callback_error = Rc::downgrade(&callback_error);
 
             gui_receiver.attach(None, move |event| {
-                trace!("received event: {:?}", event);
+                eprintln!("received event: {:?}", event);
                 match event {
                     UiEvent::UpgradeEvent(event) => {
                         use UpgradeEvent::*;
@@ -276,6 +276,11 @@ impl UpgradeWidget {
                         }
 
                         if let Some(info) = upgrade_version.clone() {
+                            option_upgrade
+                                .progress_view()
+                                .progress_label("Preparing to download")
+                                .set_label("Updating your OS");
+                            option_refresh.hide();
                             let _ = sender.send(BackgroundEvent::DownloadUpgrade(info));
                         }
                     }
