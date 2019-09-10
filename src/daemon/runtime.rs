@@ -1,5 +1,5 @@
 use reqwest::r#async::Client;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 use tokio::runtime::Runtime;
 
 pub struct DaemonRuntime<'a> {
