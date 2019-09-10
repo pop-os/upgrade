@@ -4,7 +4,6 @@ use self::colors::*;
 
 use apt_cli_wrappers::AptUpgradeEvent;
 use clap::ArgMatches;
-use dbus::{self, Message};
 use num_traits::FromPrimitive;
 use pop_upgrade::{
     client,
@@ -347,10 +346,9 @@ impl Client {
                         println!("{} {}", color_primary("Fetching"), color_secondary(&package));
                     }
                     client::Signal::PackageUpgrade(event) => {
-                        if let Ok(event) = AptUpgradeEvent::from_dbus_map(event.into_iter()) {
-                            write_apt_event(event);
-                        } else {
-                            error!("failed to unpack the upgrade event");
+                        match AptUpgradeEvent::from_dbus_map(event.clone().into_iter()) {
+                            Ok(event) => write_apt_event(event),
+                            Err(()) => error!("failed to unpack the upgrade event: {:?}", event),
                         }
                     }
                     client::Signal::ReleaseResult(status) => {
