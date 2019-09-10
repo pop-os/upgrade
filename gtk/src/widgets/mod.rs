@@ -1,4 +1,4 @@
-mod dialog_repository;
+pub mod dialogs;
 mod upgrade_option;
 
-pub use self::{dialog_repository::*, upgrade_option::*};
+pub use self::upgrade_option::*;
