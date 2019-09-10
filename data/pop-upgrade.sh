@@ -74,7 +74,9 @@ attempt_upgrade () {
     apt-mark hold pop-upgrade
     if upgrade || attempt_repair; then
         rm /pop-upgrade /system-update /pop_preparing_release_upgrade
-        message -i "Upgrade complete, now rebooting the system"
+        message -i "Upgrade complete. Now autoremoving old packages"
+        sudo apt-get autoremove -y
+        message -i "Now rebooting"
         sleep 6
         status=0
     else
