@@ -37,12 +37,15 @@ use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
     error::Error,
+    fs,
     path::PathBuf,
     rc::Rc,
     sync::{atomic::Ordering, Arc, Mutex},
     thread,
 };
 use tokio::runtime::Runtime;
+
+pub const DISMISSED: &str = "/usr/lib/pop-upgrade/dismissed";
 
 #[derive(Debug)]
 pub enum Event {
@@ -343,6 +346,7 @@ impl Daemon {
 
         let interface = factory
             .interface(DBUS_IFACE, ())
+            .add_m(methods::dismiss_notification(daemon.clone(), &dbus_factory))
             .add_m(methods::fetch_updates_status(daemon.clone(), &dbus_factory))
             .add_m(methods::fetch_updates(daemon.clone(), &dbus_factory))
             .add_m(methods::package_upgrade(daemon.clone(), &dbus_factory))
@@ -479,6 +483,16 @@ impl Daemon {
         }
     }
 
+    fn dismiss_notification(&self) -> Result<(), String> {
+        let (current, next, available) = self.release_check()?;
+        if available.is_some() {
+            fs::write(DISMISSED, next.as_bytes())
+                .map_err(|why| format!("failed to write '{}' to '{}'", next, DISMISSED))?;
+        }
+
+        Ok(())
+    }
+
     fn fetch_apt_uris(args: &[String]) -> Result<Vec<AptUri>, String> {
         apt_uris(&["full-upgrade"])
             .and_then(|mut upgrades| {
@@ -568,7 +582,7 @@ impl Daemon {
         crate::release::refresh_os(flag).map_err(|why| format!("{}", why))
     }
 
-    fn release_check(&mut self) -> Result<(String, String, Option<u16>), String> {
+    fn release_check(&self) -> Result<(String, String, Option<u16>), String> {
         info!("performing a release check");
 
         let (current, next, available) = release::check().map_err(|why| format!("{}", why))?;

@@ -144,6 +144,12 @@ impl Client {
         })
     }
 
+    /// Dismiss future desktop notifications for the currently-available upgrade.
+    pub fn dismiss_notification(&self) -> Result<(), Error> {
+        self.call_method(methods::DISMISS_NOTIFICATION, |m| m)?;
+        Ok(())
+    }
+
     /// Initiates fetching system updates (not release updates).
     ///
     /// By default, the system is updated once updates have been fetched. This
