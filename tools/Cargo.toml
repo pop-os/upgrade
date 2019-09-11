@@ -1,0 +1,19 @@
+[package]
+name = "tools"
+version = "0.1.0"
+authors = ["Michael Aaron Murphy <mmstick@pm.me>"]
+edition = "2018"
+description = "build tools used by this project"
+
+[[bin]]
+name = "desktop-entry"
+path = "src/desktop_entry.rs"
+
+[[bin]]
+name = "notify-gen"
+path = "src/notify.rs"
+
+[dependencies]
+markup = "0.3"
+clap = "2.33.0"
+freedesktop-desktop-entry = "0.1"

@@ -1,0 +1,7 @@
+#!/bin/sh
+set -x
+systemctl --global enable pop-upgrade-notify.timer
+
+#DEBHELPER#
+
+exit 0
