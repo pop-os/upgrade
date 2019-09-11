@@ -826,6 +826,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "exec"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "errno 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.64 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "exit-status-ext"
 version = "0.1.0"
 source = "git+https://github.com/pop-os/exit-status-ext#467007352e1e1869b9888fc195a35f9b2ad1ba48"
@@ -1945,6 +1954,7 @@ dependencies = [
  "apt-sources-lists 0.1.0 (git+https://github.com/pop-os/apt-sources-lists)",
  "async-fetcher 0.2.0 (git+https://github.com/pop-os/async-fetcher)",
  "atomic 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "atty 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "crossbeam 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1954,6 +1964,7 @@ dependencies = [
  "distinst-disks 0.1.0 (git+https://github.com/pop-os/distinst/)",
  "envfile 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "err-derive 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "exec 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "fern 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.29 (registry+https://github.com/rust-lang/crates.io-index)",
  "human-sort 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1961,6 +1972,7 @@ dependencies = [
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "logind-dbus 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "md-5 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "notify-rust 3.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-derive 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "os-release 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3455,6 +3467,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum errno 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)" = "c2a071601ed01b988f896ab14b95e67335d1eeb50190932a1320f7fe3cadc84e"
 "checksum errno-dragonfly 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "14ca354e36190500e1e1fb267c647932382b54053c50b14970856c0b00a35067"
 "checksum error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3ab49e9dcb602294bc42f9a7dfc9bc6e936fca4418ea300dbfb84fe16de0b7d9"
+"checksum exec 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "886b70328cba8871bfc025858e1de4be16b1d5088f2ba50b57816f4210672615"
 "checksum exit-status-ext 0.1.0 (git+https://github.com/pop-os/exit-status-ext)" = "<none>"
 "checksum failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "f8273f13c977665c5db7eb2b99ae520952fe5ac831ae4cd09d80c4c7042b5ed9"
 "checksum failure_derive 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "0bc225b78e0391e4b8683440bf2e63c2deeeb2ce5189eab46e2b68c6d3725d08"

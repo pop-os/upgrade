@@ -52,6 +52,9 @@ tokio = "0.1.22"
 tokio-process = "0.2.4"
 ubuntu-version = "0.1.4"
 yansi = "0.5.0"
+notify-rust = "3.6.2"
+atty = "0.2.13"
+exec = "0.3.1"
 
 [patch.crates-io]
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
