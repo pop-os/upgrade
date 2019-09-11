@@ -42,7 +42,18 @@ pub enum RefreshOp {
     Disable = 2,
 }
 
-pub fn check() -> Result<(String, String, Option<u16>), VersionError> {
+pub struct ReleaseStatus {
+    pub current: Box<str>,
+    pub next:    Box<str>,
+    pub build:   Option<u16>,
+    is_lts:      bool,
+}
+
+impl ReleaseStatus {
+    pub fn is_lts(&self) -> bool { self.is_lts }
+}
+
+pub fn check() -> Result<ReleaseStatus, VersionError> {
     find_next_release(Version::detect, Release::exists)
 }
 
@@ -533,7 +544,7 @@ fn find_current_release(
 fn find_next_release(
     version_detect: fn() -> Result<Version, VersionError>,
     release_exists: fn(&str, &str) -> Option<u16>,
-) -> Result<(String, String, Option<u16>), VersionError> {
+) -> Result<ReleaseStatus, VersionError> {
     let current = version_detect()?;
     let mut next = current.next_release();
     let mut next_str = format_version(next);
@@ -551,7 +562,12 @@ fn find_next_release(
         }
     }
 
-    Ok((format_version(current), next_str, available))
+    Ok(ReleaseStatus {
+        current: format_version(current).into(),
+        next:    next_str.into(),
+        build:   available,
+        is_lts:  current.is_lts(),
+    })
 }
 
 #[cfg(test)]
@@ -579,17 +595,17 @@ mod tests {
 
     #[test]
     fn release_check() {
-        let (_, next, available) = find_next_release(v1804, releases_up_to_1910).unwrap();
-        assert!("19.10" == next.as_str() && available.is_some());
+        let mut status = find_next_release(v1804, releases_up_to_1910).unwrap();
+        assert!("19.10" == status.next.as_ref() && status.build.is_some());
 
-        let (_, next, available) = find_next_release(v1810, releases_up_to_1910).unwrap();
-        assert!("19.10" == next.as_str() && available.is_some());
+        status = find_next_release(v1810, releases_up_to_1910).unwrap();
+        assert!("19.10" == status.next.as_ref() && status.build.is_some());
 
-        let (_, next, available) = find_next_release(v1810, releases_up_to_1904).unwrap();
-        assert!("19.04" == next.as_str() && available.is_some());
+        status = find_next_release(v1810, releases_up_to_1904).unwrap();
+        assert!("19.04" == status.next.as_ref() && status.build.is_some());
 
-        let (_, next, available) = find_next_release(v1904, releases_up_to_1904).unwrap();
-        assert!("19.10" == next.as_str() && !available.is_some());
+        status = find_next_release(v1904, releases_up_to_1904).unwrap();
+        assert!("19.10" == status.next.as_ref() && !status.build.is_some());
     }
 
     #[test]

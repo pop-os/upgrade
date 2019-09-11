@@ -16,7 +16,10 @@ use crate::{
         self, RecoveryError, RecoveryVersion, ReleaseFlags as RecoveryReleaseFlags,
         UpgradeMethod as RecoveryUpgradeMethod,
     },
-    release::{self, FetchEvent, RefreshOp, ReleaseError, UpgradeMethod as ReleaseUpgradeMethod},
+    release::{
+        self, FetchEvent, RefreshOp, ReleaseError, ReleaseStatus,
+        UpgradeMethod as ReleaseUpgradeMethod,
+    },
     DBUS_IFACE, DBUS_NAME, DBUS_PATH,
 };
 use apt_cli_wrappers::apt_upgrade;
@@ -483,11 +486,15 @@ impl Daemon {
         }
     }
 
+    /// Dismiss future desktop notifications.
+    ///
+    /// Only applicable for LTS releases.
     fn dismiss_notification(&self) -> Result<(), String> {
-        let (current, next, available) = self.release_check()?;
-        if available.is_some() {
-            fs::write(DISMISSED, next.as_bytes())
-                .map_err(|why| format!("failed to write '{}' to '{}'", next, DISMISSED))?;
+        let status = self.release_check()?;
+        if status.is_lts() && status.build.is_some() {
+            fs::write(DISMISSED, status.next.as_bytes()).map_err(|why| {
+                format!("failed to write '{}' to '{}': {}", status.next, DISMISSED, why)
+            })?;
         }
 
         Ok(())
@@ -582,20 +589,21 @@ impl Daemon {
         crate::release::refresh_os(flag).map_err(|why| format!("{}", why))
     }
 
-    fn release_check(&self) -> Result<(String, String, Option<u16>), String> {
+    fn release_check(&self) -> Result<ReleaseStatus, String> {
         info!("performing a release check");
 
-        let (current, next, available) = release::check().map_err(|why| format!("{}", why))?;
+        let status = release::check().map_err(|why| format!("{}", why))?;
         let mut buffer = String::new();
 
         info!(
-            "Release {{ current: \"{}\", next: \"{}\", available: {} }}",
-            current,
-            next,
-            misc::format_build_number(available, &mut buffer)
+            "Release {{ current: \"{}\", lts: \"{}\",  next: \"{}\", available: {} }}",
+            status.current,
+            status.is_lts(),
+            status.next,
+            misc::format_build_number(status.build, &mut buffer)
         );
 
-        Ok((current, next, available))
+        Ok(status)
     }
 
     fn release_upgrade(&mut self, how: u8, from: &str, to: &str) -> Result<(), String> {
