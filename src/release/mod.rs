@@ -198,9 +198,6 @@ impl<'a> DaemonRuntime<'a> {
     pub fn package_upgrade<C: Fn(AptUpgradeEvent)>(&mut self, callback: C) -> RelResult<()> {
         let callback = &callback;
 
-        apt_hold("pop-upgrade").map_err(ReleaseError::HoldPopUpgrade)?;
-        let _ = apt_hold("libpop-upgrade-gtk");
-
         let _ = apt_autoremove();
 
         // If the first upgrade attempt fails, try to dpkg --configure -a and try again.
@@ -216,9 +213,6 @@ impl<'a> DaemonRuntime<'a> {
         }
 
         let _ = apt_autoremove();
-
-        apt_unhold("pop-upgrade").map_err(ReleaseError::UnholdPopUpgrade)?;
-        let _ = apt_unhold("libpop-upgrade-gtk");
 
         Ok(())
     }
