@@ -17,7 +17,7 @@ use self::{
     events::*,
     widgets::{
         dialogs::{RepositoryDialog, UpgradeDialog},
-        UpgradeOption,
+        Dismisser, UpgradeOption,
     },
 };
 use apt_cli_wrappers::AptUpgradeEvent;
@@ -25,13 +25,15 @@ use gtk::prelude::*;
 use num_traits::cast::FromPrimitive;
 use pop_upgrade::{
     client::{self, Client, ReleaseInfo, Signal, Status},
-    daemon::DaemonStatus,
+    daemon::{DaemonStatus, DISMISSED},
     recovery::ReleaseFlags,
     release::{self, RefreshOp, UpgradeEvent, UpgradeMethod},
 };
 use std::{
     borrow::Cow,
     cell::RefCell,
+    fs,
+    path::Path,
     process::Command,
     rc::Rc,
     sync::{mpsc, Arc},
@@ -88,6 +90,8 @@ impl UpgradeWidget {
             ..show();
         };
 
+        let dismisser_frame = gtk::Frame::new(None);
+
         let container = cascade! {
             gtk::Box::new(gtk::Orientation::Vertical, 12);
             ..add(&cascade! {
@@ -103,6 +107,7 @@ impl UpgradeWidget {
                 ..add(&options);
                 ..show();
             });
+            ..add(&dismisser_frame);
             ..show();
         };
 
@@ -117,6 +122,7 @@ impl UpgradeWidget {
             let mut upgrade_downloaded = false;
             let mut upgrade_version = None::<ReleaseInfo>;
             let mut upgrading_to: Box<str> = Box::from("");
+            let mut dismisser = None::<Dismisser>;
 
             let gui_sender = Arc::downgrade(&gui_sender);
             let callback_error = Rc::downgrade(&callback_error);
@@ -124,6 +130,12 @@ impl UpgradeWidget {
             gui_receiver.attach(None, move |event| {
                 eprintln!("received event: {:?}", event);
                 match event {
+                    UiEvent::Dismissed => {
+                        if let Some(dismisser) = dismisser.take() {
+                            dismisser.destroy();
+                            dismisser_frame.hide();
+                        }
+                    }
                     UiEvent::UpgradeEvent(event) => {
                         use UpgradeEvent::*;
 
@@ -208,15 +220,41 @@ impl UpgradeWidget {
                             .button_label("Upgrade")
                             .set_label(&format!("Pop!_OS {} download complete", &*upgrading_to));
                     }
-                    UiEvent::Completed(CompletedEvent::Scan(upgrade_text, upgrade, refresh)) => {
+                    UiEvent::Completed(CompletedEvent::Scan {
+                        upgrade_text,
+                        upgrade,
+                        refresh,
+                        is_lts,
+                    }) => {
                         upgrade_version = upgrade;
                         refresh_found = refresh;
 
                         option_upgrade
                             .set_label(&upgrade_text)
                             .set_sublabel(None)
-                            .set_button(if upgrade_version.is_some() {
+                            .set_button(if let Some(info) = upgrade_version.as_ref() {
                                 upgrade_found = true;
+
+                                if is_lts && !is_dismissed(&info.next) {
+                                    let widget = {
+                                        let sender = sender.clone();
+                                        Dismisser::new(&info.next, move || {
+                                            let _ =
+                                                sender.send(BackgroundEvent::DismissNotification);
+                                        })
+                                    };
+
+                                    dismisser_frame.foreach(WidgetExt::destroy);
+                                    dismisser_frame.add(widget.as_ref());
+                                    dismisser_frame.show_all();
+
+                                    if let Some(dismisser) = dismisser.take() {
+                                        dismisser.destroy();
+                                    }
+
+                                    dismisser = Some(widget);
+                                }
+
                                 let gui_sender = gui_sender.clone();
                                 let action = move || {
                                     if let Some(sender) = gui_sender.upgrade() {
@@ -280,7 +318,13 @@ impl UpgradeWidget {
                                 .progress_view()
                                 .progress_label("Preparing to download")
                                 .set_label("Updating your OS");
+
                             option_refresh.hide();
+
+                            if let Some(dismisser) = dismisser.take() {
+                                dismisser.destroy();
+                            }
+
                             let _ = sender.send(BackgroundEvent::DownloadUpgrade(info));
                         }
                     }
@@ -352,6 +396,16 @@ impl UpgradeWidget {
                         BackgroundEvent::IsActive(tx) => {
                             let _ = tx.send(client.status().is_ok());
                         }
+                        BackgroundEvent::DismissNotification => {
+                            let event = match client.dismiss_notification() {
+                                Ok(()) => UiEvent::Dismissed,
+                                Err(why) => {
+                                    UiEvent::Error(UiError::Dismiss(UnderlyingError::Client(why)))
+                                }
+                            };
+
+                            send(event)
+                        }
                         BackgroundEvent::RefreshOS => {
                             refresh_os(client, send);
                         }
@@ -381,11 +435,13 @@ fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
     send(UiEvent::Initiated(InitiatedEvent::Scanning));
     let mut upgrade_text = Cow::Borrowed("You are running the most current Pop!_OS version.");
     let mut upgrade = None;
+    let mut is_lts = false;
 
     if release::upgrade_in_progress() {
         upgrade_text = Cow::Borrowed("Pop!_OS is currently downloading.");
     } else {
         if let Ok(info) = client.release_check() {
+            is_lts = info.is_lts;
             if info.build > 0 {
                 info!("upgrade from {} to {} is available", info.current, info.next);
 
@@ -393,13 +449,14 @@ fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
                 upgrade = Some(info);
             }
         }
-    }
+    };
 
-    send(UiEvent::Completed(CompletedEvent::Scan(
-        Box::from(upgrade_text.as_ref()),
+    send(UiEvent::Completed(CompletedEvent::Scan {
+        upgrade_text: Box::from(upgrade_text.as_ref()),
         upgrade,
-        client.recovery_exists(),
-    )));
+        refresh: client.recovery_exists(),
+        is_lts,
+    }));
 }
 
 fn get_status(client: &Client, send: &dyn Fn(UiEvent), from: DaemonStatus) {
@@ -673,3 +730,15 @@ fn upgrade_recovery(client: &Client, send: &dyn Fn(UiEvent), version: &str) -> b
 }
 
 fn reboot() { let _ = Command::new("systemctl").arg("reboot").status(); }
+
+fn is_dismissed(next: &str) -> bool {
+    if Path::new(DISMISSED).exists() {
+        if let Some(dismissed) = fs::read_to_string(DISMISSED).ok() {
+            if dismissed.as_str() == next {
+                return true;
+            }
+        }
+    }
+
+    false
+}

@@ -11,6 +11,7 @@ use std::sync::mpsc::SyncSender;
 pub enum BackgroundEvent {
     GetStatus(DaemonStatus),
     IsActive(SyncSender<bool>),
+    DismissNotification,
     RefreshOS,
     RepoModify(Vec<Box<str>>, Vec<bool>),
     Scan,
@@ -21,15 +22,16 @@ pub enum BackgroundEvent {
 /// Events received for the UI to handle.
 #[derive(Debug)]
 pub enum UiEvent {
+    Progress(ProgressEvent),
+    UpgradeEvent(UpgradeEvent),
     Initiated(InitiatedEvent),
     Completed(CompletedEvent),
-    IncompatibleRepos(RepoCompatError),
-    Error(UiError),
-    Progress(ProgressEvent),
-    StatusChanged(DaemonStatus, DaemonStatus, Box<str>),
+    Dismissed,
     Shutdown,
     UpgradeClicked,
-    UpgradeEvent(UpgradeEvent),
+    IncompatibleRepos(RepoCompatError),
+    StatusChanged(DaemonStatus, DaemonStatus, Box<str>),
+    Error(UiError),
 }
 
 #[derive(Debug)]
@@ -45,7 +47,12 @@ pub enum CompletedEvent {
     Recovery,
     Refresh,
     Download,
-    Scan(Box<str>, Option<ReleaseInfo>, bool),
+    Scan {
+        upgrade_text: Box<str>,
+        upgrade:      Option<ReleaseInfo>,
+        refresh:      bool,
+        is_lts:       bool,
+    },
 }
 
 #[derive(Debug)]
