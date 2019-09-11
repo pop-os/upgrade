@@ -11,6 +11,20 @@ use crate::{
 };
 
 // Methods supported by the daemon.
+pub const DISMISS_NOTIFICATION: &str = "DismissNotification";
+
+pub fn dismiss_notification(
+    daemon: Rc<RefCell<Daemon>>,
+    dbus_factory: &DbusFactory,
+) -> Method<MTFn<()>, ()> {
+    dbus_factory
+        .method::<_, String>(DISMISS_NOTIFICATION, move |_| {
+            daemon.borrow().dismiss_notification()?;
+            Ok(Vec::new())
+        })
+        .consume()
+}
+
 pub const FETCH_UPDATES: &str = "FetchUpdates";
 
 pub fn fetch_updates(
