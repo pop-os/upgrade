@@ -12,6 +12,7 @@ pub enum BackgroundEvent {
     DownloadUpgrade(ReleaseInfo),
     GetStatus(DaemonStatus),
     IsActive(SyncSender<bool>),
+    DismissNotification,
     RefreshOS,
     RepoModify(Vec<Box<str>>, Vec<bool>),
     Scan,
@@ -22,6 +23,7 @@ pub enum BackgroundEvent {
 #[derive(Debug)]
 pub enum UiEvent {
     Completed(CompletedEvent),
+    Dismissed,
     Error(UiError),
     IncompatibleRepos(RepoCompatError),
     Initiated(InitiatedEvent),
