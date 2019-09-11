@@ -28,15 +28,17 @@ ifeq ($(VENDORED),1)
 	ARGS += "--frozen"
 endif
 
-
 BINARY=target/$(TARGET)/$(BIN)
 LIBRARY=target/$(TARGET)/$(LIB)
 PKGCONFIG = target/$(PACKAGE).pc
 HEADER = gtk/ffi/$(PACKAGE).h
+NOTIFY = pop-upgrade-notify
+NOTIFY_APPID = com.system76.PopUpgrade.Notify
+STARTUP_DESKTOP = $(NOTIFY_APPID).desktop
 
 .PHONY: all clean distclean install uninstall update
 
-all: $(BINARY) $(LIBRARY) $(PKGCONFIG)
+all: $(BINARY) $(LIBRARY) $(PKGCONFIG) target/$(NOTIFY).service target/$(STARTUP_DESKTOP)
 
 clean:
 	cargo clean
@@ -65,12 +67,29 @@ install:
 	install -Dm0644 "$(LIBRARY)" "$(DESTDIR)$(libdir)/$(LIB)"
 	install -Dm0644 "$(PKGCONFIG)" "$(DESTDIR)$(libdir)/pkgconfig/$(PACKAGE).pc"
 	install -Dm0644 "$(HEADER)" "$(DESTDIR)$(includedir)/$(PACKAGE).h"
+	install -Dm0644 "target/$(NOTIFY).service" "$(DESTDIR)$(libdir)/systemd/user/$(NOTIFY).service"
+	install -Dm0644 "target/$(NOTIFY).timer" "$(DESTDIR)$(libdir)/systemd/user/$(NOTIFY).timer"
+	install -Dm0644 "target/$(STARTUP_DESKTOP)" "$(DESTDIR)/etc/xdg/autostart/$(STARTUP_DESKTOP)"
 
 $(BINARY): $(SRC) extract-vendor
 	cargo build $(ARGS)
 
 $(LIBRARY): $(LIB_SRC) extract-vendor
 	cargo build $(ARGS) -p pop-upgrade-gtk-ffi
+
+target/$(NOTIFY).service: Makefile tools/src/notify.rs extract-vendor
+	env prefix=$(prefix) cargo run -p tools --bin notify-gen $(ARGS)
+
+notify-desktop target/$(STARTUP_DESKTOP): Makefile tools/src/desktop_entry.rs extract-vendor
+	cargo run -p tools --bin desktop-entry $(ARGS) -- \
+		--appid $(NOTIFY_APPID) \
+		--name "Pop!_OS Release Check" \
+		--icon distributor-logo-upgrade-symbolic \
+		--comment "Check for a new OS release, and display notification if found" \
+		--categories System \
+		--binary pop-upgrade \
+		--args "release check" \
+		--prefix $(prefix)
 
 $(PKGCONFIG):
 	echo "libdir=$(libdir)" > "$@.partial"
