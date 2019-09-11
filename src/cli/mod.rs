@@ -75,7 +75,7 @@ impl Client {
         match matches.subcommand() {
             ("check", _) => {
                 let mut buffer = String::new();
-                let (current, next, available) = self.release_check()?;
+                let (current, next, available, is_lts) = self.release_check()?;
 
                 if atty::is(atty::Stream::Stdout) {
                     println!(
@@ -86,7 +86,7 @@ impl Client {
                         misc::format_build_number(available, &mut buffer)
                     );
                 } else if available.is_some() {
-                    if Path::new(DISMISSED).exists() {
+                    if is_lts && Path::new(DISMISSED).exists() {
                         if let Some(dismissed) = fs::read_to_string(DISMISSED).ok() {
                             if dismissed.as_str() == next.as_ref() {
                                 return Ok(());
@@ -122,7 +122,7 @@ impl Client {
                     _ => unreachable!(),
                 };
 
-                let (current, next, available) = self.release_check()?;
+                let (current, next, available, _is_lts) = self.release_check()?;
 
                 // Only upgrade if an upgrade is possible, or if being forced to upgrade.
                 if matches.is_present("force-next") || available.is_some() {
@@ -202,12 +202,12 @@ impl Client {
         Ok(())
     }
 
-    fn release_check<'a>(&self) -> Result<(Box<str>, Box<str>, Option<u16>), client::Error> {
+    fn release_check<'a>(&self) -> Result<(Box<str>, Box<str>, Option<u16>, bool), client::Error> {
         let info = self.0.release_check()?;
 
         let build = if info.build < 0 { None } else { Some(info.build as u16) };
 
-        Ok((info.current, info.next, build))
+        Ok((info.current, info.next, build, info.is_lts))
     }
 
     fn event_listen_fetch_updates(&self) -> Result<(), client::Error> {
