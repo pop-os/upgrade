@@ -1,6 +1,7 @@
 mod colors;
 
 use self::colors::*;
+use crate::notify::notify;
 
 use apt_cli_wrappers::AptUpgradeEvent;
 use clap::ArgMatches;
@@ -13,7 +14,11 @@ use pop_upgrade::{
     release::{RefreshOp, UpgradeEvent, UpgradeMethod},
 };
 use promptly::Promptable;
-use std::io::{self, Write};
+use std::{
+    fs,
+    io::{self, Write},
+    path::Path,
+};
 use yansi::Paint;
 
 const FETCH_RESULT_STR: &str = "Package fetch status";
@@ -72,13 +77,28 @@ impl Client {
                 let mut buffer = String::new();
                 let (current, next, available) = self.release_check()?;
 
-                println!(
-                    "      Current Release: {}\n         Next Release: {}\nNew Release Available: \
-                     {}",
-                    current,
-                    next,
-                    misc::format_build_number(available, &mut buffer)
-                );
+                if atty::is(atty::Stream::Stdout) {
+                    println!(
+                        "      Current Release: {}\n         Next Release: {}\nNew Release \
+                         Available: {}",
+                        current,
+                        next,
+                        misc::format_build_number(available, &mut buffer)
+                    );
+                } else if available.is_some() {
+                    if Path::new(DISMISSED).exists() {
+                        if let Some(dismissed) = fs::read_to_string(DISMISSED).ok() {
+                            if dismissed.as_str() == next.as_ref() {
+                                return Ok(());
+                            }
+                        }
+                    }
+
+                    notify(&next, || {
+                        let _ =
+                            exec::Command::new("gnome-control-center").arg("info-overview").exec();
+                    });
+                }
             }
             // Update the current system, without performing a release upgrade
             ("update", Some(matches)) => {

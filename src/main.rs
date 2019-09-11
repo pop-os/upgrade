@@ -7,6 +7,7 @@ extern crate shrinkwraprs;
 
 mod cli;
 mod logging;
+mod notify;
 
 use crate::{cli::Client, logging::setup_logging};
 use pop_upgrade::daemon::Daemon;
