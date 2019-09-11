@@ -18,3 +18,8 @@ ifeq ($(VENDORED),1)
 	fi
 endif
 
+override_dh_installinit:
+	dh_installinit -r
+
+override_dh_systemd_start:
+	dh_systemd_start -r
