@@ -86,6 +86,7 @@ pub struct ReleaseInfo {
     pub current: Box<str>,
     pub next:    Box<str>,
     pub build:   i16,
+    pub is_lts:  bool,
 }
 
 /// The status of an action, and a description of why.
@@ -241,12 +242,13 @@ impl Client {
     /// Used to determine if a release upgrade is available.
     pub fn release_check(&self) -> Result<ReleaseInfo, Error> {
         self.call_method(methods::RELEASE_CHECK, |m| m)?
-            .read3::<&str, &str, i16>()
+            .read4::<&str, &str, i16, bool>()
             .map_err(|why| Error::ArgumentMismatch(methods::RELEASE_CHECK, why))
-            .map(|(current, next, build)| ReleaseInfo {
+            .map(|(current, next, build, is_lts)| ReleaseInfo {
                 current: current.into(),
                 next: next.into(),
                 build,
+                is_lts,
             })
     }
 
