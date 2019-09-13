@@ -26,13 +26,16 @@ fn dialog_template<F: FnOnce(&gtk::Box)>(
         .use_header_bar(1i32)
         .build();
 
+    let title =
+        gtk::LabelBuilder::new().label(&*["<b>", title, "</b>"].concat()).use_markup(true).build();
+
     cascade! {
         dialog
             .get_header_bar()
             .expect("dialog generated without header bar")
             .downcast::<gtk::HeaderBar>()
             .expect("dialog header bar is not a header bar");
-        ..set_custom_title(Some(&gtk::Label::new(Some(title))));
+        ..set_custom_title(Some(&title));
         ..set_show_close_button(false);
         ..pack_end(&accept);
         ..pack_start(&cancel);
