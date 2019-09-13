@@ -212,7 +212,7 @@ pub fn release_check(
             vec![
                 String::from(status.current).into(),
                 String::from(status.next).into(),
-                status.build.map_or(-1, |a| a as i16).into(),
+                status.build.status_code().into(),
                 is_lts.into(),
             ]
         })

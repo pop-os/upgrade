@@ -27,12 +27,11 @@ pub fn cp(src: &Path, dst: &Path) -> io::Result<u64> {
     })
 }
 
-pub fn format_build_number(value: Option<u16>, buffer: &mut String) -> &str {
-    match value {
-        None => "false",
-        Some(a) => {
-            *buffer = format!("{}", a);
-            buffer.as_str()
-        }
+pub fn format_build_number(value: i16, buffer: &mut String) -> &str {
+    if value < 0 {
+        "false"
+    } else {
+        *buffer = format!("{}", value);
+        buffer.as_str()
     }
 }
