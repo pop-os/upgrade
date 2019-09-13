@@ -46,7 +46,13 @@ pub enum CompletedEvent {
     Download,
     Recovery,
     Refresh,
-    Scan(Box<str>, Option<ReleaseInfo>, bool),
+    Scan {
+        is_lts:        bool,
+        refresh:       bool,
+        status_failed: bool,
+        upgrade_text:  Box<str>,
+        upgrade:       Option<ReleaseInfo>,
+    },
 }
 
 #[derive(Debug)]

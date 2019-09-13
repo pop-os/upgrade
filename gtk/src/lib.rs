@@ -208,7 +208,13 @@ impl UpgradeWidget {
                             .button_label("Upgrade")
                             .set_label(&format!("Pop!_OS {} download complete", &*upgrading_to));
                     }
-                    UiEvent::Completed(CompletedEvent::Scan(upgrade_text, upgrade, refresh)) => {
+                    UiEvent::Completed(CompletedEvent::Scan {
+                        upgrade_text,
+                        upgrade,
+                        refresh,
+                        is_lts,
+                        status_failed,
+                    }) => {
                         upgrade_version = upgrade;
                         refresh_found = refresh;
 
@@ -236,6 +242,10 @@ impl UpgradeWidget {
                             };
 
                             option_refresh.set_button(Some(("Refresh", action))).show();
+                        }
+
+                        if status_failed {
+                            option_upgrade.stack.hide();
                         }
 
                         container.show();
@@ -382,27 +392,48 @@ impl UpgradeWidget {
 fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
     debug!("scanning");
     send(UiEvent::Initiated(InitiatedEvent::Scanning));
-    let mut upgrade_text = Cow::Borrowed("You are running the most current Pop!_OS version.");
     let mut upgrade = None;
+    let mut is_lts = false;
+    let mut status_failed = false;
 
-    if release::upgrade_in_progress() {
-        upgrade_text = Cow::Borrowed("Pop!_OS is currently downloading.");
+    let upgrade_text = if release::upgrade_in_progress() {
+        Cow::Borrowed("Pop!_OS is currently downloading.")
     } else {
-        if let Ok(info) = client.release_check(false) {
-            if info.build > 0 {
-                info!("upgrade from {} to {} is available", info.current, info.next);
+        match client.release_check(false) {
+            Ok(info) => {
+                is_lts = info.is_lts;
+                eprintln!("info.build = {}", info.build);
+                if info.build >= 0 {
+                    info!("upgrade from {} to {} is available", info.current, info.next);
 
-                upgrade_text = Cow::Owned(format!("Pop!_OS {} is available.", info.next));
-                upgrade = Some(info);
+                    let upgrade_text = Cow::Owned(format!("Pop!_OS {} is available.", info.next));
+                    upgrade = Some(info);
+                    upgrade_text
+                } else {
+                    status_failed = true;
+                    Cow::Borrowed(match info.build {
+                        -1 => "Failed to retrieve build status due to an internal error.",
+                        -2 => "You are running the most current Pop!_OS version.",
+                        -3 => "Connection failed. You may be offline.",
+                        _ => "Unknown status received.",
+                    })
+                }
+            }
+            Err(why) => {
+                status_failed = true;
+                error!("failed to check for updates: {}", why);
+                Cow::Borrowed("Failed to check for updates")
             }
         }
-    }
+    };
 
-    send(UiEvent::Completed(CompletedEvent::Scan(
-        Box::from(upgrade_text.as_ref()),
+    send(UiEvent::Completed(CompletedEvent::Scan {
+        upgrade_text: Box::from(upgrade_text.as_ref()),
         upgrade,
-        client.recovery_exists(),
-    )));
+        refresh: client.recovery_exists(),
+        is_lts,
+        status_failed,
+    }));
 }
 
 fn get_status(client: &Client, send: &dyn Fn(UiEvent), from: DaemonStatus) {

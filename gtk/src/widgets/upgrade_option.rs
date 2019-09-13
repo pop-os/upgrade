@@ -6,13 +6,13 @@ use std::cell::RefCell;
 pub struct UpgradeOption {
     #[shrinkwrap(main_field)]
     container: gtk::Container,
-    pub(crate) button: gtk::Button,
+    pub button: gtk::Button,
     button_signal: RefCell<Option<SignalHandlerId>>,
     label: gtk::Label,
     progress: gtk::ProgressBar,
     progress_container: gtk::Box,
     progress_label: gtk::Label,
-    stack: gtk::Stack,
+    pub stack: gtk::Stack,
     sublabel: gtk::Label,
 }
 
