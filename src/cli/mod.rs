@@ -85,7 +85,7 @@ impl Client {
                         next,
                         misc::format_build_number(available, &mut buffer)
                     );
-                } else if available.is_some() {
+                } else if available >= 0 {
                     if is_lts && Path::new(DISMISSED).exists() {
                         if let Some(dismissed) = fs::read_to_string(DISMISSED).ok() {
                             if dismissed.as_str() == next.as_ref() {
@@ -125,7 +125,7 @@ impl Client {
                 let (current, next, available, _is_lts) = self.release_check()?;
 
                 // Only upgrade if an upgrade is possible, or if being forced to upgrade.
-                if matches.is_present("force-next") || available.is_some() {
+                if matches.is_present("force-next") || available >= 0 {
                     // Before doing a release upgrade with the recovery partition, ensure that
                     // the recovery partition has been updated in advance.
                     if let UpgradeMethod::Recovery = method {
@@ -202,12 +202,10 @@ impl Client {
         Ok(())
     }
 
-    fn release_check<'a>(&self) -> Result<(Box<str>, Box<str>, Option<u16>, bool), client::Error> {
+    fn release_check<'a>(&self) -> Result<(Box<str>, Box<str>, i16, bool), client::Error> {
         let info = self.0.release_check()?;
 
-        let build = if info.build < 0 { None } else { Some(info.build as u16) };
-
-        Ok((info.current, info.next, build, info.is_lts))
+        Ok((info.current, info.next, info.build, info.is_lts))
     }
 
     fn event_listen_fetch_updates(&self) -> Result<(), client::Error> {

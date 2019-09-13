@@ -491,7 +491,7 @@ impl Daemon {
     /// Only applicable for LTS releases.
     fn dismiss_notification(&self) -> Result<(), String> {
         let status = self.release_check()?;
-        if status.is_lts() && status.build.is_some() {
+        if status.is_lts() && status.build.is_ok() {
             fs::write(DISMISSED, status.next.as_bytes()).map_err(|why| {
                 format!("failed to write '{}' to '{}': {}", status.next, DISMISSED, why)
             })?;
@@ -600,7 +600,7 @@ impl Daemon {
             status.current,
             status.is_lts(),
             status.next,
-            misc::format_build_number(status.build, &mut buffer)
+            misc::format_build_number(status.build.status_code(), &mut buffer)
         );
 
         Ok(status)
