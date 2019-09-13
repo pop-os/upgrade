@@ -129,7 +129,7 @@ impl UpgradeOption {
             Some(label) => {
                 self.sublabel.set_label(label);
                 self.sublabel.show();
-            },
+            }
             None => self.sublabel.hide(),
         }
 
