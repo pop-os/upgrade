@@ -538,6 +538,8 @@ fn repo_modify(
         send(UiEvent::Error(UiError::Repos(why.into())));
         return;
     }
+
+    send(UiEvent::UpgradeClicked);
 }
 
 fn status_changed(send: &dyn Fn(UiEvent), new_status: Status, expected: DaemonStatus) {
@@ -638,6 +640,7 @@ fn download_upgrade(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) 
     }
 
     let error = &mut None;
+    let ignore_error = &mut false;
     let status_broken = &mut false;
 
     client.event_listen(
@@ -685,6 +688,7 @@ fn download_upgrade(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) 
                     )));
                 }
                 Signal::RepoCompatError(repositories) => {
+                    *ignore_error = true;
                     send(UiEvent::IncompatibleRepos(repositories));
                 }
                 _ => (),
@@ -693,6 +697,10 @@ fn download_upgrade(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) 
             Ok(client::Continue(true))
         },
     );
+
+    if *ignore_error {
+        return;
+    }
 
     if let Some(why) = error.take() {
         send(UiEvent::Error(UiError::Upgrade(why.into())));
