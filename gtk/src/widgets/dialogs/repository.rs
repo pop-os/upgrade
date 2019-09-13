@@ -35,6 +35,8 @@ impl RepositoryDialog {
             },
         );
 
+        dialog.set_size_request(600, 400);
+
         Self { dialog, entries }
     }
 
@@ -42,7 +44,9 @@ impl RepositoryDialog {
         self.entries
             .get_children()
             .into_iter()
-            .filter_map(|w| w.downcast::<gtk::ToggleButton>().ok())
+            .filter_map(|w| w.downcast::<gtk::ListBoxRow>().ok())
+            .flat_map(|w| w.get_children().into_iter())
+            .filter_map(|w| w.downcast::<gtk::CheckButton>().ok())
             .map(|w| w.get_active())
     }
 }
