@@ -313,12 +313,17 @@ impl Client {
         mut log_cb: impl FnMut(Status),
         mut event: impl FnMut(&Self, Signal) -> Result<Continue, Error>,
     ) -> Result<(), Error> {
+        let mut break_on_next = false;
         for item in self.bus.iter(3000) {
             if let ConnectionItem::Nothing = item {
                 if !self.status_is(expected_status)? {
-                    log_cb(status_func(self)?);
+                    if break_on_next {
+                        log_cb(status_func(self)?);
 
-                    break;
+                        break;
+                    }
+
+                    break_on_next = true;
                 }
             } else if let Some(signal) = filter_signal(item) {
                 let signal = match &*signal.member().unwrap() {
