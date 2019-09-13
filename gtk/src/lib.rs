@@ -88,6 +88,16 @@ impl UpgradeWidget {
             ..show();
         };
 
+        fn get_upgrade_row(options: &gtk::ListBox) -> gtk::ListBoxRow {
+            options.get_row_at_index(0).expect("upgrade option is not at index 1")
+        }
+
+        fn get_refresh_row(options: &gtk::ListBox) -> gtk::ListBoxRow {
+            options.get_row_at_index(1).expect("refresh option is not at index 1")
+        }
+
+        let dismisser_frame = gtk::Frame::new(None);
+
         let container = cascade! {
             gtk::Box::new(gtk::Orientation::Vertical, 12);
             ..add(&cascade! {
@@ -162,19 +172,19 @@ impl UpgradeWidget {
                     }
                     UiEvent::Shutdown => return glib::Continue(false),
                     UiEvent::Initiated(InitiatedEvent::Refresh) => {
-                        option_upgrade.hide();
+                        get_upgrade_row(&options).hide();
                     }
                     UiEvent::Initiated(InitiatedEvent::Scanning) => {
                         container.hide();
                     }
                     UiEvent::Initiated(InitiatedEvent::Recovery) => {
-                        option_refresh.hide();
+                        get_refresh_row(&options).hide();
                         option_upgrade
                             .progress_label("Upgrading recovery partition")
                             .progress_exact(0);
                     }
                     UiEvent::Initiated(InitiatedEvent::Download(version)) => {
-                        option_refresh.hide();
+                        get_refresh_row(&options).hide();
                         option_upgrade
                             .set_label(&*["Downloading Pop!_OS ", &version].concat())
                             .progress_label("Downloading")
@@ -297,10 +307,12 @@ impl UpgradeWidget {
                     UiEvent::Error(why) => {
                         if refresh_found {
                             option_refresh.button_view().show_all();
+                            get_refresh_row(&options).show();
                         }
 
                         if upgrade_found {
                             option_upgrade.button_view().show_all();
+                            get_upgrade_row(&options).show();
                         }
 
                         let error_message = &mut format!("{}", why);
