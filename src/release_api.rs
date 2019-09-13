@@ -12,6 +12,8 @@ pub enum ApiError {
     Get(reqwest::Error),
     #[error(display = "failed to parse JSON response: {}", _0)]
     Json(serde_json::Error),
+    #[error(display = "server returned an error status: {}", _0)]
+    Status(reqwest::Error),
 }
 
 #[derive(Debug, Deserialize)]
@@ -53,13 +55,13 @@ impl Release {
             .send()
             .map_err(ApiError::Get)?
             .error_for_status()
-            .map_err(ApiError::Get)?;
+            .map_err(ApiError::Status)?;
 
         serde_json::from_reader::<_, RawRelease>(response).map_err(ApiError::Json)?.into_release()
     }
 
-    pub fn exists(current: &str, iso: &str) -> Option<u16> {
-        Self::get_release(current, iso).ok().map(|r| r.build)
+    pub fn build_exists(version: &str, channel: &str) -> Result<u16, ApiError> {
+        Self::get_release(version, channel).map(|r| r.build)
     }
 }
 
