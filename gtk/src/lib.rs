@@ -170,7 +170,6 @@ impl UpgradeWidget {
                     UiEvent::Initiated(InitiatedEvent::Recovery) => {
                         option_refresh.hide();
                         option_upgrade
-                            .progress_view()
                             .progress_label("Upgrading recovery partition")
                             .progress_exact(0);
                     }
@@ -178,10 +177,8 @@ impl UpgradeWidget {
                         option_refresh.hide();
                         option_upgrade
                             .set_label(&*["Downloading Pop!_OS ", &version].concat())
-                            .progress_view()
                             .progress_label("Downloading")
-                            .progress_exact(0)
-                            .show();
+                            .progress_exact(0);
                         upgrading_to = version;
                     }
                     UiEvent::Completed(CompletedEvent::Recovery) => {
@@ -233,7 +230,7 @@ impl UpgradeWidget {
                             } else {
                                 None
                             })
-                            .show();
+                            .show_all();
 
                         if refresh {
                             let sender = sender.clone();
@@ -287,7 +284,6 @@ impl UpgradeWidget {
 
                         if let Some(info) = upgrade_version.clone() {
                             option_upgrade
-                                .progress_view()
                                 .progress_label("Preparing to download")
                                 .set_label("Updating your OS");
                             option_refresh.hide();
@@ -300,11 +296,11 @@ impl UpgradeWidget {
                     }
                     UiEvent::Error(why) => {
                         if refresh_found {
-                            option_upgrade.button_view().show();
+                            option_refresh.button_view().show_all();
                         }
 
                         if upgrade_found {
-                            option_upgrade.button_view().show();
+                            option_upgrade.button_view().show_all();
                         }
 
                         let error_message = &mut format!("{}", why);
