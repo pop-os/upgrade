@@ -37,6 +37,7 @@ impl UpgradeOption {
             gtk::Label::new(None);
             ..set_xalign(0.0);
             ..get_style_context().add_class(&gtk::STYLE_CLASS_DIM_LABEL);
+            ..set_no_show_all(true);
         };
 
         let progress = cascade! {
@@ -98,6 +99,7 @@ impl UpgradeOption {
 
     pub fn button_label(&self, label: &str) -> &Self {
         self.button.set_label(label);
+        self.show_all();
         self
     }
 
@@ -113,12 +115,8 @@ impl UpgradeOption {
 
     pub fn progress_label(&self, label: &str) -> &Self {
         self.progress_label.set_text(label);
-        self
-    }
-
-    pub fn progress_view(&self) -> &Self {
-        self.stack.set_visible_child(&self.progress_container);
-        self
+        self.show_all();
+        self.progress_view()
     }
 
     pub fn set_label(&self, label: &str) -> &Self {
@@ -128,7 +126,10 @@ impl UpgradeOption {
 
     pub fn set_sublabel(&self, label: Option<&str>) -> &Self {
         match label {
-            Some(label) => self.sublabel.set_label(label),
+            Some(label) => {
+                self.sublabel.set_label(label);
+                self.sublabel.show();
+            },
             None => self.sublabel.hide(),
         }
 
@@ -146,12 +147,20 @@ impl UpgradeOption {
             Some((label, func)) => {
                 self.button.set_label(label);
                 self.button.set_visible(true);
-                let id = self.button.connect_clicked(move |_| func());
+                let id = self.button.connect_clicked(move |button| {
+                    button.hide();
+                    func()
+                });
                 *button_signal = Some(id);
             }
             None => self.button.set_visible(false),
         }
 
+        self
+    }
+
+    fn progress_view(&self) -> &Self {
+        self.stack.set_visible_child(&self.progress_container);
         self
     }
 }
