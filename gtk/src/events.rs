@@ -48,10 +48,11 @@ pub enum CompletedEvent {
     Refresh,
     Download,
     Scan {
-        upgrade_text: Box<str>,
-        upgrade:      Option<ReleaseInfo>,
-        refresh:      bool,
-        is_lts:       bool,
+        is_lts:        bool,
+        refresh:       bool,
+        status_failed: bool,
+        upgrade_text:  Box<str>,
+        upgrade:       Option<ReleaseInfo>,
     },
 }
 
