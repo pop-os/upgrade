@@ -76,7 +76,7 @@ pub fn main() {
         // Recovery partition tools.
         .subcommand(
             SubCommand::with_name("daemon")
-                .about("launch a daemon for integration witsuper control centers like GNOME's"),
+                .about("launch a daemon for integration with control centers like GNOME's"),
         )
         .subcommand(
             SubCommand::with_name("recovery")
