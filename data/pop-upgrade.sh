@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 export DEBIAN_FRONTEND="noninteractive"
 
@@ -36,11 +36,17 @@ upgrade () {
                 fi
             fi
 
-            if test "Unpacking" = "$(echo ${line} | cut -c-9)" \
-                || test "Setting up" = "$(echo ${line} | cut -c-10)" \
-                || test "Processing triggers for" = "$(echo ${line} | cut -c-23)"
-            then
-                message -i "Installing Updates (${percent}%): $line"
+            prefix="Installing Updates (${percent}%)"
+
+            if test "Unpacking" = "$(echo ${line} | cut -c-9)"; then
+                package=$(echo $line | awk '{print $2}')
+                message -i "$prefix: Unpacking $package ..."
+            elif test "Setting up" = "$(echo ${line} | cut -c-10)"; then
+                package=$(echo $line | awk '{print $3}')
+                message -i "$prefix: Setting up $package ..."
+            elif test "Processing triggers for" = "$(echo ${line} | cut -c-23)"; then
+                package=$(echo $line | awk '{print $4}')
+                message -i "$prefix: Processing triggers for $package ..."
             fi
         done
 
