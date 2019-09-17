@@ -440,6 +440,13 @@ fn write_apt_event(event: AptUpgradeEvent) {
                 color_info(over)
             );
         }
+        AptUpgradeEvent::WaitingOnLock => {
+            println!(
+                "{}: {}",
+                dpkg,
+                color_secondary("Waiting on a process holding the apt lock files")
+            );
+        }
     }
 }
 

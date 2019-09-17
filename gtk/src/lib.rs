@@ -289,6 +289,9 @@ impl UpgradeWidget {
 
                         error!("{}", error_message);
                     }
+                    UiEvent::WaitingOnLock => {
+                        option_upgrade.progress_label("Waiting on apt package lock to be ready");
+                    }
                 }
                 glib::Continue(true)
             });
@@ -481,10 +484,14 @@ fn update_system(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
                         )));
                     }
                     Signal::PackageUpgrade(event) => {
-                        if let Ok(AptUpgradeEvent::Progress { percent }) =
-                            AptUpgradeEvent::from_dbus_map(event.into_iter())
-                        {
-                            send(UiEvent::Progress(ProgressEvent::Updates(percent)));
+                        match AptUpgradeEvent::from_dbus_map(event.into_iter()) {
+                            Ok(AptUpgradeEvent::Progress { percent }) => {
+                                send(UiEvent::Progress(ProgressEvent::Updates(percent)))
+                            }
+                            Ok(AptUpgradeEvent::WaitingOnLock) => {
+                                send(UiEvent::WaitingOnLock);
+                            }
+                            _ => (),
                         }
                     }
                     Signal::ReleaseEvent(event) => {
