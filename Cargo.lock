@@ -32,7 +32,7 @@ dependencies = [
 [[package]]
 name = "apt-cli-wrappers"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/apt-cli-wrappers#7f99a7cfd686a44bc8322c188eda902c59cbe430"
+source = "git+https://github.com/pop-os/apt-cli-wrappers#f2b37727516bb83327f684083f7880ad4203345f"
 dependencies = [
  "exit-status-ext 0.1.0 (git+https://github.com/pop-os/exit-status-ext)",
  "libc 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -664,7 +664,7 @@ dependencies = [
  "libparted 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "os-detect 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "sys-mount 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "sysfs-class 0.1.1 (git+https://github.com/pop-os/sysfs-class)",
+ "sysfs-class 0.1.2 (git+https://github.com/pop-os/sysfs-class)",
  "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -727,7 +727,7 @@ dependencies = [
  "rand 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "rayon 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sys-mount 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "sysfs-class 0.1.1 (git+https://github.com/pop-os/sysfs-class)",
+ "sysfs-class 0.1.2 (git+https://github.com/pop-os/sysfs-class)",
  "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1986,7 +1986,7 @@ dependencies = [
  "sha2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "shrinkwraprs 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sys-mount 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "sysfs-class 0.1.1 (git+https://github.com/pop-os/sysfs-class)",
+ "sysfs-class 0.1.2 (git+https://github.com/pop-os/sysfs-class)",
  "systemd-boot-conf 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2852,8 +2852,8 @@ dependencies = [
 
 [[package]]
 name = "sysfs-class"
-version = "0.1.1"
-source = "git+https://github.com/pop-os/sysfs-class#7bc914e0ac41df18a671ede0691fcd7d1f7e8add"
+version = "0.1.2"
+source = "git+https://github.com/pop-os/sysfs-class#25c8ab30c9dc7895bf9c3f76d0109b8c7da32181"
 dependencies = [
  "numtoa 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -3689,7 +3689,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum syntex_pos 0.58.1 (registry+https://github.com/rust-lang/crates.io-index)" = "13ad4762fe52abc9f4008e85c4fb1b1fe3aa91ccb99ff4826a439c7c598e1047"
 "checksum syntex_syntax 0.58.1 (registry+https://github.com/rust-lang/crates.io-index)" = "6e0e4dbae163dd98989464c23dd503161b338790640e11537686f2ef0f25c791"
 "checksum sys-mount 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "62f5703caf67c45ad3450104001b4620a605e9def0cef13dde3c9add23f73cee"
-"checksum sysfs-class 0.1.1 (git+https://github.com/pop-os/sysfs-class)" = "<none>"
+"checksum sysfs-class 0.1.2 (git+https://github.com/pop-os/sysfs-class)" = "<none>"
 "checksum systemd-boot-conf 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d1277c9997f3c2a93ae6f61ed438a691ca7cdbb8d9afee9ff1d64fd5dd3a316d"
 "checksum take_mut 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f764005d11ee5f36500a149ace24e00e3da98b0158b3e2d53a7495660d3f4d60"
 "checksum tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "15f2b5fb00ccdf689e0149d1b1b3c03fead81c2b37735d812fa8bddbbf41b6d8"

@@ -138,6 +138,7 @@ pub enum UpgradeEvent {
     Success = 10,
     SuccessLive = 11,
     Failure = 12,
+    AptFilesLocked = 13,
 }
 
 impl From<UpgradeEvent> for &'static str {
@@ -161,6 +162,7 @@ impl From<UpgradeEvent> for &'static str {
             UpgradeEvent::Success => "new release is ready to install",
             UpgradeEvent::SuccessLive => "new release was successfully installed",
             UpgradeEvent::Failure => "an error occurred while setting up the release upgrade",
+            UpgradeEvent::AptFilesLocked => "waiting on a process holding the apt lock files",
         }
     }
 }
@@ -230,22 +232,27 @@ impl<'a> DaemonRuntime<'a> {
     /// Upgrades packages for the current release.
     pub fn package_upgrade<C: Fn(AptUpgradeEvent)>(&mut self, callback: C) -> RelResult<()> {
         let callback = &callback;
+        let on_lock = &|ready: bool| {
+            if !ready {
+                (*callback)(AptUpgradeEvent::WaitingOnLock)
+            }
+        };
 
-        let _ = apt_autoremove();
+        let _ = apt_autoremove(on_lock);
 
         // If the first upgrade attempt fails, try to dpkg --configure -a and try again.
         if apt_upgrade(callback).is_err() {
-            let dpkg_configure = dpkg_configure_all().is_err();
-            apt_install_fix_broken().map_err(ReleaseError::FixBroken)?;
+            let dpkg_configure = dpkg_configure_all(on_lock).is_err();
+            apt_install_fix_broken(on_lock).map_err(ReleaseError::FixBroken)?;
 
             if dpkg_configure {
-                dpkg_configure_all().map_err(ReleaseError::DpkgConfigure)?
+                dpkg_configure_all(on_lock).map_err(ReleaseError::DpkgConfigure)?
             }
 
             apt_upgrade(callback).map_err(ReleaseError::Upgrade)?;
         }
 
-        let _ = apt_autoremove();
+        let _ = apt_autoremove(on_lock);
 
         Ok(())
     }
@@ -265,6 +272,10 @@ impl<'a> DaemonRuntime<'a> {
         // Check the system and perform any repairs necessary for success.
         repair::repair().map_err(ReleaseError::Repair)?;
 
+        let lock_or = |ready, then: UpgradeEvent| {
+            (*logger)(if ready { then } else { UpgradeEvent::AptFilesLocked })
+        };
+
         // Ensure that prerequest files and mounts are available.
         match action {
             UpgradeMethod::Recovery => recovery_prereq()?,
@@ -272,8 +283,8 @@ impl<'a> DaemonRuntime<'a> {
         }
 
         // Update the package lists for the current release.
-        (*logger)(UpgradeEvent::UpdatingPackageLists);
-        apt_update().map_err(ReleaseError::CurrentUpdate)?;
+        apt_update(|ready| lock_or(ready, UpgradeEvent::UpdatingPackageLists))
+            .map_err(ReleaseError::CurrentUpdate)?;
 
         // Fetch required packages for upgrading the current release.
         (*logger)(UpgradeEvent::FetchingPackages);
@@ -296,8 +307,8 @@ impl<'a> DaemonRuntime<'a> {
         self.package_upgrade(upgrade)?;
 
         // Install any packages that are deemed critical.
-        (*logger)(UpgradeEvent::InstallingPackages);
-        apt_install(CORE_PACKAGES).map_err(ReleaseError::InstallCore)?;
+        apt_install(CORE_PACKAGES, |ready| lock_or(ready, UpgradeEvent::InstallingPackages))
+            .map_err(ReleaseError::InstallCore)?;
 
         // Update the source lists to the new release,
         // then fetch the packages required for the upgrade.
@@ -378,8 +389,14 @@ impl<'a> DaemonRuntime<'a> {
         fetch: Arc<Fn(FetchEvent) + Send + Sync>,
     ) -> RelResult<()> {
         info!("updated the package lists for the new relaese");
-        (*logger)(UpgradeEvent::UpdatingPackageLists);
-        apt_update().map_err(ReleaseError::ReleaseUpdate)?;
+        apt_update(|ready| {
+            (*logger)(if ready {
+                UpgradeEvent::UpdatingPackageLists
+            } else {
+                UpgradeEvent::AptFilesLocked
+            })
+        })
+        .map_err(ReleaseError::ReleaseUpdate)?;
 
         info!("fetching packages for the new release");
         (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
@@ -512,7 +529,11 @@ pub fn cleanup() {
             }
 
             let _ = fs::remove_file(file);
-            let _ = apt_update();
+            let _ = apt_update(|ready| {
+                if !ready {
+                    info!("waiting for apt lock files to be free");
+                }
+            });
             break;
         }
     }

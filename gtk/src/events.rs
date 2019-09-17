@@ -9,42 +9,43 @@ use std::sync::mpsc::SyncSender;
 /// Events sent to this widget's background thread.
 #[derive(Debug)]
 pub enum BackgroundEvent {
+    DownloadUpgrade(ReleaseInfo),
     GetStatus(DaemonStatus),
     IsActive(SyncSender<bool>),
     RefreshOS,
     RepoModify(Vec<Box<str>>, Vec<bool>),
     Scan,
-    DownloadUpgrade(ReleaseInfo),
     Shutdown,
 }
 
 /// Events received for the UI to handle.
 #[derive(Debug)]
 pub enum UiEvent {
-    Initiated(InitiatedEvent),
     Completed(CompletedEvent),
-    IncompatibleRepos(RepoCompatError),
     Error(UiError),
+    IncompatibleRepos(RepoCompatError),
+    Initiated(InitiatedEvent),
     Progress(ProgressEvent),
-    StatusChanged(DaemonStatus, DaemonStatus, Box<str>),
     Shutdown,
+    StatusChanged(DaemonStatus, DaemonStatus, Box<str>),
     UpgradeClicked,
     UpgradeEvent(UpgradeEvent),
+    WaitingOnLock,
 }
 
 #[derive(Debug)]
 pub enum InitiatedEvent {
+    Download(Box<str>),
     Recovery,
     Refresh,
-    Download(Box<str>),
     Scanning,
 }
 
 #[derive(Debug)]
 pub enum CompletedEvent {
+    Download,
     Recovery,
     Refresh,
-    Download,
     Scan(Box<str>, Option<ReleaseInfo>, bool),
 }
 
