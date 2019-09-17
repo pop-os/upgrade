@@ -190,7 +190,7 @@ impl Daemon {
                         }
                         Event::PackageUpgrade => {
                             info!("upgrading packages");
-                            runtime.package_upgrade(|event| {
+                            let _ = runtime.package_upgrade(|event| {
                                 let _ = dbus_tx.send(SignalEvent::Upgrade(event));
                             });
                         }

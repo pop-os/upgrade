@@ -30,14 +30,6 @@ pub fn upgrade_in_progress() -> bool {
     Path::new(STARTUP_UPGRADE_FILE).exists() || Path::new(RELEASE_FETCH_FILE).exists()
 }
 
-const DEPRECATED_PACKAGES: &[&str] = &[
-    // Not critical to the system.
-    // Slows the system down drastically.
-    // Filles journal logs with worthless messages.
-    // No longer maintained, and removed from repos since 18.10.
-    "ureadahead",
-];
-
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
 pub enum RefreshOp {
@@ -585,7 +577,7 @@ fn find_next_release(
     let mut next_str = format_version(next);
     let mut available = release_exists(&next_str, "intel");
 
-    if let Ok(build) = available {
+    if let Ok(_) = available {
         let mut next_next = next.next_release();
         let mut next_next_str = format_version(next_next);
         while let Ok(build) = release_exists(&next_next_str, "intel") {
@@ -624,7 +616,7 @@ mod tests {
     }
 
     fn releases_up_to_1910(release: &str, kind: &str) -> Result<u16, ApiError> {
-        releases_up_to_1904(release, kind).or_else(|| {
+        releases_up_to_1904(release, kind).or_else(|_| {
             if release == "19.10" {
                 Ok(1)
             } else {
@@ -650,13 +642,13 @@ mod tests {
 
     #[test]
     fn current_release_check() {
-        let (current, build) = find_current_release(v1804, releases_up_to_1910, None).unwrap();
+        let (current, _build) = find_current_release(v1804, releases_up_to_1910, None).unwrap();
         assert!("19.10" == current.as_str());
 
-        let (current, build) = find_current_release(v1904, releases_up_to_1904, None).unwrap();
+        let (current, _build) = find_current_release(v1904, releases_up_to_1904, None).unwrap();
         assert!("19.04" == current.as_str());
 
-        let (current, build) =
+        let (current, _build) =
             find_current_release(v1904, releases_up_to_1904, Some("18.04")).unwrap();
         assert!("18.04" == current.as_str());
     }
