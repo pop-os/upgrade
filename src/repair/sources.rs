@@ -130,8 +130,3 @@ fn create_new_sources_list(release: &str) -> io::Result<()> {
 
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-}
