@@ -1,7 +1,5 @@
 #!/usr/bin/make -f
 
-export HOME = .cargo/home
-
 export VENDORED ?= 1
 CLEAN ?= 1
 
@@ -13,10 +11,11 @@ ifeq ($(CLEAN),1)
 	make clean
 endif
 ifeq ($(VENDORED),1)
-	if ! ischroot; then \
-		make vendor; \
-	fi
+	if ! ischroot; then make vendor; fi
 endif
+
+override_dh_auto_build:
+	env CARGO_HOME="$$(pwd)/target/cargo" make prefix=/usr
 
 override_dh_installinit:
 	dh_installinit -r
