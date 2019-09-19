@@ -17,8 +17,27 @@ efi_rename () {
     if test -d '/sys/firmware/efi/'; then
         current_bootnum=$(efibootmgr | grep BootCurrent | awk -F' ' '{print $2}')
         new_label=$(cat /etc/os-release | grep PRETTY | awk -F'"' '{print $2}')
+
+        # Get the disk where the ESP resides, and the partition number of the ESP.
+        efi_part=$(awk '$2 == "/boot/efi"' /proc/mounts | awk '{print $1}' | awk -F/ '{print $3}')
+
+        for block in /sys/block/*; do
+            if test -e ${block}/${efi_part}; then
+                efi_disk="/dev/$(echo ${block} | cut -c 12-)"
+                break
+            fi
+        done
+
+        efi_num=$(cat /sys/class/block/${efi_part}/partition)
+
+        # Remove the current boot entry
         efibootmgr -b "${current_bootnum}" -B
-        efibootmgr -c -L "${new_label}"
+
+        # Then add the new entry, with the new name
+        efibootmgr -c -L "${new_label}" \
+            -d "${efi_disk}" \
+            -p "${efi_num}" \
+            -l "\EFI\SYSTEMD\SYSTEMD-BOOTX64.EFI"
     fi
 }
 
@@ -82,6 +101,7 @@ attempt_upgrade () {
         rm /pop-upgrade /system-update /pop_preparing_release_upgrade
         message -i "Upgrade complete. Now autoremoving old packages"
         sudo apt-get autoremove -y
+        efi_rename
         message -i "Now rebooting"
         sleep 6
         status=0
@@ -115,5 +135,4 @@ fi
 
 plymouth message --text="system-updates-stop"
 
-efi_rename
 systemctl reboot
