@@ -136,6 +136,10 @@ pub fn main() {
                     SubCommand::with_name("check").about("check for a new distribution release"),
                 )
                 .subcommand(
+                    SubCommand::with_name("dismiss")
+                        .about("dismiss the current release notification (LTS only)"),
+                )
+                .subcommand(
                     SubCommand::with_name("update")
                         .about("fetch the latest updates for the current release")
                         .arg(

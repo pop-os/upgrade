@@ -72,6 +72,14 @@ impl Client {
 
     pub fn release(&self, matches: &ArgMatches) -> Result<(), client::Error> {
         match matches.subcommand() {
+            ("dismiss", _) => {
+                let (_, _, _, is_lts) = self.release_check(false)?;
+                if is_lts {
+                    self.dismiss_notification()?;
+                } else {
+                    println!("Only LTS releases may dismiss notifications");
+                }
+            }
             ("check", _) => {
                 let mut buffer = String::new();
                 let (current, next, available, is_lts) = self.release_check(false)?;
