@@ -25,6 +25,6 @@ pub mod repos;
 mod signal_handler;
 pub mod system_environment;
 
-pub static DBUS_NAME: &'static str = "com.system76.PopUpgrade";
-pub static DBUS_PATH: &'static str = "/com/system76/PopUpgrade";
-pub static DBUS_IFACE: &'static str = "com.system76.PopUpgrade";
+pub static DBUS_NAME: &str = "com.system76.PopUpgrade";
+pub static DBUS_PATH: &str = "/com/system76/PopUpgrade";
+pub static DBUS_IFACE: &str = "com.system76.PopUpgrade";
