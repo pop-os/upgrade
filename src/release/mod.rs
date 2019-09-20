@@ -172,7 +172,7 @@ impl<'a> DaemonRuntime<'a> {
     pub fn apt_fetch(
         &mut self,
         uris: Vec<AptUri>,
-        func: Arc<Fn(FetchEvent) + Send + Sync>,
+        func: Arc<dyn Fn(FetchEvent) + Send + Sync>,
     ) -> RelResult<()> {
         (*func)(FetchEvent::Init(uris.len()));
         let func2 = func.clone();
@@ -266,7 +266,7 @@ impl<'a> DaemonRuntime<'a> {
         to: &str,
         retain: &HashSet<Box<str>>,
         logger: &dyn Fn(UpgradeEvent),
-        fetch: Arc<Fn(FetchEvent) + Send + Sync>,
+        fetch: Arc<dyn Fn(FetchEvent) + Send + Sync>,
         upgrade: &dyn Fn(AptUpgradeEvent),
     ) -> RelResult<()> {
         // Check the system and perform any repairs necessary for success.
@@ -386,7 +386,7 @@ impl<'a> DaemonRuntime<'a> {
     fn attempt_fetch(
         &mut self,
         logger: &dyn Fn(UpgradeEvent),
-        fetch: Arc<Fn(FetchEvent) + Send + Sync>,
+        fetch: Arc<dyn Fn(FetchEvent) + Send + Sync>,
     ) -> RelResult<()> {
         info!("updated the package lists for the new relaese");
         apt_update(|ready| {
@@ -413,7 +413,7 @@ impl<'a> DaemonRuntime<'a> {
         &mut self,
         logger: &dyn Fn(UpgradeEvent),
         retain: &'b HashSet<Box<str>>,
-        fetch: Arc<Fn(FetchEvent) + Send + Sync>,
+        fetch: Arc<dyn Fn(FetchEvent) + Send + Sync>,
         current: &str,
         next: &str,
     ) -> RelResult<Upgrader<'b>> {
@@ -598,7 +598,7 @@ fn find_next_release(
     let mut next_str = format_version(next);
     let mut available = release_exists(&next_str, "intel");
 
-    if let Ok(_) = available {
+    if available.is_ok() {
         let mut next_next = next.next_release();
         let mut next_next_str = format_version(next_next);
         while let Ok(build) = release_exists(&next_next_str, "intel") {
