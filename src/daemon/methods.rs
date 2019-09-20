@@ -79,8 +79,6 @@ pub fn package_upgrade(
     daemon: Rc<RefCell<Daemon>>,
     dbus_factory: &DbusFactory,
 ) -> Method<MTFn<()>, ()> {
-    let daemon = daemon.clone();
-
     let method = dbus_factory.method::<_, String>(PACKAGE_UPGRADE, move |_| {
         daemon.borrow_mut().set_status(DaemonStatus::PackageUpgrade, move |daemon, active| {
             if !active {
@@ -100,8 +98,6 @@ pub fn recovery_upgrade_file(
     daemon: Rc<RefCell<Daemon>>,
     dbus_factory: &DbusFactory,
 ) -> Method<MTFn<()>, ()> {
-    let daemon = daemon.clone();
-
     let method = dbus_factory.method::<_, String>(RECOVERY_UPGRADE_FILE, move |message| {
         let mut daemon = daemon.borrow_mut();
         daemon.set_status(DaemonStatus::RecoveryUpgrade, move |daemon, active| {
@@ -123,8 +119,6 @@ pub fn recovery_upgrade_release(
     daemon: Rc<RefCell<Daemon>>,
     dbus_factory: &DbusFactory,
 ) -> Method<MTFn<()>, ()> {
-    let daemon = daemon.clone();
-
     let method = dbus_factory.method::<_, String>(RECOVERY_UPGRADE_RELEASE, move |message| {
         let mut daemon = daemon.borrow_mut();
         daemon.set_status(DaemonStatus::RecoveryUpgrade, move |daemon, active| {
@@ -165,8 +159,6 @@ pub fn recovery_version(
     daemon: Rc<RefCell<Daemon>>,
     dbus_factory: &DbusFactory,
 ) -> Method<MTFn<()>, ()> {
-    let daemon = daemon.clone();
-
     let method = dbus_factory.method(RECOVERY_VERSION, move |_message| {
         daemon
             .borrow_mut()
@@ -180,8 +172,6 @@ pub fn recovery_version(
 pub const REFRESH_OS: &str = "RefreshOS";
 
 pub fn refresh_os(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method<MTFn<()>, ()> {
-    let daemon = daemon.clone();
-
     let method = dbus_factory.method::<_, String>(REFRESH_OS, move |message| {
         let enable = message.read1().map_err(|why| format!("{}", why))?;
         let value = daemon.borrow_mut().refresh_os(match enable {
@@ -204,8 +194,6 @@ pub fn release_check(
     daemon: Rc<RefCell<Daemon>>,
     dbus_factory: &DbusFactory,
 ) -> Method<MTFn<()>, ()> {
-    let daemon = daemon.clone();
-
     let method = dbus_factory.method(RELEASE_CHECK, move |_message| {
         daemon.borrow_mut().release_check().map(|status| {
             let is_lts = status.is_lts();
@@ -232,8 +220,6 @@ pub fn release_upgrade(
     daemon: Rc<RefCell<Daemon>>,
     dbus_factory: &DbusFactory,
 ) -> Method<MTFn<()>, ()> {
-    let daemon = daemon.clone();
-
     let method = dbus_factory.method::<_, String>(RELEASE_UPGRADE, move |message| {
         let mut daemon = daemon.borrow_mut();
         daemon.set_status(DaemonStatus::ReleaseUpgrade, move |daemon, active| {
@@ -269,8 +255,6 @@ pub fn release_repair(
     daemon: Rc<RefCell<Daemon>>,
     dbus_factory: &DbusFactory,
 ) -> Method<MTFn<()>, ()> {
-    let daemon = daemon.clone();
-
     let method = dbus_factory.method::<_, String>(RELEASE_REPAIR, move |_message| {
         let mut daemon = daemon.borrow_mut();
         daemon.release_repair()?;
@@ -286,8 +270,6 @@ pub fn repo_modify(
     daemon: Rc<RefCell<Daemon>>,
     dbus_factory: &DbusFactory,
 ) -> Method<MTFn<()>, ()> {
-    let daemon = daemon.clone();
-
     let method = dbus_factory.method::<_, String>(REPO_MODIFY, move |message| {
         info!("received {}", REPO_MODIFY);
         let repos = message.read1::<HashMap<&str, bool>>().map_err(|why| format!("{}", why))?;
@@ -301,8 +283,6 @@ pub fn repo_modify(
 pub const STATUS: &str = "Status";
 
 pub fn status(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method<MTFn<()>, ()> {
-    let daemon = daemon.clone();
-
     let method = dbus_factory.method::<_, String>(STATUS, move |_| {
         let daemon = daemon.borrow_mut();
         let status = daemon.status.load(Ordering::SeqCst) as u8;
