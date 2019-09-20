@@ -363,8 +363,8 @@ impl Client {
                     client::Signal::ReleaseEvent(event) => {
                         println!(
                             "{}: {}",
-                            color_primary("Release Event"),
-                            <&'static str>::from(event)
+                            color_primary("Event"),
+                            color_secondary(<&'static str>::from(event))
                         );
                     }
                     client::Signal::RepoCompatError(err) => {
@@ -414,37 +414,30 @@ impl Client {
 }
 
 fn write_apt_event(event: AptUpgradeEvent) {
-    let dpkg = color_primary("Dpkg");
     match event {
         AptUpgradeEvent::Processing { package } => {
-            println!(
-                "{}: {} for {}",
-                dpkg,
-                color_secondary("Processing triggers"),
-                color_info(package)
-            );
+            println!("{} for {}", color_primary("Processing triggers"), color_secondary(package));
         }
         AptUpgradeEvent::Progress { percent } => {
-            println!("{}: {}: {}%", dpkg, color_secondary("Progress"), color_info(percent));
+            println!("{}: {}%", color_primary("Progress"), color_info(percent));
         }
         AptUpgradeEvent::SettingUp { package } => {
-            println!("{}: {} {}", dpkg, color_secondary("Setting up"), color_tertiary(package));
+            println!("{} {}", color_primary("Setting up"), color_secondary(package));
         }
         AptUpgradeEvent::Unpacking { package, version, over } => {
             println!(
-                "{}: {} {} ({}) over ({})",
-                dpkg,
-                color_secondary("Unpacking"),
-                color_tertiary(package),
+                "{} {} ({}) over ({})",
+                color_primary("Unpacking"),
+                color_secondary(package),
                 color_info(version),
                 color_info(over)
             );
         }
         AptUpgradeEvent::WaitingOnLock => {
             println!(
-                "{}: {}",
-                dpkg,
-                color_secondary("Waiting on a process holding the apt lock files")
+                "{} {}",
+                color_primary("Waiting"),
+                color_secondary("on a process holding an apt/dpkg lock file")
             );
         }
     }
