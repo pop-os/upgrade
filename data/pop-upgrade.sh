@@ -55,7 +55,7 @@ upgrade () {
                 fi
             fi
 
-            prefix="Installing Updates (${percent}%)"
+            prefix="Installing Updates (${percent//[[:space:]]/}%)"
 
             if test "Unpacking" = "$(echo ${line} | cut -c-9)"; then
                 package=$(echo $line | awk '{print $2}')
