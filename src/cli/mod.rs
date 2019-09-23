@@ -119,7 +119,11 @@ impl Client {
 
                     // Repeat as necessary.
                     while recall {
-                        info!("attempting to perform upgrade again");
+                        println!(
+                            "{}: {}",
+                            color_primary("Event"),
+                            color_secondary("attempting to perform upgrade again")
+                        );
                         self.release_upgrade(method, current.as_ref(), next.as_ref())?;
                         recall = self.event_listen_release_upgrade()?;
                     }
@@ -308,7 +312,7 @@ impl Client {
     fn event_listen_release_upgrade(&self) -> Result<bool, client::Error> {
         let recall = &mut false;
 
-        self.event_listen(
+        let result = self.event_listen(
             DaemonStatus::ReleaseUpgrade,
             client::Client::release_upgrade_status,
             |new_status| {
@@ -350,13 +354,15 @@ impl Client {
                         }
                     }
                     client::Signal::ReleaseResult(status) => {
-                        log_result(
-                            status.status,
-                            UPGRADE_RESULT_STR,
-                            UPGRADE_RESULT_SUCCESS,
-                            UPGRADE_RESULT_ERROR,
-                            &status.why,
-                        );
+                        if !*recall {
+                            log_result(
+                                status.status,
+                                UPGRADE_RESULT_STR,
+                                UPGRADE_RESULT_SUCCESS,
+                                UPGRADE_RESULT_ERROR,
+                                &status.why,
+                            );
+                        }
 
                         return Ok(client::Continue(false));
                     }
@@ -396,9 +402,7 @@ impl Client {
                             (url, <Option<bool>>::prompt(prompt).unwrap_or(false))
                         });
 
-                        info!("sending message");
                         client.repo_modify(repos)?;
-                        info!("message sent");
 
                         *recall = true;
                     }
@@ -407,7 +411,11 @@ impl Client {
 
                 Ok(client::Continue(true))
             },
-        )?;
+        );
+
+        if !*recall {
+            result?;
+        }
 
         Ok(*recall)
     }
