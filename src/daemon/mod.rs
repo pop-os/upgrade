@@ -448,31 +448,38 @@ impl Daemon {
                                 DistUpgradeError::SourcesUnavailable { ref success, ref failure },
                             )) = result
                             {
-                                let failure: Vec<(String, String)> = failure
+                                let message = if failure
                                     .iter()
-                                    .map(|(url, why)| {
-                                        let mut root_cause = None;
-                                        if let Some(mut cause) = why.source() {
-                                            while let Some(inner_cause) = cause.source() {
-                                                cause = inner_cause;
+                                    .any(|(url, _)| release::is_required_ppa(&*url))
+                                {
+                                    Self::signal_message(&no_connection)
+                                } else {
+                                    let failure: Vec<(String, String)> = failure
+                                        .iter()
+                                        .map(|(url, why)| {
+                                            let mut root_cause = None;
+                                            if let Some(mut cause) = why.source() {
+                                                while let Some(inner_cause) = cause.source() {
+                                                    cause = inner_cause;
+                                                }
+
+                                                root_cause = Some(cause);
                                             }
 
-                                            root_cause = Some(cause);
-                                        }
+                                            let cause = match root_cause {
+                                                Some(root_cause) => format!("{}", root_cause),
+                                                None => format!("{}", why),
+                                            };
 
-                                        let cause = match root_cause {
-                                            Some(root_cause) => format!("{}", root_cause),
-                                            None => format!("{}", why),
-                                        };
+                                            (url.clone(), cause)
+                                        })
+                                        .collect();
 
-                                        (url.clone(), cause)
-                                    })
-                                    .collect();
+                                    Self::signal_message(&repo_compat_error)
+                                        .append2(success, failure)
+                                };
 
-                                let message = Self::signal_message(&repo_compat_error)
-                                    .append2(success, failure);
-
-                                Self::send_signal_message(&connection, message);
+                                Self::send_signal_message(&connection, message)
                             }
 
                             let (status, why) = result_signal(result.as_ref());
