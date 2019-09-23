@@ -373,6 +373,23 @@ impl Client {
                             color_secondary(<&'static str>::from(event))
                         );
                     }
+                    client::Signal::NoConnection => {
+                        println!(
+                            "{}",
+                            color_error(
+                                "Failed to connect to an apt repository. You may not be connected \
+                                 to the Internet."
+                            )
+                        );
+
+                        let prompt = format!("    {} y/N", color_primary("Try again?"));
+
+                        if <Option<bool>>::prompt(prompt).unwrap_or(false) {
+                            *recall = true;
+                        } else {
+                            return Ok(client::Continue(false));
+                        }
+                    }
                     client::Signal::RepoCompatError(err) => {
                         let client::RepoCompatError { success, failure } = err;
                         println!("{}:", color_error("Incompatible repositories detected"));
