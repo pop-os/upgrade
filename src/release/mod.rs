@@ -19,12 +19,22 @@ use ubuntu_version::{Codename, Version, VersionError};
 
 pub use self::errors::{RelResult, ReleaseError};
 
+const REQUIRED_PPAS: &[&str] = &[
+    "archive.ubuntu.com/ubuntu",
+    "ppa.launchpad.net/system76/pop/ubuntu",
+    "apt.pop-os.org/proprietary",
+];
+
 const CORE_PACKAGES: &[&str] = &["pop-desktop"];
 const RELEASE_FETCH_FILE: &str = "/pop_preparing_release_upgrade";
 const STARTUP_UPGRADE_FILE: &str = "/pop-upgrade";
 const SYSTEM_UPDATE: &str = "/system-update";
 const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
 const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
+
+pub fn is_required_ppa(ppa: &str) -> bool {
+    REQUIRED_PPAS.into_iter().any(|&required| ppa.contains(required))
+}
 
 pub fn upgrade_in_progress() -> bool {
     Path::new(STARTUP_UPGRADE_FILE).exists() || Path::new(RELEASE_FETCH_FILE).exists()
