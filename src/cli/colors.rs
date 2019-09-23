@@ -1,23 +1,16 @@
+use std::fmt::Display;
 use yansi::Paint;
 
-pub(crate) fn color_error<T: ::std::fmt::Display>(value: T) -> Paint<T> { Paint::red(value).bold() }
+pub(crate) fn color_error<T: Display>(value: T) -> Paint<T> { Paint::red(value).bold() }
 
-pub(crate) fn color_error_desc<T: ::std::fmt::Display>(value: T) -> Paint<T> {
+pub(crate) fn color_error_desc<T: Display>(value: T) -> Paint<T> {
     Paint::red(value).bold().dimmed()
 }
 
-pub(crate) fn color_info<T: ::std::fmt::Display>(value: T) -> Paint<T> {
-    Paint::green(value).bold()
-}
+pub(crate) fn color_info<T: Display>(value: T) -> Paint<T> { Paint::green(value).bold() }
 
-pub(crate) fn color_primary<T: ::std::fmt::Display>(value: T) -> Paint<T> {
-    Paint::cyan(value).bold()
-}
+pub(crate) fn color_primary<T: Display>(value: T) -> Paint<T> { Paint::cyan(value).bold() }
 
-pub(crate) fn color_secondary<T: ::std::fmt::Display>(value: T) -> Paint<T> {
-    Paint::blue(value).bold()
-}
+pub(crate) fn color_secondary<T: Display>(value: T) -> Paint<T> { Paint::blue(value).bold() }
 
-pub(crate) fn color_tertiary<T: ::std::fmt::Display>(value: T) -> Paint<T> {
-    Paint::magenta(value).bold()
-}
+pub(crate) fn color_tertiary<T: Display>(value: T) -> Paint<T> { Paint::magenta(value).bold() }
