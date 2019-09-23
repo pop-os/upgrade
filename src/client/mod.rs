@@ -39,6 +39,7 @@ pub struct RepoCompatError {
 
 /// A signal received by the daemon.
 pub enum Signal {
+    NoConnection,
     PackageFetchResult(Status),
     PackageFetched(FetchStatus),
     PackageFetching(Box<str>),
@@ -129,6 +130,7 @@ impl Client {
         Connection::get_private(BusType::System).map_err(Error::Connection).and_then(|bus| {
             {
                 let bus = &bus;
+                add_match(bus, signals::NO_CONNECTION)?;
                 add_match(bus, signals::PACKAGE_FETCH_RESULT)?;
                 add_match(bus, signals::PACKAGE_FETCHED)?;
                 add_match(bus, signals::PACKAGE_FETCHING)?;
@@ -327,6 +329,7 @@ impl Client {
                 }
             } else if let Some(signal) = filter_signal(item) {
                 let signal = match &*signal.member().unwrap() {
+                    signals::NO_CONNECTION => Signal::NoConnection,
                     signals::PACKAGE_FETCH_RESULT => signal
                         .read2::<u8, String>()
                         .map(|(status, why)| Status { status, why: why.into() })

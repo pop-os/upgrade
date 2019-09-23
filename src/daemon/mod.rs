@@ -302,6 +302,8 @@ impl Daemon {
                 .consume(),
         );
 
+        let no_connection = Arc::new(dbus_factory.signal(signals::NO_CONNECTION).consume());
+
         let recovery_download_progress = Arc::new(
             dbus_factory
                 .signal(signals::RECOVERY_DOWNLOAD_PROGRESS)
@@ -367,6 +369,7 @@ impl Daemon {
             .add_s(fetch_result.clone())
             .add_s(fetched_package.clone())
             .add_s(fetching_package.clone())
+            .add_s(no_connection.clone())
             .add_s(recovery_download_progress.clone())
             .add_s(recovery_event.clone())
             .add_s(recovery_result.clone())
@@ -421,6 +424,7 @@ impl Daemon {
                         SignalEvent::Fetching(name) => {
                             Self::signal_message(&fetching_package).append1(name.as_str())
                         }
+                        SignalEvent::NoConnection => Self::signal_message(&no_connection),
                         SignalEvent::RecoveryDownloadProgress(progress, total) => {
                             Self::signal_message(&recovery_download_progress)
                                 .append2(progress, total)

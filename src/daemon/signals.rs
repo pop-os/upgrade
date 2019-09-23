@@ -22,11 +22,14 @@ pub const RELEASE_RESULT: &str = "ReleaseUpgradeResult";
 
 pub const REPO_COMPAT_ERROR: &str = "RepoCompatError";
 
+pub const NO_CONNECTION: &str = "NoConnection";
+
 #[derive(Debug)]
 pub enum SignalEvent {
     FetchResult(Result<(), ReleaseError>),
     Fetched(String, u32, u32),
     Fetching(String),
+    NoConnection,
     RecoveryDownloadProgress(u64, u64),
     RecoveryUpgradeEvent(RecoveryEvent),
     RecoveryUpgradeResult(Result<(), RecoveryError>),
@@ -44,6 +47,7 @@ impl Display for SignalEvent {
                 write!(fmt, "fetched {}/{}: {}", progress, total, package)
             }
             Fetching(package) => write!(fmt, "fetching {}", package),
+            NoConnection => write!(fmt, "internet connection required, but not available"),
             RecoveryDownloadProgress(progress, total) => {
                 write!(fmt, "recovery download: {}/{} MiB", progress / 1024, total / 1024)
             }
