@@ -1,8 +1,10 @@
+pub mod methods;
+pub mod signals;
+
 mod dbus_helper;
 mod error;
-pub mod methods;
 mod runtime;
-pub mod signals;
+mod sighandler;
 mod status;
 
 pub use self::{
@@ -274,8 +276,7 @@ impl Daemon {
 
     pub fn init() -> Result<(), DaemonError> {
         info!("initializing daemon");
-        // TODO: Enable when ready
-        // signal_handler::init();
+        sighandler::init();
         let factory = Factory::new_fn::<()>();
 
         let dbus_factory = DbusFactory::new(&factory);
@@ -395,6 +396,24 @@ impl Daemon {
 
         loop {
             connection.incoming(1000).next();
+
+            if let Some(status) = sighandler::status() {
+                info!("received a '{}' signal", status);
+
+                use sighandler::Signal::*;
+
+                match status {
+                    Terminate => {
+                        info!("terminating daemon");
+                        break Ok(());
+                    }
+                    TermStop => {
+                        info!("stopping daemon");
+                        break Ok(());
+                    }
+                    _ => (),
+                }
+            }
 
             while let Ok(dbus_event) = receiver.try_recv() {
                 Self::send_signal_message(&connection, {
