@@ -22,7 +22,6 @@ pub mod release_api;
 pub mod release_architecture;
 pub mod repair;
 pub mod repos;
-mod signal_handler;
 pub mod system_environment;
 
 pub static DBUS_NAME: &str = "com.system76.PopUpgrade";
