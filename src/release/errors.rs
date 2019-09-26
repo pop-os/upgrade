@@ -23,6 +23,8 @@ pub enum ReleaseError {
     FixBroken(io::Error),
     #[error(display = "failed to hold the pop-upgrade package: {}", _0)]
     HoldPopUpgrade(io::Error),
+    #[error(display = "unable to hold apt/dpkg lock files: {}", _0)]
+    Lock(io::Error),
     #[error(display = "failure to overwrite release files: {}", _0)]
     Overwrite(DistUpgradeError),
     #[error(display = "root is required for this action: rerun with `sudo`")]
