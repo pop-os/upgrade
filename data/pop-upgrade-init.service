@@ -2,7 +2,7 @@
 Description=Execute system updates early in the boot process
 DefaultDependencies=no
 Requires=sysinit.target dbus.socket
-After=sysinit.target dbus.socket systemd-journald.socket
+After=sysinit.target dbus.socket systemd-journald.socket plymouth-start.service
 Before=shutdown.target system-update.target
 
 [Service]
