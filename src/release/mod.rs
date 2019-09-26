@@ -6,7 +6,13 @@ use apt_fetcher::{
 };
 use envfile::EnvFile;
 use futures::{stream, Future, Stream};
-use std::{collections::HashSet, fs, os::unix::fs::symlink, path::Path, sync::Arc};
+use std::{
+    collections::HashSet,
+    fs::{self, File},
+    os::unix::fs::symlink,
+    path::Path,
+    sync::Arc,
+};
 use systemd_boot_conf::SystemdBootConf;
 
 use crate::{
@@ -26,6 +32,8 @@ const REQUIRED_PPAS: &[&str] = &[
 ];
 
 const CORE_PACKAGES: &[&str] = &["pop-desktop"];
+const DPKG_LOCK: &str = "/var/lib/dpkg/lock";
+const LISTS_LOCK: &str = "/var/lib/apt/lists/lock";
 const RELEASE_FETCH_FILE: &str = "/pop_preparing_release_upgrade";
 const STARTUP_UPGRADE_FILE: &str = "/pop-upgrade";
 const SYSTEM_UPDATE: &str = "/system-update";
@@ -185,6 +193,7 @@ impl<'a> DaemonRuntime<'a> {
         func: Arc<dyn Fn(FetchEvent) + Send + Sync>,
     ) -> RelResult<()> {
         (*func)(FetchEvent::Init(uris.len()));
+        let _lock_files = hold_apt_locks()?;
         let func2 = func.clone();
 
         let client = self.client.clone();
@@ -549,6 +558,12 @@ pub fn cleanup() {
     }
 
     let _ = fs::remove_file(SYSTEM_UPDATE);
+}
+
+fn hold_apt_locks() -> RelResult<(File, File)> {
+    File::open(LISTS_LOCK)
+        .and_then(|lists| File::open(DPKG_LOCK).map(|dpkg| (lists, dpkg)))
+        .map_err(ReleaseError::Lock)
 }
 
 fn recovery_prereq() -> RelResult<()> {
