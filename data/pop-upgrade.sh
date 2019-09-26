@@ -93,46 +93,33 @@ attempt_repair () {
     fi
 }
 
+# Attempts the upgrade the system, and if the upgrade fails, tries to repair it.
 attempt_upgrade () {
     message -i "Installing Updates (0%)"
     touch $1
+    
     apt-mark hold pop-upgrade
+
     if upgrade || attempt_repair; then
-        rm /pop-upgrade /system-update /pop_preparing_release_upgrade
+        rm -rf /pop-upgrade /system-update /pop_preparing_release_upgrade $1
         message -i "Upgrade complete. Now autoremoving old packages"
         sudo apt-get autoremove -y
         efi_rename
         message -i "Now rebooting"
-        sleep 6
-        status=0
     else
-        message -f "Upgrade failed. Dropping to a shell for recovery"
-        sleep 6
-        status=1
+        message -f "Upgrade failed. Restarting the system to try again"
     fi
 
     apt-mark unhold pop-upgrade
 }
 
+ATTEMPTED=/upgrade-attempted
+
 plymouth message --text="system-updates"
 
-FIRST_ATTEMPT=/upgrade-attempt1
-SECOND_ATTEMPT=/upgrade-attempt2
-
-if test -f $FIRST_ATTEMPT; then
-    rm /pop_upgrade.log
-    message -i "System rebooted without completing the upgrade. Trying a second time"
-    rm $FIRST_ATTEMPT
-    sleep 6
-    attempt_upgrade $SECOND_ATTEMPT
-elif test -f $SECOND_ATTEMPT; then
-    message -i "System failed to upgrade. Bailing on upgrade attempt."
-    rm /pop-upgrade /system-update /pop_preparing_release_upgrade $SECOND_ATTEMPT
-    sleep 6
-else
-    attempt_upgrade $FIRST_ATTEMPT
-fi
+test -e $ATTEMPTED && (message -i "System rebooted before upgrade was completed. Trying again"; sleep 6)
+attempt_upgrade $ATTEMPTED
+sleep 6
 
 plymouth message --text="system-updates-stop"
-
 systemctl reboot
