@@ -3,6 +3,8 @@
 export DEBIAN_FRONTEND="noninteractive"
 
 message () {
+    plymouth message --text="system-updates"
+
     test "$1" = "-i" && {
         plymouth message --text="$2"
     }
@@ -114,8 +116,6 @@ attempt_upgrade () {
 }
 
 ATTEMPTED=/upgrade-attempted
-
-plymouth message --text="system-updates"
 
 test -e $ATTEMPTED && (message -i "System rebooted before upgrade was completed. Trying again"; sleep 6)
 attempt_upgrade $ATTEMPTED
