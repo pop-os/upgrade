@@ -222,6 +222,7 @@ impl<'a> DaemonRuntime<'a> {
         current: &str,
         new: &str,
     ) -> Result<Upgrader<'b>, ReleaseError> {
+        let _lock_files = hold_apt_locks()?;
         let current = current
             .parse::<Version>()
             .map(Codename::from)
