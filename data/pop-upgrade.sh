@@ -104,10 +104,15 @@ attempt_upgrade () {
 
     if upgrade || attempt_repair; then
         rm -rf /pop-upgrade /system-update /pop_preparing_release_upgrade $1
+
         message -i "Upgrade complete. Now autoremoving old packages"
         sudo apt-get autoremove -y
+
+        message -i "Upgrade complete. Updating initramfs for all kernels"
+        update-initramfs -c -k all
+
         efi_rename
-        message -i "Now rebooting"
+        message -i "Upgrade complete. Now rebooting"
     else
         message -f "Upgrade failed. Restarting the system to try again"
     fi
