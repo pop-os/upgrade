@@ -12,8 +12,7 @@ use pop_upgrade::{
     recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags},
     release::{RefreshOp, UpgradeEvent, UpgradeMethod},
 };
-use promptly::Promptable;
-use std::io::{self, Write};
+use std::io::{self, BufRead, Write};
 use yansi::Paint;
 
 const FETCH_RESULT_STR: &str = "Package fetch status";
@@ -384,7 +383,7 @@ impl Client {
 
                         let prompt = format!("    {} y/N", color_primary("Try again?"));
 
-                        if <Option<bool>>::prompt(prompt).unwrap_or(false) {
+                        if prompt_message(&prompt, false) {
                             *recall = true;
                         } else {
                             return Ok(client::Continue(false));
@@ -416,7 +415,7 @@ impl Client {
                                 color_tertiary(url)
                             );
 
-                            (url, <Option<bool>>::prompt(prompt).unwrap_or(false))
+                            (url, prompt_message(&prompt, false))
                         });
 
                         client.repo_modify(repos)?;
@@ -488,4 +487,48 @@ fn log_result(
             Paint::wrapping(inner.as_str())
         }
     );
+}
+
+// Write a prompt to the terminal, and wait for an answer.
+fn prompt_message(message: &str, default: bool) -> bool {
+    let stdin = io::stdin();
+    let mut stdin = stdin.lock();
+
+    let stdout = io::stdout();
+    let mut stdout = stdout.lock();
+
+    let answer = &mut String::with_capacity(16);
+
+    enum Answer {
+        Continue,
+        Break(bool),
+    }
+
+    let mut display_prompt = move || -> io::Result<Answer> {
+        answer.clear();
+
+        stdout.write_all(message.as_bytes())?;
+        stdout.flush()?;
+
+        stdin.read_line(answer)?;
+
+        if answer.is_empty() {
+            return Ok(Answer::Break(default));
+        } else if answer.starts_with('y') || answer.starts_with('Y') || answer == "true" {
+            return Ok(Answer::Break(true));
+        } else if answer.starts_with('n') || answer.starts_with('N') || answer == "false" {
+            return Ok(Answer::Break(false));
+        }
+
+        stdout.write_all(b"The answer must be either `y` or `n`.\n")?;
+        Ok(Answer::Continue)
+    };
+
+    loop {
+        match display_prompt() {
+            Ok(Answer::Continue) => continue,
+            Ok(Answer::Break(answer)) => break answer,
+            Err(_why) => break default,
+        }
+    }
 }
