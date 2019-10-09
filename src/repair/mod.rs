@@ -1,7 +1,9 @@
 pub mod fstab;
+pub mod misc;
 pub mod sources;
 
 use self::{fstab::FstabError, sources::SourcesError};
+use std::io;
 use ubuntu_version::{Codename, Version, VersionError};
 
 #[derive(Debug, Error)]
@@ -12,8 +14,10 @@ pub enum RepairError {
     InvalidVersion(String),
     #[error(display = "failed to fetch release versions: {}", _0)]
     ReleaseVersion(VersionError),
-    #[error(display = "error checkig and fixing sources: {}", _0)]
+    #[error(display = "error checking and fixing sources: {}", _0)]
     Sources(SourcesError),
+    #[error(display = "unable to apply dkms gcc9 fix: {}", _0)]
+    DkmsGcc9(io::Error),
 }
 
 pub fn repair() -> Result<(), RepairError> {
@@ -24,4 +28,8 @@ pub fn repair() -> Result<(), RepairError> {
     sources::repair(codename).map_err(RepairError::Sources)?;
 
     Ok(())
+}
+
+pub fn pre_upgrade() -> Result<(), RepairError> {
+    misc::dkms_gcc9_fix().map_err(RepairError::DkmsGcc9)
 }
