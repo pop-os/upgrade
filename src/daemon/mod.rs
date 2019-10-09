@@ -520,7 +520,7 @@ impl Daemon {
     ///
     /// Only applicable for LTS releases.
     fn dismiss_notification(&self) -> Result<(), String> {
-        let status = self.release_check()?;
+        let status = self.release_check(false)?;
         if status.is_lts() && status.build.is_ok() {
             fs::write(DISMISSED, status.next.as_bytes()).map_err(|why| {
                 format!("failed to write '{}' to '{}': {}", status.next, DISMISSED, why)
@@ -619,10 +619,10 @@ impl Daemon {
         crate::release::refresh_os(flag).map_err(|why| format!("{}", why))
     }
 
-    fn release_check(&self) -> Result<ReleaseStatus, String> {
+    fn release_check(&self, development: bool) -> Result<ReleaseStatus, String> {
         info!("performing a release check");
 
-        let status = release::check().map_err(|why| format!("{}", why))?;
+        let status = release::check(development).map_err(|why| format!("{}", why))?;
         let mut buffer = String::new();
 
         info!(
