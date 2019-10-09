@@ -330,6 +330,9 @@ impl<'a> DaemonRuntime<'a> {
         apt_install(CORE_PACKAGES, |ready| lock_or(ready, UpgradeEvent::InstallingPackages))
             .map_err(ReleaseError::InstallCore)?;
 
+        // Apply any fixes necessary before the upgrade.
+        repair::pre_upgrade().map_err(ReleaseError::PreUpgrade)?;
+
         // Update the source lists to the new release,
         // then fetch the packages required for the upgrade.
         let mut upgrader = self.fetch_new_release_packages(logger, retain, fetch, from, to)?;
