@@ -104,8 +104,8 @@ impl ReleaseStatus {
     pub fn is_lts(&self) -> bool { self.is_lts }
 }
 
-pub fn check() -> Result<ReleaseStatus, VersionError> {
-    find_next_release(Version::detect, Release::build_exists)
+pub fn check(development: bool) -> Result<ReleaseStatus, VersionError> {
+    find_next_release(development, Version::detect, Release::build_exists)
 }
 
 pub fn check_current(version: Option<&str>) -> Option<(String, u16)> {
@@ -616,6 +616,7 @@ fn find_current_release(
 }
 
 fn find_next_release(
+    development: bool,
     version_detect: fn() -> Result<Version, VersionError>,
     release_exists: fn(&str, &str) -> Result<u16, ApiError>,
 ) -> Result<ReleaseStatus, VersionError> {
@@ -627,12 +628,29 @@ fn find_next_release(
     if available.is_ok() {
         let mut next_next = next.next_release();
         let mut next_next_str = format_version(next_next);
-        while let Ok(build) = release_exists(&next_next_str, "intel") {
-            available = Ok(build);
-            next = next_next;
-            next_str = next_next_str;
-            next_next = next.next_release();
-            next_next_str = format_version(next_next);
+
+        let mut last_build_status = release_exists(&next_next_str, "intel");
+
+        loop {
+            if let Ok(build) = last_build_status {
+                available = Ok(build);
+                next = next_next;
+                next_str = next_next_str;
+                next_next = next.next_release();
+                next_next_str = format_version(next_next);
+            } else if development {
+                // If the next release is available, then the development
+                // release is the release after the last available release.
+                next = next.next_release();
+                next_str = format_version(next);
+                available = last_build_status;
+
+                break;
+            } else {
+                break;
+            }
+
+            last_build_status = release_exists(&next_next_str, "intel");
         }
     }
 
@@ -674,17 +692,20 @@ mod tests {
 
     #[test]
     fn release_check() {
-        let mut status = find_next_release(v1804, releases_up_to_1910).unwrap();
-        assert!("19.10" == status.next.as_ref() && status.build.is_ok());
+        let mut status = find_next_release(false, v1804, releases_up_to_1910).unwrap();
+        assert!("19.10" == dbg!(status.next.as_ref()) && status.build.is_ok());
 
-        status = find_next_release(v1810, releases_up_to_1910).unwrap();
-        assert!("19.10" == status.next.as_ref() && status.build.is_ok());
+        status = find_next_release(false, v1810, releases_up_to_1910).unwrap();
+        assert!("19.10" == dbg!(status.next.as_ref()) && status.build.is_ok());
 
-        status = find_next_release(v1810, releases_up_to_1904).unwrap();
-        assert!("19.04" == status.next.as_ref() && status.build.is_ok());
+        status = find_next_release(false, v1810, releases_up_to_1904).unwrap();
+        assert!("19.04" == dbg!(status.next.as_ref()) && status.build.is_ok());
 
-        status = find_next_release(v1904, releases_up_to_1904).unwrap();
-        assert!("19.10" == status.next.as_ref() && !status.build.is_ok());
+        status = find_next_release(false, v1904, releases_up_to_1904).unwrap();
+        assert!("19.10" == dbg!(status.next.as_ref()) && !status.build.is_ok());
+
+        status = find_next_release(true, v1804, releases_up_to_1910).unwrap();
+        assert!("20.04" == dbg!(status.next.as_ref()) && !status.build.is_ok());
     }
 
     #[test]

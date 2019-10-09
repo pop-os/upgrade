@@ -365,7 +365,7 @@ fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
     if release::upgrade_in_progress() {
         upgrade_text = Cow::Borrowed("Pop!_OS is currently downloading.");
     } else {
-        if let Ok(info) = client.release_check() {
+        if let Ok(info) = client.release_check(false) {
             if info.build > 0 {
                 info!("upgrade from {} to {} is available", info.current, info.next);
 

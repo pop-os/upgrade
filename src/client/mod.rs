@@ -242,8 +242,8 @@ impl Client {
     /// Check the current release information
     ///
     /// Used to determine if a release upgrade is available.
-    pub fn release_check(&self) -> Result<ReleaseInfo, Error> {
-        self.call_method(methods::RELEASE_CHECK, |m| m)?
+    pub fn release_check(&self, development: bool) -> Result<ReleaseInfo, Error> {
+        self.call_method(methods::RELEASE_CHECK, |m| m.append1(development))?
             .read4::<&str, &str, i16, bool>()
             .map_err(|why| Error::ArgumentMismatch(methods::RELEASE_CHECK, why))
             .map(|(current, next, build, is_lts)| ReleaseInfo {

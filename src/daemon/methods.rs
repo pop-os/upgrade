@@ -194,8 +194,9 @@ pub fn release_check(
     daemon: Rc<RefCell<Daemon>>,
     dbus_factory: &DbusFactory,
 ) -> Method<MTFn<()>, ()> {
-    let method = dbus_factory.method(RELEASE_CHECK, move |_message| {
-        daemon.borrow_mut().release_check().map(|status| {
+    let method = dbus_factory.method(RELEASE_CHECK, move |message| {
+        let development = message.read1().map_err(|why| format!("{}", why))?;
+        daemon.borrow_mut().release_check(development).map(|status| {
             let is_lts = status.is_lts();
             vec![
                 String::from(status.current).into(),

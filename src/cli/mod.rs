@@ -69,7 +69,7 @@ impl Client {
         match matches.subcommand() {
             ("check", _) => {
                 let mut buffer = String::new();
-                let (current, next, available, is_lts) = self.release_check()?;
+                let (current, next, available, is_lts) = self.release_check(false)?;
 
                 println!(
                     "      Current Release: {}\n         Next Release: {}\nNew Release Available: \
@@ -101,10 +101,11 @@ impl Client {
                     _ => unreachable!(),
                 };
 
-                let (current, next, available, _is_lts) = self.release_check()?;
+                let forcing = matches.is_present("force-next");
+                let (current, next, available, _is_lts) = self.release_check(forcing)?;
 
                 // Only upgrade if an upgrade is possible, or if being forced to upgrade.
-                if matches.is_present("force-next") || available >= 0 {
+                if forcing || available >= 0 {
                     // Before doing a release upgrade with the recovery partition, ensure that
                     // the recovery partition has been updated in advance.
                     if let UpgradeMethod::Recovery = method {
@@ -185,8 +186,11 @@ impl Client {
         Ok(())
     }
 
-    fn release_check<'a>(&self) -> Result<(Box<str>, Box<str>, i16, bool), client::Error> {
-        let info = self.0.release_check()?;
+    fn release_check<'a>(
+        &self,
+        force_next: bool,
+    ) -> Result<(Box<str>, Box<str>, i16, bool), client::Error> {
+        let info = self.0.release_check(force_next)?;
 
         Ok((info.current, info.next, info.build, info.is_lts))
     }
