@@ -31,7 +31,7 @@ const REQUIRED_PPAS: &[&str] = &[
     "apt.pop-os.org/proprietary",
 ];
 
-const CORE_PACKAGES: &[&str] = &["pop-desktop"];
+const CORE_PACKAGES: &[&str] = &["linux-generic", "pop-desktop"];
 const DPKG_LOCK: &str = "/var/lib/dpkg/lock";
 const LISTS_LOCK: &str = "/var/lib/apt/lists/lock";
 const RELEASE_FETCH_FILE: &str = "/pop_preparing_release_upgrade";
