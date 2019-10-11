@@ -102,14 +102,14 @@ attempt_upgrade () {
     
     apt-mark hold pop-upgrade
 
-    if upgrade || attempt_repair; then
+    if (upgrade || attempt_repair) && apt upgrade -y --no-download --ignore-missing; then
         rm -rf /pop-upgrade /system-update /pop_preparing_release_upgrade $1
 
         message -i "Upgrade complete. Removing old kernels"
         apt remove linux-image-*hwe*
 
         message -i "Upgrade complete. Now autoremoving old packages"
-        sudo apt-get autoremove -y
+        apt-get autoremove -y
 
         message -i "Upgrade complete. Updating initramfs for all kernels"
         update-initramfs -c -k all
