@@ -73,6 +73,12 @@ pub enum ReleaseError {
     #[error(display = "attempted recovery-based upgrade method, but the systemd boot loader was \
                        not found")]
     SystemdBootLoaderNotFound,
+    #[error(display = "failed to get transitional snap packages: {}", _0)]
+    TransitionalSnapFetch(io::Error),
+    #[error(display = "failed to hold transitional snap package: {}", _0)]
+    TransitionalSnapHold(io::Error),
+    #[error(display = "failed to record held transitional snap packages: {}", _0)]
+    TransitionalSnapRecord(io::Error),
     #[error(display = "recovery entry not found in systemd-boot loader config")]
     MissingRecoveryEntry,
 }

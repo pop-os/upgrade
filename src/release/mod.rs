@@ -1,4 +1,5 @@
 mod errors;
+mod snapd;
 
 use apt_fetcher::{
     apt_uris::{apt_uris, AptUri},
@@ -411,16 +412,6 @@ impl<'a> DaemonRuntime<'a> {
         logger: &dyn Fn(UpgradeEvent),
         fetch: Arc<dyn Fn(FetchEvent) + Send + Sync>,
     ) -> RelResult<()> {
-        info!("updated the package lists for the new relaese");
-        apt_update(|ready| {
-            (*logger)(if ready {
-                UpgradeEvent::UpdatingPackageLists
-            } else {
-                UpgradeEvent::AptFilesLocked
-            })
-        })
-        .map_err(ReleaseError::ReleaseUpdate)?;
-
         info!("fetching packages for the new release");
         (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
         let uris = apt_uris(&["full-upgrade"]).map_err(ReleaseError::AptList)?;
@@ -442,6 +433,18 @@ impl<'a> DaemonRuntime<'a> {
     ) -> RelResult<Upgrader<'b>> {
         (*logger)(UpgradeEvent::UpdatingSourceLists);
         let mut upgrader = self.release_upgrade(retain, &current, &next)?;
+
+        info!("updated the package lists for the new relaese");
+        apt_update(|ready| {
+            (*logger)(if ready {
+                UpgradeEvent::UpdatingPackageLists
+            } else {
+                UpgradeEvent::AptFilesLocked
+            })
+        })
+        .map_err(ReleaseError::ReleaseUpdate)?;
+
+        snapd::hold_transitional_packages()?;
 
         match self.attempt_fetch(logger, fetch) {
             Ok(_) => info!("packages fetched successfully"),
@@ -562,6 +565,16 @@ pub fn cleanup() {
     }
 
     let _ = fs::remove_file(SYSTEM_UPDATE);
+
+    if Path::new(crate::TRANSITIONAL_SNAPS).exists() {
+        if let Ok(packages) = fs::read_to_string(crate::TRANSITIONAL_SNAPS) {
+            for package in packages.lines() {
+                let _ = apt_unhold(&*package);
+            }
+        }
+
+        let _ = fs::remove_file(crate::TRANSITIONAL_SNAPS);
+    }
 }
 
 fn hold_apt_locks() -> RelResult<(File, File)> {

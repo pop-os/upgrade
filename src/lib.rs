@@ -27,3 +27,6 @@ pub mod system_environment;
 pub static DBUS_NAME: &str = "com.system76.PopUpgrade";
 pub static DBUS_PATH: &str = "/com/system76/PopUpgrade";
 pub static DBUS_IFACE: &str = "com.system76.PopUpgrade";
+
+pub const VAR_LIB_DIR: &str = "/var/lib/pop-upgrade";
+pub const TRANSITIONAL_SNAPS: &str = "/var/lib/pop-upgrade/transitional_snaps";
