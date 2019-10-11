@@ -105,6 +105,9 @@ attempt_upgrade () {
     if upgrade || attempt_repair; then
         rm -rf /pop-upgrade /system-update /pop_preparing_release_upgrade $1
 
+        message -i "Upgrade complete. Removing old kernels"
+        apt remove linux-image-*hwe*
+
         message -i "Upgrade complete. Now autoremoving old packages"
         sudo apt-get autoremove -y
 
