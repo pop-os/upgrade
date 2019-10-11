@@ -1,4 +1,5 @@
 use dbus;
+use std::io;
 
 #[derive(Debug, Error)]
 pub enum DaemonError {
@@ -8,4 +9,6 @@ pub enum DaemonError {
     RegisterName(dbus::Error),
     #[error(display = "failed to register object paths in the dbus tree: {}", _0)]
     TreeRegister(dbus::Error),
+    #[error(display = "failure to create {}: {}", _0, _1)]
+    VarLibDirectory(&'static str, io::Error),
 }
