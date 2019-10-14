@@ -195,23 +195,40 @@ impl<'a> DaemonRuntime<'a> {
     ) -> RelResult<()> {
         (*func)(FetchEvent::Init(uris.len()));
         let _lock_files = hold_apt_locks()?;
-        let func2 = func.clone();
 
-        let client = self.client.clone();
-        let stream_of_downloads = stream::iter_ok(uris);
-        let buffered_stream = stream_of_downloads
-            .map(move |uri| {
-                func(FetchEvent::Fetching(uri.clone()));
-                uri.fetch(&client)
-            })
-            .buffer_unordered(8)
-            .for_each(move |uri| {
-                func2(FetchEvent::Fetched(uri.clone()));
-                Ok(())
-            })
-            .map_err(|(uri, why)| ReleaseError::PackageFetch(uri.name, uri.uri, why));
+        // Try to download packages until three attempts have failed.
+        let mut tries = 0;
 
-        self.runtime.block_on(buffered_stream).map(|_| ())
+        loop {
+            let func1 = func.clone();
+            let func2 = func.clone();
+
+            let client = self.client.clone();
+            let stream_of_downloads = stream::iter_ok(uris.clone());
+            let buffered_stream = stream_of_downloads
+                .map(move |uri| {
+                    func1(FetchEvent::Fetching(uri.clone()));
+                    uri.fetch(&client)
+                })
+                .buffer_unordered(8)
+                .for_each(move |uri| {
+                    func2(FetchEvent::Fetched(uri.clone()));
+                    Ok(())
+                })
+                .map_err(|(uri, why)| ReleaseError::PackageFetch(uri.name, uri.uri, why));
+
+            match self.runtime.block_on(buffered_stream) {
+                Ok(_) => break Ok(()),
+                Err(why) => {
+                    tries += 1;
+                    if tries == 3 {
+                        break Err(why);
+                    }
+
+                    eprintln!("retrying apt fetching after error occurred: {}", why);
+                }
+            }
+        }
     }
 
     /// Check if release files can be upgraded, and then overwrite them with the new release.
