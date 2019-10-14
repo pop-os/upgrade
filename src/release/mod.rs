@@ -307,6 +307,8 @@ impl<'a> DaemonRuntime<'a> {
         fetch: Arc<dyn Fn(FetchEvent) + Send + Sync>,
         upgrade: &dyn Fn(AptUpgradeEvent),
     ) -> RelResult<()> {
+        self.terminate_background_applications();
+
         // Check the system and perform any repairs necessary for success.
         repair::repair().map_err(ReleaseError::Repair)?;
 
@@ -387,6 +389,27 @@ impl<'a> DaemonRuntime<'a> {
             UpgradeMethod::Recovery => {
                 (*logger)(UpgradeEvent::AttemptingRecovery);
                 set_recovery_as_default_boot_option("UPGRADE").map(|_| ())
+            }
+        }
+    }
+
+    /// Search for any active processes which are incompatible with the upgrade daemon,
+    /// and terminate them.
+    fn terminate_background_applications(&mut self) {
+        // The appcenter may fight for control over dpkg locks, and display
+        // notifications.
+        const APPCENTER: &str = "io.elementary.appcenter";
+
+        for proc in procfs::all_processes() {
+            if let Ok(exe_path) = proc.exe() {
+                if let Some(exe) = exe_path.file_name() {
+                    if exe == APPCENTER {
+                        eprintln!("killing {}", APPCENTER);
+                        unsafe {
+                            let _ = libc::kill(proc.pid(), libc::SIGKILL);
+                        }
+                    }
+                }
             }
         }
     }
