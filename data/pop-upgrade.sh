@@ -2,6 +2,9 @@
 
 export DEBIAN_FRONTEND="noninteractive"
 
+# Prevent apt sources from being reverted once this script launches
+rm -rf /pop-upgrade /pop_preparing_release_upgrade
+
 message () {
     plymouth message --text="system-updates"
 
@@ -68,6 +71,8 @@ upgrade () {
             elif test "Processing triggers for" = "$(echo ${line} | cut -c-23)"; then
                 package=$(echo $line | awk '{print $4}')
                 message -i "$prefix: Processing triggers for $package ..."
+            else
+                echo $line
             fi
         done
 
@@ -101,9 +106,10 @@ attempt_upgrade () {
     touch $1
     
     apt-mark hold pop-upgrade
+    systemctl mask acpid pop-upgrade
 
-    if (upgrade || attempt_repair) && apt upgrade -y --no-download --ignore-missing; then
-        rm -rf /pop-upgrade /system-update /pop_preparing_release_upgrade $1
+    if (upgrade || attempt_repair) && apt upgrade -y --allow-downgrades --no-download --ignore-missing; then
+        rm -rf  /system-update $1
 
         message -i "Upgrade complete. Removing old kernels"
         apt remove linux-image-*hwe*
@@ -121,6 +127,7 @@ attempt_upgrade () {
     fi
 
     apt-mark unhold pop-upgrade
+    systemctl unmask acpid pop-upgrade
 }
 
 ATTEMPTED=/upgrade-attempted
@@ -130,4 +137,5 @@ attempt_upgrade $ATTEMPTED
 sleep 6
 
 plymouth message --text="system-updates-stop"
+sync
 systemctl reboot
