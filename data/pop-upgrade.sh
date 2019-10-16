@@ -51,6 +51,8 @@ upgrade () {
 
     # Watch progress of an update, and report it to the splash screen
     env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
+        -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confold" \
         full-upgrade -y --allow-downgrades --show-progress \
         --no-download --ignore-missing | while read -r line; do
             if test "Progress: [" = "$(echo ${line} | cut -c-11)"; then
