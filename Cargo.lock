@@ -42,7 +42,7 @@ dependencies = [
 [[package]]
 name = "apt-fetcher"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/apt-fetcher#b190ca8796ee0c5efccdd3275a5a8a2693fc499a"
+source = "git+https://github.com/pop-os/apt-fetcher#3b19545a12a4b402c5d2252ecd2de8353b5965d5"
 dependencies = [
  "apt-keyring 0.1.0 (git+https://github.com/pop-os/apt-keyring)",
  "apt-release-file 0.1.1 (git+https://github.com/pop-os/apt-release-file)",

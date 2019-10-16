@@ -54,7 +54,7 @@ pub const DISMISSED: &str = "/usr/lib/pop-upgrade/dismissed";
 
 #[derive(Debug)]
 pub enum Event {
-    FetchUpdates { apt_uris: Vec<AptUri>, download_only: bool },
+    FetchUpdates { apt_uris: HashSet<AptUri>, download_only: bool },
     PackageUpgrade,
     RecoveryUpgrade(RecoveryUpgradeMethod),
     ReleaseUpgrade { how: ReleaseUpgradeMethod, from: String, to: String },
@@ -533,7 +533,7 @@ impl Daemon {
         Ok(())
     }
 
-    fn fetch_apt_uris(args: &[String]) -> Result<Vec<AptUri>, String> {
+    fn fetch_apt_uris(args: &[String]) -> Result<HashSet<AptUri>, String> {
         apt_uris(&["full-upgrade"])
             .and_then(|mut upgrades| {
                 if args.is_empty() {
@@ -547,9 +547,10 @@ impl Daemon {
                     targs
                 };
 
-                let uris = apt_uris(&args)?;
+                for uri in apt_uris(&args)? {
+                    upgrades.insert(uri);
+                }
 
-                upgrades.extend_from_slice(&uris);
                 Ok(upgrades)
             })
             .map_err(|why| format!("unable to fetch apt URIs: {}", why))

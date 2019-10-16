@@ -190,7 +190,7 @@ impl<'a> DaemonRuntime<'a> {
     /// Get a list of APT URIs to fetch for this operation, and then fetch them.
     pub fn apt_fetch(
         &mut self,
-        uris: Vec<AptUri>,
+        uris: HashSet<AptUri>,
         func: Arc<dyn Fn(FetchEvent) + Send + Sync>,
     ) -> RelResult<()> {
         (*func)(FetchEvent::Init(uris.len()));
@@ -331,14 +331,16 @@ impl<'a> DaemonRuntime<'a> {
         let mut uris = apt_uris(&["full-upgrade"]).map_err(ReleaseError::AptList)?;
 
         // Also include the packages which we must have installed.
-        uris.extend_from_slice(
-            &apt_uris(&{
-                let mut args = vec!["install"];
-                args.extend_from_slice(CORE_PACKAGES);
-                args
-            })
-            .map_err(ReleaseError::AptList)?,
-        );
+        let install_uris = apt_uris(&{
+            let mut args = vec!["install"];
+            args.extend_from_slice(CORE_PACKAGES);
+            args
+        })
+        .map_err(ReleaseError::AptList)?;
+
+        for uri in install_uris {
+            uris.insert(uri);
+        }
 
         self.apt_fetch(uris, fetch.clone())?;
 
