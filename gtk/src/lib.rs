@@ -407,11 +407,12 @@ fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
     let upgrade_text = if release::upgrade_in_progress() {
         Cow::Borrowed("Pop!_OS is currently downloading.")
     } else {
-        match client.release_check(false) {
+        let devel = pop_upgrade::development_releases_enabled();
+        match client.release_check(devel) {
             Ok(info) => {
                 is_lts = info.is_lts;
                 eprintln!("info.build = {}", info.build);
-                if info.build >= 0 {
+                if devel || info.build >= 0 {
                     info!("upgrade from {} to {} is available", info.current, info.next);
 
                     let upgrade_text = Cow::Owned(format!("Pop!_OS {} is available.", info.next));
