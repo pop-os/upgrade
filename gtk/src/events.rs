@@ -50,6 +50,7 @@ pub enum CompletedEvent {
         is_lts:        bool,
         refresh:       bool,
         status_failed: bool,
+        reboot_ready:  bool,
         upgrade_text:  Box<str>,
         upgrade:       Option<ReleaseInfo>,
     },
