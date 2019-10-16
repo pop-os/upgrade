@@ -407,7 +407,7 @@ fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
     let upgrade_text = if release::upgrade_in_progress() {
         Cow::Borrowed("Pop!_OS is currently downloading.")
     } else {
-        match client.release_check(false) {
+        match client.release_check(pop_upgrade::development_releases_enabled()) {
             Ok(info) => {
                 is_lts = info.is_lts;
                 eprintln!("info.build = {}", info.build);
