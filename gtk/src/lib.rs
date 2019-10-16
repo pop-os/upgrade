@@ -27,11 +27,12 @@ use pop_upgrade::{
     client::{self, Client, ReleaseInfo, Signal, Status},
     daemon::DaemonStatus,
     recovery::ReleaseFlags,
-    release::{self, RefreshOp, UpgradeEvent, UpgradeMethod},
+    release::{self, RefreshOp, UpgradeEvent, UpgradeMethod, STARTUP_UPGRADE_FILE},
 };
 use std::{
     borrow::Cow,
     cell::RefCell,
+    path::Path,
     process::Command,
     rc::Rc,
     sync::{mpsc, Arc},
@@ -221,6 +222,7 @@ impl UpgradeWidget {
                         refresh,
                         is_lts,
                         status_failed,
+                        reboot_ready,
                     }) => {
                         upgrade_version = upgrade;
                         refresh_found = refresh;
@@ -231,12 +233,19 @@ impl UpgradeWidget {
                             .set_button(if upgrade_version.is_some() {
                                 upgrade_found = true;
                                 let gui_sender = gui_sender.clone();
-                                let action = move || {
+                                let action: Box<dyn Fn()> = Box::new(move || {
                                     if let Some(sender) = gui_sender.upgrade() {
                                         let _ = sender.send(UiEvent::UpgradeClicked);
                                     }
-                                };
+                                });
+
                                 Some(("Download", action))
+                            } else if reboot_ready {
+                                let action: Box<dyn Fn()> = Box::new(move || {
+                                    reboot();
+                                });
+
+                                Some(("Reboot", action))
                             } else {
                                 None
                             })
@@ -403,8 +412,12 @@ fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
     let mut upgrade = None;
     let mut is_lts = false;
     let mut status_failed = false;
+    let mut reboot_ready = false;
 
-    let upgrade_text = if release::upgrade_in_progress() {
+    let upgrade_text = if Path::new(STARTUP_UPGRADE_FILE).exists() {
+        reboot_ready = true;
+        Cow::Borrowed("Reboot now to upgrade OS")
+    } else if release::upgrade_in_progress() {
         Cow::Borrowed("Pop!_OS is currently downloading.")
     } else {
         let devel = pop_upgrade::development_releases_enabled();
@@ -442,6 +455,7 @@ fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
         refresh: client.recovery_exists(),
         is_lts,
         status_failed,
+        reboot_ready,
     }));
 }
 
