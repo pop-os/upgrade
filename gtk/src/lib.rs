@@ -84,7 +84,7 @@ impl UpgradeWidget {
             gtk::ListBox::new();
             ..set_selection_mode(gtk::SelectionMode::None);
             ..add(option_upgrade.as_ref());
-            ..add(option_refresh.as_ref());
+            // ..add(option_refresh.as_ref());
             ..show();
         };
 
@@ -102,7 +102,7 @@ impl UpgradeWidget {
             gtk::Box::new(gtk::Orientation::Vertical, 12);
             ..add(&cascade! {
                 gtk::LabelBuilder::new()
-                    .label("<b>OS Upgrade &amp; Refresh</b>")
+                    .label("<b>OS Upgrade</b>")
                     .use_markup(true)
                     .xalign(0.0)
                     .build();
