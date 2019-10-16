@@ -26,6 +26,8 @@ use ubuntu_version::{Codename, Version, VersionError};
 
 pub use self::errors::{RelResult, ReleaseError};
 
+pub const STARTUP_UPGRADE_FILE: &str = "/pop-upgrade";
+
 const REQUIRED_PPAS: &[&str] = &[
     "archive.ubuntu.com/ubuntu",
     "ppa.launchpad.net/system76/pop/ubuntu",
@@ -36,7 +38,6 @@ const CORE_PACKAGES: &[&str] = &["linux-generic", "pop-desktop"];
 const DPKG_LOCK: &str = "/var/lib/dpkg/lock";
 const LISTS_LOCK: &str = "/var/lib/apt/lists/lock";
 const RELEASE_FETCH_FILE: &str = "/pop_preparing_release_upgrade";
-const STARTUP_UPGRADE_FILE: &str = "/pop-upgrade";
 const SYSTEM_UPDATE: &str = "/system-update";
 const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
 const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
