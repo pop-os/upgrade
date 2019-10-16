@@ -12,7 +12,10 @@ use pop_upgrade::{
     recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags},
     release::{RefreshOp, UpgradeEvent, UpgradeMethod},
 };
-use std::io::{self, BufRead, Write};
+use std::{
+    io::{self, BufRead, Write},
+    path::Path,
+};
 use yansi::Paint;
 
 const FETCH_RESULT_STR: &str = "Package fetch status";
@@ -101,7 +104,8 @@ impl Client {
                     _ => unreachable!(),
                 };
 
-                let forcing = matches.is_present("force-next");
+                let forcing =
+                    matches.is_present("force-next") || pop_upgrade::development_releases_enabled();
                 let (current, next, available, _is_lts) = self.release_check(forcing)?;
 
                 // Only upgrade if an upgrade is possible, or if being forced to upgrade.
