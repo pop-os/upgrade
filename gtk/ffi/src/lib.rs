@@ -8,6 +8,8 @@ pub struct PopUpgradeWidget;
 pub type PopUpgradeWidgetErrorCallback =
     extern "C" fn(message: *const u8, message_len: usize, user_data: *mut ffi::c_void);
 
+pub type PopUpgradeWidgetEventCallback = extern "C" fn(event: u8, user_data: *mut ffi::c_void);
+
 #[no_mangle]
 pub extern "C" fn pop_upgrade_widget_new() -> *mut PopUpgradeWidget {
     // When used from C, assume that GTK has been initialized.
@@ -35,6 +37,17 @@ pub extern "C" fn pop_upgrade_widget_callback_error(
         widget.callback_error(move |message| {
             callback(message.as_bytes().as_ptr(), message.len(), user_data)
         });
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn pop_upgrade_widget_callback_event(
+    ptr: *const PopUpgradeWidget,
+    callback: PopUpgradeWidgetEventCallback,
+    user_data: *mut ffi::c_void,
+) {
+    if let Some(widget) = unsafe { (ptr as *const UpgradeWidget).as_ref() } {
+        widget.callback_event(move |event| callback(event as u8, user_data));
     }
 }
 

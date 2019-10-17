@@ -41,12 +41,21 @@ use std::{
     thread,
 };
 
+#[repr(u8)]
+pub enum Event {
+    NotUpgrading = 0,
+    Upgrading = 1,
+    UpgradeReady = 2,
+}
+
 pub type ErrorCallback = Rc<RefCell<Box<dyn Fn(&str)>>>;
+pub type EventCallback = Rc<RefCell<Box<dyn Fn(Event)>>>;
 
 #[derive(Shrinkwrap)]
 pub struct UpgradeWidget {
     sender: mpsc::SyncSender<BackgroundEvent>,
     callback_error: ErrorCallback,
+    callback_event: EventCallback,
     #[shrinkwrap(main_field)]
     container: gtk::Container,
 }
@@ -123,6 +132,7 @@ impl UpgradeWidget {
         };
 
         let callback_error: ErrorCallback = Rc::new(RefCell::new(Box::new(|_| ())));
+        let callback_event: EventCallback = Rc::new(RefCell::new(Box::new(|_| ())));
 
         {
             let container = container.clone();
@@ -139,9 +149,14 @@ impl UpgradeWidget {
 
             let gui_sender = Arc::downgrade(&gui_sender);
             let callback_error = Rc::downgrade(&callback_error);
+            let callback_event = Rc::downgrade(&callback_event);
 
             macro_rules! reset_widget {
                 () => {
+                    if let Some(cb) = callback_event.upgrade() {
+                        cb.borrow()(Event::NotUpgrading);
+                    }
+
                     fetching_release = false;
 
                     if refresh_found {
@@ -223,6 +238,10 @@ impl UpgradeWidget {
                                 },
                             );
                         });
+
+                        if let Some(cb) = callback_event.upgrade() {
+                            cb.borrow()(Event::UpgradeReady);
+                        }
 
                         option_upgrade
                             .button_view()
@@ -341,6 +360,9 @@ impl UpgradeWidget {
                         }
 
                         if let Some(info) = upgrade_version.clone() {
+                            if let Some(cb) = callback_event.upgrade() {
+                                cb.borrow()(Event::Upgrading);
+                            }
                             option_upgrade.set_label("Preparing Upgrade").show_all();
                             option_refresh.hide();
 
@@ -390,7 +412,12 @@ impl UpgradeWidget {
             });
         }
 
-        Self { container: container.upcast::<gtk::Container>(), sender: bg_sender, callback_error }
+        Self {
+            container: container.upcast::<gtk::Container>(),
+            sender: bg_sender,
+            callback_error,
+            callback_event,
+        }
     }
 
     pub fn scan(&self) {
@@ -402,6 +429,10 @@ impl UpgradeWidget {
 
     pub fn callback_error<F: Fn(&str) + 'static>(&self, func: F) {
         *self.callback_error.borrow_mut() = Box::from(func);
+    }
+
+    pub fn callback_event<F: Fn(Event) + 'static>(&self, func: F) {
+        *self.callback_event.borrow_mut() = Box::from(func);
     }
 
     pub fn upgrade_daemon_is_active(&self) -> bool {
