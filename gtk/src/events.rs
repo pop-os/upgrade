@@ -28,6 +28,7 @@ pub enum UiEvent {
     IncompatibleRepos(RepoCompatError),
     Initiated(InitiatedEvent),
     Progress(ProgressEvent),
+    ReleaseUpgradeDialog,
     Shutdown,
     StatusChanged(DaemonStatus, DaemonStatus, Box<str>),
     UpgradeClicked,

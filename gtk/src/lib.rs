@@ -209,13 +209,18 @@ impl UpgradeWidget {
                     UiEvent::Completed(CompletedEvent::Download) => {
                         upgrade_downloaded = true;
 
-                        let version = upgrading_to.clone();
+                        let sender = gui_sender.clone();
+                        let title = format!("Pop!_OS {} is ready to upgrade", upgrading_to);
                         thread::spawn(move || {
                             notify::notify(
                                 "distributor-logo-upgrade-symbolic",
-                                &format!("Pop!_OS {} is ready to upgrade", version),
+                                &title,
                                 "Click here to restart",
-                                || reboot(),
+                                || {
+                                    if let Some(sender) = sender.upgrade() {
+                                        let _ = sender.send(UiEvent::ReleaseUpgradeDialog);
+                                    }
+                                },
                             );
                         });
 
@@ -328,16 +333,11 @@ impl UpgradeWidget {
                     // When the upgrade button is clicked, we will fetch the OS
                     UiEvent::UpgradeClicked => {
                         if upgrade_downloaded {
-                            let dialog = UpgradeDialog::new(&upgrading_from, &upgrading_to);
-
-                            let answer = dialog.run();
-                            dialog.destroy();
-                            if gtk::ResponseType::Accept == answer {
-                                reboot()
-                            } else {
-                                option_upgrade.button_view().show_all();
-                                return gtk::Continue(true);
+                            if let Some(sender) = gui_sender.upgrade() {
+                                let _ = sender.send(UiEvent::ReleaseUpgradeDialog);
                             }
+
+                            return gtk::Continue(true);
                         }
 
                         if let Some(info) = upgrade_version.clone() {
@@ -349,6 +349,18 @@ impl UpgradeWidget {
                             }
 
                             let _ = sender.send(BackgroundEvent::DownloadUpgrade(info));
+                        }
+                    }
+                    UiEvent::ReleaseUpgradeDialog => {
+                        let dialog = UpgradeDialog::new(&upgrading_from, &upgrading_to);
+
+                        let answer = dialog.run();
+                        dialog.destroy();
+                        if gtk::ResponseType::Accept == answer {
+                            reboot()
+                        } else {
+                            option_upgrade.button_view().show_all();
+                            return gtk::Continue(true);
                         }
                     }
                     UiEvent::StatusChanged(from, to, why) => {
