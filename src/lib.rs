@@ -11,6 +11,7 @@ extern crate log;
 #[macro_use]
 extern crate num_derive;
 
+pub mod changelogs;
 pub mod checksum;
 pub mod client;
 pub mod daemon;

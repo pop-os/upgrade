@@ -1,0 +1,27 @@
+* A new Dark Mode for Pop!_OS is available in the operating system’s Appearance Settings. Both the Light and Dark modes feature higher contrast colors using a neutral color palette that’s easy on the eyes.
+
+* The functionality of Dark Mode has been expanded to include the shell, providing a more consistently dark aesthetic across your desktop. If you’re using the User Themes extension to set the shell theme, disable it to use the new integrated Light and Dark mode switcher.
+
+* The default theme on Pop!_OS has been rebuilt based on Adwaita. Though users may only notice a slight difference in their widgets, the new OS theme provides significant measures to prevent application themes from experiencing UI breakage. This breakage manifests in the application as missing or misaligned text, broken widgets, and scaling errors, and should not occur with the new theme in place.
+
+* The updated theme includes a new set of modernized sound effects. Users will now hear a sound effect when plugging and unplugging a USB or charging cable. The sound effect for adjusting the volume has been removed.
+
+* Tensorman is a new tool that we’ve developed to serve as a toolchain manager for Tensorflow, using the official Docker builds of Tensorflow. Examples of how to use Tensorman are at (https://support.system76.com/articles/tensorman). Tensorman is available on Pop!_OS 19.10, and will be coming to Pop!_OS 18.04 LTS soon.
+
+* A redesigned Background panel landed in the Appearance settings. Now when you select a background, you will see a preview of it under the desktop panel and lock screen. Custom backgrounds can now be added via the Add Picture… button.
+
+* Performance improvements bring smoother animations and a more responsive desktop experience.
+
+* Icons in the application overview can be grouped together into folders. To do this, drag an icon on top of another to create a group. Removing all icons from a group will automatically remove the group, too. This makes organizing applications much easier and keeps the application overview clutter-free.
+
+* The visual style for the Activities overview was refined as well, including the search entry field, the login password field, and the border that highlights windows. All these changes give the GNOME desktop an improved overall experience.
+
+* Some animations in the Activities overview have been refactored, resulting in faster icon loading and caching.
+
+* The Terminal application now supports right-to-left and bi-directional languages.
+
+* The Files application now warns users when attempting to paste a file into a read-only folder.
+
+* Search settings for the Activities overview can now be reordered in the Settings application by dragging them in the settings list. The Night Light section has been moved to the Display panel.
+
+* New advanced upgrade system. Offline upgrades are now live on Pop!_OS 19.04, bringing faster, more reliable upgrades.
