@@ -46,7 +46,6 @@ pub fn init() {
             _ => unreachable!(),
         };
 
-        warn!("caught {} signal", signal);
         PENDING.store(signal as u8, Ordering::SeqCst);
     }
 
