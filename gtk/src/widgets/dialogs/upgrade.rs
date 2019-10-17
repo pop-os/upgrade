@@ -14,7 +14,7 @@ impl UpgradeDialog {
             gtk::LabelBuilder::new().label(changelog).margin_start(24).margin_end(40).build();
 
         let dialog = super::dialog_template(
-            "distributor-logo-upgrade-symbolic",
+            "distributor-logo",
             "Upgrade",
             "Reboot & Upgrade",
             &gtk::STYLE_CLASS_DESTRUCTIVE_ACTION,
