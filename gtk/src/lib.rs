@@ -206,7 +206,7 @@ impl UpgradeWidget {
 
                         option_upgrade
                             .button_view()
-                            .button_label("Upgrade")
+                            .button_label("Reboot and Upgrade")
                             .set_label(&format!("Pop!_OS {} download complete", &*upgrading_to));
                     }
                     UiEvent::Completed(CompletedEvent::Scan {
