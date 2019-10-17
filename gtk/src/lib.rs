@@ -140,6 +140,22 @@ impl UpgradeWidget {
             let gui_sender = Arc::downgrade(&gui_sender);
             let callback_error = Rc::downgrade(&callback_error);
 
+            macro_rules! reset_widget {
+                () => {
+                    fetching_release = false;
+
+                    if refresh_found {
+                        option_refresh.button_view().show_all();
+                        // get_refresh_row(&options).show();
+                    }
+
+                    if upgrade_found {
+                        option_upgrade.button_view().show_all();
+                        get_upgrade_row(&options).show();
+                    }
+                };
+            }
+
             gui_receiver.attach(None, move |event| {
                 eprintln!("{:?}", event);
                 match event {
@@ -303,6 +319,8 @@ impl UpgradeWidget {
                                 failures,
                                 dialog.answers().collect::<Vec<bool>>(),
                             ));
+                        } else {
+                            reset_widget!();
                         }
 
                         dialog.destroy();
@@ -317,6 +335,7 @@ impl UpgradeWidget {
                             if gtk::ResponseType::Accept == answer {
                                 reboot()
                             } else {
+                                option_upgrade.button_view().show_all();
                                 return gtk::Continue(true);
                             }
                         }
@@ -337,17 +356,7 @@ impl UpgradeWidget {
                         let _ = sender.send(BackgroundEvent::GetStatus(from));
                     }
                     UiEvent::Error(why) => {
-                        fetching_release = false;
-
-                        if refresh_found {
-                            option_refresh.button_view().show_all();
-                            // get_refresh_row(&options).show();
-                        }
-
-                        if upgrade_found {
-                            option_upgrade.button_view().show_all();
-                            get_upgrade_row(&options).show();
-                        }
+                        reset_widget!();
 
                         let error_message = &mut format!("{}", why);
                         why.iter_sources().for_each(|source| {
