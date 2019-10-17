@@ -93,9 +93,9 @@ impl UpgradeWidget {
             options.get_row_at_index(0).expect("upgrade option is not at index 1")
         }
 
-        fn get_refresh_row(options: &gtk::ListBox) -> gtk::ListBoxRow {
-            options.get_row_at_index(1).expect("refresh option is not at index 1")
-        }
+        // fn get_refresh_row(options: &gtk::ListBox) -> gtk::ListBoxRow {
+        //     options.get_row_at_index(1).expect("refresh option is not at index 1")
+        // }
 
         let dismisser_frame = gtk::Frame::new(None);
 
@@ -161,9 +161,7 @@ impl UpgradeWidget {
                             option_upgrade.set_label("Upgrading current OS");
                         }
 
-                        option_upgrade
-                            .progress_exact(percent)
-                            .show_all();
+                        option_upgrade.progress_exact(percent).show_all();
                     }
                     UiEvent::Shutdown => return glib::Continue(false),
                     UiEvent::Initiated(InitiatedEvent::Refresh) => {
@@ -173,14 +171,14 @@ impl UpgradeWidget {
                         container.hide();
                     }
                     UiEvent::Initiated(InitiatedEvent::Recovery) => {
-                        get_refresh_row(&options).hide();
+                        // get_refresh_row(&options).hide();
                         option_upgrade
                             .set_label("Upgrading recovery partition")
                             .progress_exact(0)
                             .show_all();
                     }
                     UiEvent::Initiated(InitiatedEvent::Download(version)) => {
-                        get_refresh_row(&options).hide();
+                        // get_refresh_row(&options).hide();
                         option_upgrade
                             .set_label(&*["Downloading Pop!_OS ", &version].concat())
                             .progress_exact(0)
@@ -297,9 +295,7 @@ impl UpgradeWidget {
                         }
 
                         if let Some(info) = upgrade_version.clone() {
-                            option_upgrade
-                                .set_label("Fetching updates")
-                                .show_all();
+                            option_upgrade.set_label("Fetching updates").show_all();
                             option_refresh.hide();
                             let _ = sender.send(BackgroundEvent::DownloadUpgrade(info));
                         }
@@ -311,7 +307,7 @@ impl UpgradeWidget {
                     UiEvent::Error(why) => {
                         if refresh_found {
                             option_refresh.button_view().show_all();
-                            get_refresh_row(&options).show();
+                            // get_refresh_row(&options).show();
                         }
 
                         if upgrade_found {
