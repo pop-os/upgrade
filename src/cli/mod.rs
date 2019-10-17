@@ -73,7 +73,8 @@ impl Client {
     pub fn release(&self, matches: &ArgMatches) -> Result<(), client::Error> {
         match matches.subcommand() {
             ("dismiss", _) => {
-                let (_, _, _, is_lts) = self.release_check(false)?;
+                let devel = pop_upgrade::development_releases_enabled();
+                let (_, _, _, is_lts) = self.release_check(devel)?;
                 if is_lts {
                     self.dismiss_notification()?;
                 } else {
