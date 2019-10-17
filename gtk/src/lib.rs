@@ -304,7 +304,7 @@ impl UpgradeWidget {
                         if let Some(info) = upgrade_version.clone() {
                             option_upgrade
                                 .progress_label("Preparing to download")
-                                .set_label("Updating your OS");
+                                .set_label("Preparing for Upgrade");
                             option_refresh.hide();
                             let _ = sender.send(BackgroundEvent::DownloadUpgrade(info));
                         }
