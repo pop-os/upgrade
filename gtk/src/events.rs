@@ -46,7 +46,13 @@ pub enum CompletedEvent {
     Download,
     Recovery,
     Refresh,
-    Scan {
+    Scan(ScanEvent),
+}
+
+#[derive(Debug)]
+pub enum ScanEvent {
+    PermissionDenied,
+    Found {
         is_lts:        bool,
         refresh:       bool,
         status_failed: bool,

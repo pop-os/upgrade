@@ -10,6 +10,7 @@ extern crate shrinkwraprs;
 mod errors;
 mod events;
 mod notify;
+mod users;
 mod widgets;
 
 use self::{
@@ -99,6 +100,12 @@ impl UpgradeWidget {
 
         let dismisser_frame = gtk::Frame::new(None);
 
+        let upgrade_frame = cascade! {
+            gtk::Frame::new(None);
+            ..add(&options);
+            ..show();
+        };
+
         let container = cascade! {
             gtk::Box::new(gtk::Orientation::Vertical, 12);
             ..add(&cascade! {
@@ -109,11 +116,7 @@ impl UpgradeWidget {
                     .build();
                 ..show();
             });
-            ..add(&cascade! {
-                gtk::Frame::new(None);
-                ..add(&options);
-                ..show();
-            });
+            ..add(&upgrade_frame);
             ..show();
         };
 
@@ -209,14 +212,20 @@ impl UpgradeWidget {
                             .button_label("Upgrade")
                             .set_label(&format!("Pop!_OS {} download complete", &*upgrading_to));
                     }
-                    UiEvent::Completed(CompletedEvent::Scan {
+                    UiEvent::Completed(CompletedEvent::Scan(ScanEvent::PermissionDenied)) => {
+                        upgrade_frame.remove(&options);
+                        upgrade_frame.add(widgets::permissions::PermissionDenied::new().as_ref());
+                        upgrade_frame.show_all();
+                        container.show();
+                    }
+                    UiEvent::Completed(CompletedEvent::Scan(ScanEvent::Found {
                         upgrade_text,
                         upgrade,
                         refresh,
                         is_lts,
                         status_failed,
                         reboot_ready,
-                    }) => {
+                    })) => {
                         upgrade_version = upgrade;
                         refresh_found = refresh;
 
@@ -403,6 +412,11 @@ fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
     let mut status_failed = false;
     let mut reboot_ready = false;
 
+    if !users::is_admin() {
+        send(UiEvent::Completed(CompletedEvent::Scan(ScanEvent::PermissionDenied)));
+        return;
+    }
+
     let upgrade_text = if Path::new(STARTUP_UPGRADE_FILE).exists() {
         reboot_ready = true;
         Cow::Borrowed("Reboot now to upgrade OS")
@@ -438,14 +452,14 @@ fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
         }
     };
 
-    send(UiEvent::Completed(CompletedEvent::Scan {
+    send(UiEvent::Completed(CompletedEvent::Scan(ScanEvent::Found {
         upgrade_text: Box::from(upgrade_text.as_ref()),
         upgrade,
         refresh: client.recovery_exists(),
         is_lts,
         status_failed,
         reboot_ready,
-    }));
+    })));
 }
 
 fn get_status(client: &Client, send: &dyn Fn(UiEvent), from: DaemonStatus) {
