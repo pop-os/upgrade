@@ -19,7 +19,7 @@ impl RepositoryDialog {
 
         let dialog = super::dialog_template(
             "application-x-deb",
-            "Unsupported repositories detected",
+            "3rd party repositories",
             "Accept",
             &gtk::STYLE_CLASS_SUGGESTED_ACTION,
             |content| {
