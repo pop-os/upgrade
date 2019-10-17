@@ -133,6 +133,7 @@ impl UpgradeWidget {
             let mut upgrade_downloaded = false;
             let mut fetching_release = false;
             let mut upgrade_version = None::<ReleaseInfo>;
+            let mut upgrading_from: Box<str> = Box::from("");
             let mut upgrading_to: Box<str> = Box::from("");
             let mut dismisser = None::<Dismisser>;
 
@@ -229,6 +230,7 @@ impl UpgradeWidget {
                             .set_sublabel(None)
                             .set_button(if let Some(info) = upgrade_version.as_ref() {
                                 upgrade_found = true;
+                                upgrading_from = info.current.clone();
 
                                 if is_lts && !is_dismissed(&info.next) {
                                     let widget = {
@@ -308,7 +310,7 @@ impl UpgradeWidget {
                     // When the upgrade button is clicked, we will fetch the OS
                     UiEvent::UpgradeClicked => {
                         if upgrade_downloaded {
-                            let dialog = UpgradeDialog::new(&upgrading_to, "Place changelog here");
+                            let dialog = UpgradeDialog::new(&upgrading_from, &upgrading_to);
 
                             let answer = dialog.run();
                             dialog.destroy();
