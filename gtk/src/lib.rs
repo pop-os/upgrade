@@ -149,27 +149,21 @@ impl UpgradeWidget {
                             }
                             _ => None,
                         };
-
-                        if let Some(message) = message {
-                            option_upgrade.progress_label(message);
-                        }
                     }
                     UiEvent::Progress(ProgressEvent::Fetching(progress, total)) => {
-                        option_upgrade.progress(progress, total).progress_label(&format!(
-                            "Fetching packages: {} / {}",
-                            progress, total
-                        ));
+                        option_upgrade.progress(progress, total).show_all();
                     }
                     UiEvent::Progress(ProgressEvent::Recovery(progress, total)) => {
-                        option_upgrade.progress(progress, total).progress_label(&format!(
-                            "Upgrading recovery: {} / {}",
-                            progress, total
-                        ));
+                        option_upgrade.progress(progress, total).show_all();
                     }
                     UiEvent::Progress(ProgressEvent::Updates(percent)) => {
+                        if percent == 0 {
+                            option_upgrade.set_label("Upgrading current OS");
+                        }
+
                         option_upgrade
                             .progress_exact(percent)
-                            .progress_label(&format!("Upgrading packages: {}%", percent));
+                            .show_all();
                     }
                     UiEvent::Shutdown => return glib::Continue(false),
                     UiEvent::Initiated(InitiatedEvent::Refresh) => {
@@ -181,15 +175,16 @@ impl UpgradeWidget {
                     UiEvent::Initiated(InitiatedEvent::Recovery) => {
                         get_refresh_row(&options).hide();
                         option_upgrade
-                            .progress_label("Upgrading recovery partition")
-                            .progress_exact(0);
+                            .set_label("Upgrading recovery partition")
+                            .progress_exact(0)
+                            .show_all();
                     }
                     UiEvent::Initiated(InitiatedEvent::Download(version)) => {
                         get_refresh_row(&options).hide();
                         option_upgrade
                             .set_label(&*["Downloading Pop!_OS ", &version].concat())
-                            .progress_label("Downloading")
-                            .progress_exact(0);
+                            .progress_exact(0)
+                            .show_all();
                         upgrading_to = version;
                     }
                     UiEvent::Completed(CompletedEvent::Recovery) => {
@@ -303,8 +298,8 @@ impl UpgradeWidget {
 
                         if let Some(info) = upgrade_version.clone() {
                             option_upgrade
-                                .progress_label("Preparing to download")
-                                .set_label("Preparing for Upgrade");
+                                .set_label("Fetching updates")
+                                .show_all();
                             option_refresh.hide();
                             let _ = sender.send(BackgroundEvent::DownloadUpgrade(info));
                         }
@@ -338,9 +333,7 @@ impl UpgradeWidget {
 
                         error!("{}", error_message);
                     }
-                    UiEvent::WaitingOnLock => {
-                        option_upgrade.progress_label("Waiting on apt package lock to be ready");
-                    }
+                    UiEvent::WaitingOnLock => (),
                 }
                 glib::Continue(true)
             });
@@ -421,10 +414,10 @@ fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
         Cow::Borrowed("Pop!_OS is currently downloading.")
     } else {
         let devel = pop_upgrade::development_releases_enabled();
-        match client.release_check(devel) {
+        let result = dbg!(client.release_check(devel));
+        match result {
             Ok(info) => {
                 is_lts = info.is_lts;
-                eprintln!("info.build = {}", info.build);
                 if devel || info.build >= 0 {
                     info!("upgrade from {} to {} is available", info.current, info.next);
 

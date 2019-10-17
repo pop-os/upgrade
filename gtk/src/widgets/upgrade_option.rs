@@ -10,8 +10,6 @@ pub struct UpgradeOption {
     button_signal: RefCell<Option<SignalHandlerId>>,
     label: gtk::Label,
     progress: gtk::ProgressBar,
-    progress_container: gtk::Box,
-    progress_label: gtk::Label,
     pub stack: gtk::Stack,
     sublabel: gtk::Label,
 }
@@ -46,22 +44,10 @@ impl UpgradeOption {
             ..set_hexpand(true);
         };
 
-        let progress_label = cascade! {
-            gtk::Label::new(None);
-            ..set_xalign(0.0);
-            ..set_hexpand(true);
-        };
-
-        let progress_container = cascade! {
-            gtk::Box::new(gtk::Orientation::Vertical, 12);
-            ..add(&progress_label);
-            ..add(&progress);
-        };
-
         let stack = cascade! {
             gtk::Stack::new();
             ..add(&button);
-            ..add(&progress_container);
+            ..add(&progress);
             ..set_visible_child(&button);
             ..show_all();
         };
@@ -85,8 +71,6 @@ impl UpgradeOption {
             container: container.upcast::<gtk::Container>(),
             label,
             progress,
-            progress_container,
-            progress_label,
             stack,
             sublabel,
         }
@@ -111,12 +95,6 @@ impl UpgradeOption {
     pub fn progress_exact(&self, percent: u8) -> &Self {
         self.progress.set_fraction(percent as f64 / 100f64);
         self
-    }
-
-    pub fn progress_label(&self, label: &str) -> &Self {
-        self.progress_label.set_text(label);
-        self.show_all();
-        self.progress_view()
     }
 
     pub fn set_label(&self, label: &str) -> &Self {
@@ -160,7 +138,7 @@ impl UpgradeOption {
     }
 
     fn progress_view(&self) -> &Self {
-        self.stack.set_visible_child(&self.progress_container);
+        self.stack.set_visible_child(&self.progress);
         self
     }
 }
