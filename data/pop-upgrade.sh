@@ -20,20 +20,20 @@ message () {
 
 efi_rename () {
     if test -d '/sys/firmware/efi/'; then
-        current_bootnum=$(efibootmgr | grep BootCurrent | awk -F' ' '{print $2}')
-        new_label=$(cat /etc/os-release | grep PRETTY | awk -F'"' '{print $2}')
+        current_bootnum="$(efibootmgr | grep BootCurrent | awk -F' ' '{print $2}')"
+        new_label="$(cat /etc/os-release | grep PRETTY | awk -F'"' '{print $2}')"
 
         # Get the disk where the ESP resides, and the partition number of the ESP.
-        efi_part=$(awk '$2 == "/boot/efi"' /proc/mounts | awk '{print $1}' | awk -F/ '{print $3}')
+        efi_part="$(awk '$2 == "/boot/efi"' /proc/mounts | awk '{print $1}' | awk -F/ '{print $3}')"
 
         for block in /sys/block/*; do
-            if test -e ${block}/${efi_part}; then
+            if test -e "${block}/${efi_part}"; then
                 efi_disk="/dev/$(echo ${block} | cut -c 12-)"
                 break
             fi
         done
 
-        efi_num=$(cat /sys/class/block/${efi_part}/partition)
+        efi_num="$(cat /sys/class/block/${efi_part}/partition)"
 
         # Remove the current boot entry
         efibootmgr -b "${current_bootnum}" -B
@@ -58,23 +58,23 @@ upgrade () {
             if test "Progress: [" = "$(echo ${line} | cut -c-11)"; then
                 percent=$(echo "${line}" | cut -c12-14)
                 if test -n "${percent}"; then
-                    plymouth system-update --progress=${percent}
+                    plymouth system-update --progress="${percent}"
                 fi
             fi
 
             prefix="Installing Updates (${percent//[[:space:]]/}%)"
 
             if test "Unpacking" = "$(echo ${line} | cut -c-9)"; then
-                package=$(echo $line | awk '{print $2}')
+                package="$(echo $line | awk '{print $2}')"
                 message -i "$prefix: Unpacking $package ..."
             elif test "Setting up" = "$(echo ${line} | cut -c-10)"; then
-                package=$(echo $line | awk '{print $3}')
+                package="$(echo $line | awk '{print $3}')"
                 message -i "$prefix: Setting up $package ..."
             elif test "Processing triggers for" = "$(echo ${line} | cut -c-23)"; then
-                package=$(echo $line | awk '{print $4}')
+                package="$(echo $line | awk '{print $4}')"
                 message -i "$prefix: Processing triggers for $package ..."
             else
-                echo $line
+                echo "$line"
             fi
         done
 
@@ -105,13 +105,13 @@ attempt_repair () {
 # Attempts the upgrade the system, and if the upgrade fails, tries to repair it.
 attempt_upgrade () {
     message -i "Installing Updates (0%)"
-    touch $1
+    touch "$1"
     
     apt-mark hold pop-upgrade
     systemctl mask acpid pop-upgrade
 
     if (upgrade || attempt_repair) && apt upgrade -y --allow-downgrades --no-download --ignore-missing; then
-        rm -rf  /system-update $1
+        rm -rf  /system-update "$1"
 
         message -i "Upgrade complete. Removing old kernels"
         apt remove linux-image-*hwe*
@@ -134,8 +134,8 @@ attempt_upgrade () {
 
 ATTEMPTED=/upgrade-attempted
 
-test -e $ATTEMPTED && (message -i "System rebooted before upgrade was completed. Trying again"; sleep 6)
-attempt_upgrade $ATTEMPTED
+test -e "$ATTEMPTED" && (message -i "System rebooted before upgrade was completed. Trying again"; sleep 6)
+attempt_upgrade "$ATTEMPTED"
 sleep 6
 
 plymouth message --text="system-updates-stop"
