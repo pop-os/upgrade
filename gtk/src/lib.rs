@@ -131,6 +131,7 @@ impl UpgradeWidget {
             let mut refresh_found = false;
             let mut upgrade_found = false;
             let mut upgrade_downloaded = false;
+            let mut fetching_release = false;
             let mut upgrade_version = None::<ReleaseInfo>;
             let mut upgrading_to: Box<str> = Box::from("");
             let mut dismisser = None::<Dismisser>;
@@ -139,7 +140,7 @@ impl UpgradeWidget {
             let callback_error = Rc::downgrade(&callback_error);
 
             gui_receiver.attach(None, move |event| {
-                eprintln!("received event: {:?}", event);
+                eprintln!("{:?}", event);
                 match event {
                     UiEvent::Dismissed => {
                         if let Some(dismisser) = dismisser.take() {
@@ -147,33 +148,16 @@ impl UpgradeWidget {
                             dismisser_frame.hide();
                         }
                     }
-                    UiEvent::UpgradeEvent(event) => {
-                        use UpgradeEvent::*;
-
-                        let message = match event {
-                            UpdatingPackageLists => Some("Updating package lists"),
-                            UpdatingSourceLists => Some("Updating source lists"),
-                            FetchingPackages => Some("Fetching packages"),
-                            UpgradingPackages => Some("Upgrading packages"),
-                            InstallingPackages => Some("Installing packages"),
-                            FetchingPackagesForNewRelease => {
-                                Some("Fetching packages for new release")
-                            }
-                            _ => None,
-                        };
-                    }
+                    UiEvent::UpgradeEvent(event) => (),
                     UiEvent::Progress(ProgressEvent::Fetching(progress, total)) => {
+                        let progress = if fetching_release { progress } else { progress / 2 };
                         option_upgrade.progress(progress, total).show_all();
                     }
                     UiEvent::Progress(ProgressEvent::Recovery(progress, total)) => {
                         option_upgrade.progress(progress, total).show_all();
                     }
                     UiEvent::Progress(ProgressEvent::Updates(percent)) => {
-                        if percent == 0 {
-                            option_upgrade.set_label("Upgrading current OS");
-                        }
-
-                        option_upgrade.progress_exact(percent).show_all();
+                        option_upgrade.progress_exact(percent / 2 + 50).show_all();
                     }
                     UiEvent::Shutdown => return glib::Continue(false),
                     UiEvent::Initiated(InitiatedEvent::Refresh) => {
@@ -195,7 +179,9 @@ impl UpgradeWidget {
                             .set_label(&*["Downloading Pop!_OS ", &version].concat())
                             .progress_exact(0)
                             .show_all();
+
                         upgrading_to = version;
+                        fetching_release = true;
                     }
                     UiEvent::Completed(CompletedEvent::Recovery) => {
                         info!("successfully upgraded recovery partition");
@@ -334,7 +320,7 @@ impl UpgradeWidget {
                         }
 
                         if let Some(info) = upgrade_version.clone() {
-                            option_upgrade.set_label("Fetching updates").show_all();
+                            option_upgrade.set_label("Preparing Upgrade").show_all();
                             option_refresh.hide();
 
                             if let Some(dismisser) = dismisser.take() {
@@ -349,6 +335,8 @@ impl UpgradeWidget {
                         let _ = sender.send(BackgroundEvent::GetStatus(from));
                     }
                     UiEvent::Error(why) => {
+                        fetching_release = false;
+
                         if refresh_found {
                             option_refresh.button_view().show_all();
                             // get_refresh_row(&options).show();
