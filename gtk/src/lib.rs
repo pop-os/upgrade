@@ -310,13 +310,13 @@ impl UpgradeWidget {
                         if upgrade_downloaded {
                             let dialog = UpgradeDialog::new(&upgrading_to, "Place changelog here");
 
-                            if gtk::ResponseType::Accept == dialog.run() {
+                            let answer = dialog.run();
+                            dialog.destroy();
+                            if gtk::ResponseType::Accept == answer {
                                 reboot()
                             } else {
                                 return gtk::Continue(true);
                             }
-
-                            dialog.destroy();
                         }
 
                         if let Some(info) = upgrade_version.clone() {
