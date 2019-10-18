@@ -37,7 +37,7 @@ use std::{
     path::Path,
     process::Command,
     rc::Rc,
-    sync::{mpsc, Arc},
+    sync::{mpsc, Arc, Weak},
     thread,
 };
 
@@ -146,6 +146,7 @@ impl UpgradeWidget {
             let mut upgrade_downloaded = false;
             let mut fetching_release = false;
             let mut upgrade_version = None::<ReleaseInfo>;
+            let mut upgrade_label: Box<str> = Box::from("");
             let mut upgrading_from: Box<str> = Box::from("");
             let mut upgrading_to: Box<str> = Box::from("");
             let mut dismisser = None::<Dismisser>;
@@ -219,6 +220,13 @@ impl UpgradeWidget {
                         upgrading_to = version;
                         fetching_release = true;
                     }
+                    UiEvent::CancelledUpgrade => {
+                        upgrade_downloaded = false;
+                        option_upgrade
+                            .set_label(&*upgrade_label)
+                            .set_button(Some(download_action(gui_sender.clone())))
+                            .button_view();
+                    }
                     UiEvent::Completed(CompletedEvent::Recovery) => {
                         info!("successfully upgraded recovery partition");
                     }
@@ -267,11 +275,12 @@ impl UpgradeWidget {
                         status_failed,
                         reboot_ready,
                     })) => {
+                        upgrade_label = upgrade_text;
                         upgrade_version = upgrade;
                         refresh_found = refresh;
 
                         option_upgrade
-                            .set_label(&upgrade_text)
+                            .set_label(&upgrade_label)
                             .set_sublabel(None)
                             .set_button(if let Some(info) = upgrade_version.as_ref() {
                                 upgrade_found = true;
@@ -307,13 +316,7 @@ impl UpgradeWidget {
 
                                     ("Upgrade", action)
                                 } else {
-                                    let action: Box<dyn Fn()> = Box::new(move || {
-                                        if let Some(sender) = gui_sender.upgrade() {
-                                            let _ = sender.send(UiEvent::UpgradeClicked);
-                                        }
-                                    });
-
-                                    ("Download", action)
+                                    download_action(gui_sender)
                                 })
                             } else {
                                 None
@@ -372,7 +375,7 @@ impl UpgradeWidget {
                             if let Some(cb) = callback_event.upgrade() {
                                 cb.borrow()(Event::Upgrading);
                             }
-                            option_upgrade.set_label("Preparing Upgrade").show_all();
+                            option_upgrade.set_label("Preparing Upgrade").progress_view().show_all();
                             option_refresh.hide();
 
                             if let Some(dismisser) = dismisser.take() {
@@ -395,7 +398,12 @@ impl UpgradeWidget {
                         if gtk::ResponseType::Accept == answer {
                             reboot()
                         } else {
-                            option_upgrade.button_view().show_all();
+                            option_upgrade.set_label("Canceling upgrade");
+
+                            if let Some(cb) = callback_event.upgrade() {
+                                cb.borrow()(Event::NotUpgrading);
+                            }
+
                             let _ = sender.send(BackgroundEvent::Reset);
                             return gtk::Continue(true);
                         }
@@ -506,7 +514,8 @@ impl UpgradeWidget {
                             if let Err(why) = client.reset() {
                                 error!("failed to reset daemon: {}", why);
                             }
-                            scan(client, send);
+                            eprintln!("proceeding");
+                            send(UiEvent::CancelledUpgrade);
                         }
                     }
                 }
@@ -515,6 +524,16 @@ impl UpgradeWidget {
             debug!("breaking free");
         });
     }
+}
+
+fn download_action(sender: Weak<glib::Sender<UiEvent>>) -> (&'static str, Box<dyn Fn()>) {
+    let action: Box<dyn Fn()> = Box::new(move || {
+        if let Some(sender) = sender.upgrade() {
+            let _ = sender.send(UiEvent::UpgradeClicked);
+        }
+    });
+
+    ("Download", action)
 }
 
 fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
