@@ -15,6 +15,7 @@ pub enum BackgroundEvent {
     DismissNotification,
     RefreshOS,
     RepoModify(Vec<Box<str>>, Vec<bool>),
+    Reset,
     Scan,
     Shutdown,
 }
