@@ -298,19 +298,23 @@ impl UpgradeWidget {
                                 }
 
                                 let gui_sender = gui_sender.clone();
-                                let action: Box<dyn Fn()> = Box::new(move || {
-                                    if let Some(sender) = gui_sender.upgrade() {
-                                        let _ = sender.send(UiEvent::UpgradeClicked);
-                                    }
-                                });
+                                Some(if reboot_ready {
+                                    let action: Box<dyn Fn()> = Box::new(move || {
+                                        if let Some(sender) = gui_sender.upgrade() {
+                                            let _ = sender.send(UiEvent::ReleaseUpgradeDialog);
+                                        }
+                                    });
 
-                                Some(("Download", action))
-                            } else if reboot_ready {
-                                let action: Box<dyn Fn()> = Box::new(move || {
-                                    reboot();
-                                });
+                                    ("Upgrade", action)
+                                } else {
+                                    let action: Box<dyn Fn()> = Box::new(move || {
+                                        if let Some(sender) = gui_sender.upgrade() {
+                                            let _ = sender.send(UiEvent::UpgradeClicked);
+                                        }
+                                    });
 
-                                Some(("Upgrade", action))
+                                    ("Download", action)
+                                })
                             } else {
                                 None
                             })
@@ -519,17 +523,15 @@ fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
     let mut upgrade = None;
     let mut is_lts = false;
     let mut status_failed = false;
-    let mut reboot_ready = false;
 
     if !users::is_admin() {
         send(UiEvent::Completed(CompletedEvent::Scan(ScanEvent::PermissionDenied)));
         return;
     }
 
-    let upgrade_text = if Path::new(STARTUP_UPGRADE_FILE).exists() {
-        reboot_ready = true;
-        Cow::Borrowed("Reboot now to upgrade OS")
-    } else if release::upgrade_in_progress() {
+    let reboot_ready = Path::new(STARTUP_UPGRADE_FILE).exists();
+
+    let upgrade_text = if release::upgrade_in_progress() {
         Cow::Borrowed("Pop!_OS is currently downloading.")
     } else {
         let devel = pop_upgrade::development_releases_enabled();
@@ -540,7 +542,11 @@ fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
                 if devel || info.build >= 0 {
                     info!("upgrade from {} to {} is available", info.current, info.next);
 
-                    let upgrade_text = Cow::Owned(format!("Pop!_OS {} is available.", info.next));
+                    let upgrade_text = Cow::Owned(if reboot_ready {
+                        format!("Pop!_OS is ready to upgrade to {}", info.next)
+                    } else {
+                        format!("Pop!_OS {} is available.", info.next)
+                    });
                     upgrade = Some(info);
                     upgrade_text
                 } else {
