@@ -281,6 +281,17 @@ pub fn repo_modify(
     method.inarg::<HashMap<&str, &str>>("repos").consume()
 }
 
+pub const RESET: &str = "Reset";
+
+pub fn reset(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method<MTFn<()>, ()> {
+    let method = dbus_factory.method::<_, String>(RESET, move |_| {
+        daemon.borrow_mut().reset()?;
+        Ok(Vec::new())
+    });
+
+    method.inarg::<HashMap<&str, &str>>("repos").consume()
+}
+
 pub const STATUS: &str = "Status";
 
 pub fn status(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method<MTFn<()>, ()> {
