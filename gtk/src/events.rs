@@ -23,6 +23,7 @@ pub enum BackgroundEvent {
 /// Events received for the UI to handle.
 #[derive(Debug)]
 pub enum UiEvent {
+    CancelledUpgrade,
     Completed(CompletedEvent),
     Dismissed,
     Error(UiError),

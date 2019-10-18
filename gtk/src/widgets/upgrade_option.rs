@@ -78,6 +78,7 @@ impl UpgradeOption {
     }
 
     pub fn button_view(&self) -> &Self {
+        self.progress.hide();
         self.stack.set_visible_child(&self.button);
         self
     }
@@ -95,6 +96,12 @@ impl UpgradeOption {
 
     pub fn progress_exact(&self, percent: u8) -> &Self {
         self.progress.set_fraction(percent as f64 / 100f64);
+        self.progress_view()
+    }
+
+    pub fn progress_view(&self) -> &Self {
+        self.button.hide();
+        self.stack.set_visible_child(&self.progress);
         self
     }
 
@@ -135,11 +142,6 @@ impl UpgradeOption {
             None => self.button.set_visible(false),
         }
 
-        self
-    }
-
-    fn progress_view(&self) -> &Self {
-        self.stack.set_visible_child(&self.progress);
-        self
+        self.button_view()
     }
 }
