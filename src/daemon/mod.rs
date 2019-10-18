@@ -369,6 +369,7 @@ impl Daemon {
             .add_m(methods::release_upgrade_status(daemon.clone(), &dbus_factory))
             .add_m(methods::release_upgrade(daemon.clone(), &dbus_factory))
             .add_m(methods::repo_modify(daemon.clone(), &dbus_factory))
+            .add_m(methods::reset(daemon.clone(), &dbus_factory))
             .add_m(methods::status(daemon.clone(), &dbus_factory))
             .add_s(fetch_result.clone())
             .add_s(fetched_package.clone())
