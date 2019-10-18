@@ -42,6 +42,7 @@ impl UpgradeOption {
             gtk::ProgressBar::new();
             ..set_ellipsize(pango::EllipsizeMode::End);
             ..set_hexpand(true);
+            ..set_valign(gtk::Align::End);
         };
 
         let stack = cascade! {
