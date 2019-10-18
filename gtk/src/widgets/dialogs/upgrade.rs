@@ -44,7 +44,7 @@ impl UpgradeDialog {
             "distributor-logo",
             "Upgrade",
             "Reboot & Upgrade",
-            &gtk::STYLE_CLASS_SUGGESTED_ACTION,
+            &gtk::STYLE_CLASS_DESTRUCTIVE_ACTION,
             |content| {
                 content.add(&title);
                 content.add(&scroller);
