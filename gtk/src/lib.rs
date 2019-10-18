@@ -50,12 +50,14 @@ pub enum Event {
 
 pub type ErrorCallback = Rc<RefCell<Box<dyn Fn(&str)>>>;
 pub type EventCallback = Rc<RefCell<Box<dyn Fn(Event)>>>;
+pub type ReadyCallback = Rc<RefCell<Box<dyn Fn()>>>;
 
 #[derive(Shrinkwrap)]
 pub struct UpgradeWidget {
     sender: mpsc::SyncSender<BackgroundEvent>,
     callback_error: ErrorCallback,
     callback_event: EventCallback,
+    callback_ready: ReadyCallback,
     #[shrinkwrap(main_field)]
     container: gtk::Container,
 }
@@ -133,6 +135,7 @@ impl UpgradeWidget {
 
         let callback_error: ErrorCallback = Rc::new(RefCell::new(Box::new(|_| ())));
         let callback_event: EventCallback = Rc::new(RefCell::new(Box::new(|_| ())));
+        let callback_ready: ReadyCallback = Rc::new(RefCell::new(Box::new(|| ())));
 
         {
             let container = container.clone();
@@ -150,6 +153,7 @@ impl UpgradeWidget {
             let gui_sender = Arc::downgrade(&gui_sender);
             let callback_error = Rc::downgrade(&callback_error);
             let callback_event = Rc::downgrade(&callback_event);
+            let callback_ready = Rc::downgrade(&callback_ready);
 
             macro_rules! reset_widget {
                 () => {
@@ -233,7 +237,7 @@ impl UpgradeWidget {
                                 "Click here to restart",
                                 || {
                                     if let Some(sender) = sender.upgrade() {
-                                        let _ = sender.send(UiEvent::ReleaseUpgradeDialog);
+                                        let _ = sender.send(UiEvent::UpgradeNotificationClicked);
                                     }
                                 },
                             );
@@ -373,6 +377,11 @@ impl UpgradeWidget {
                             let _ = sender.send(BackgroundEvent::DownloadUpgrade(info));
                         }
                     }
+                    UiEvent::UpgradeNotificationClicked => {
+                        if let Some(callback) = callback_ready.upgrade() {
+                            (callback.borrow())()
+                        }
+                    }
                     UiEvent::ReleaseUpgradeDialog => {
                         let dialog = UpgradeDialog::new(&upgrading_from, &upgrading_to);
 
@@ -417,6 +426,7 @@ impl UpgradeWidget {
             sender: bg_sender,
             callback_error,
             callback_event,
+            callback_ready,
         }
     }
 
@@ -433,6 +443,10 @@ impl UpgradeWidget {
 
     pub fn callback_event<F: Fn(Event) + 'static>(&self, func: F) {
         *self.callback_event.borrow_mut() = Box::from(func);
+    }
+
+    pub fn callback_ready<F: Fn() + 'static>(&self, func: F) {
+        *self.callback_ready.borrow_mut() = Box::from(func);
     }
 
     pub fn upgrade_daemon_is_active(&self) -> bool {
