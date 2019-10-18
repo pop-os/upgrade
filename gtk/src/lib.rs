@@ -229,12 +229,13 @@ impl UpgradeWidget {
                         upgrade_downloaded = true;
 
                         let sender = gui_sender.clone();
-                        let title = format!("Pop!_OS {} is ready to upgrade", upgrading_to);
+                        let description =
+                            format!("Pop!_OS is ready to upgrade to {}", upgrading_to);
                         thread::spawn(move || {
                             notify::notify(
                                 "distributor-logo-upgrade-symbolic",
-                                &title,
-                                "Click here to restart",
+                                "Upgrade Ready",
+                                &description,
                                 || {
                                     if let Some(sender) = sender.upgrade() {
                                         let _ = sender.send(UiEvent::UpgradeNotificationClicked);
