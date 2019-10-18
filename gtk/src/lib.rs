@@ -233,7 +233,7 @@ impl UpgradeWidget {
                             format!("Pop!_OS is ready to upgrade to {}", upgrading_to);
                         thread::spawn(move || {
                             notify::notify(
-                                "distributor-logo-upgrade-symbolic",
+                                "distributor-logo",
                                 "Upgrade Ready",
                                 &description,
                                 || {
