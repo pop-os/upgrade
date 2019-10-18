@@ -392,6 +392,7 @@ impl UpgradeWidget {
                             reboot()
                         } else {
                             option_upgrade.button_view().show_all();
+                            let _ = sender.send(BackgroundEvent::Reset);
                             return gtk::Continue(true);
                         }
                     }
@@ -496,6 +497,12 @@ impl UpgradeWidget {
                             send(UiEvent::Shutdown);
                             debug!("stopping background thread");
                             break;
+                        }
+                        BackgroundEvent::Reset => {
+                            if let Err(why) = client.reset() {
+                                error!("failed to reset daemon: {}", why);
+                            }
+                            scan(client, send);
                         }
                     }
                 }
