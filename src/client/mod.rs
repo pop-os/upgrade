@@ -275,6 +275,12 @@ impl Client {
         Ok(())
     }
 
+    /// Reset the daemon to its initial state, and clean up any changes.
+    pub fn reset(&self) -> Result<(), Error> {
+        self.call_method(methods::RESET, |m| m)?;
+        Ok(())
+    }
+
     /// Retrieves the status of the daemon.
     pub fn status(&self) -> Result<DaemonStatus, Error> {
         self.call_method(methods::STATUS, |m| m)?

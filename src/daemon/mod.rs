@@ -662,6 +662,19 @@ impl Daemon {
         crate::repos::modify_repos(&mut retain_repos, repos).map_err(|why| format!("{}", why))
     }
 
+    fn reset(&mut self) -> Result<(), String> {
+        info!("resetting daemon");
+
+        self.status.store(DaemonStatus::Inactive, Ordering::SeqCst);
+        self.sub_status.store(0, Ordering::SeqCst);
+        self.fetching_state.store((0, 0), Ordering::SeqCst);
+        self.retain_repos.lock().expect("failed to lock retain_repos").clear();
+
+        release::cleanup();
+
+        Ok(())
+    }
+
     fn send_signal_message(connection: &Connection, message: Message) {
         if let Err(()) = connection.send(message) {
             error!("failed to send dbus signal message");
