@@ -406,10 +406,17 @@ impl<'a> DaemonRuntime<'a> {
         for proc in procfs::all_processes() {
             if let Ok(exe_path) = proc.exe() {
                 if let Some(exe) = exe_path.file_name() {
-                    if exe == APPCENTER {
-                        eprintln!("killing {}", APPCENTER);
-                        unsafe {
-                            let _ = libc::kill(proc.pid(), libc::SIGKILL);
+                    if let Some(mut exe) = exe.to_str() {
+                        if exe.ends_with(" (deleted)") {
+                            exe = &exe[..exe.len() - 10];
+                        }
+
+                        // eprintln!("found process: {} ({})", exe, proc.pid());
+                        if exe == APPCENTER {
+                            eprintln!("killing {}", APPCENTER);
+                            unsafe {
+                                let _ = libc::kill(proc.pid(), libc::SIGKILL);
+                            }
                         }
                     }
                 }
