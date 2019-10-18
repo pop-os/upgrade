@@ -375,7 +375,10 @@ impl UpgradeWidget {
                             if let Some(cb) = callback_event.upgrade() {
                                 cb.borrow()(Event::Upgrading);
                             }
-                            option_upgrade.set_label("Preparing Upgrade").progress_view().show_all();
+                            option_upgrade
+                                .set_label("Preparing Upgrade")
+                                .progress_view()
+                                .show_all();
                             option_refresh.hide();
 
                             if let Some(dismisser) = dismisser.take() {
@@ -536,199 +539,6 @@ fn download_action(sender: Weak<glib::Sender<UiEvent>>) -> (&'static str, Box<dy
     ("Download", action)
 }
 
-fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
-    debug!("scanning");
-    send(UiEvent::Initiated(InitiatedEvent::Scanning));
-    let mut upgrade = None;
-    let mut is_lts = false;
-    let mut status_failed = false;
-
-    if !users::is_admin() {
-        send(UiEvent::Completed(CompletedEvent::Scan(ScanEvent::PermissionDenied)));
-        return;
-    }
-
-    let reboot_ready = Path::new(STARTUP_UPGRADE_FILE).exists();
-
-    let upgrade_text = if release::upgrade_in_progress() {
-        Cow::Borrowed("Pop!_OS is currently downloading.")
-    } else {
-        let devel = pop_upgrade::development_releases_enabled();
-        let result = dbg!(client.release_check(devel));
-        match result {
-            Ok(info) => {
-                is_lts = info.is_lts;
-                if devel || info.build >= 0 {
-                    info!("upgrade from {} to {} is available", info.current, info.next);
-
-                    let upgrade_text = Cow::Owned(if reboot_ready {
-                        format!("Pop!_OS is ready to upgrade to {}", info.next)
-                    } else {
-                        format!("Pop!_OS {} is available.", info.next)
-                    });
-                    upgrade = Some(info);
-                    upgrade_text
-                } else {
-                    status_failed = true;
-                    Cow::Borrowed(match info.build {
-                        -1 => "Failed to retrieve build status due to an internal error.",
-                        -2 => "You are running the most current Pop!_OS version.",
-                        -3 => "Connection failed. You may be offline.",
-                        _ => "Unknown status received.",
-                    })
-                }
-            }
-            Err(why) => {
-                status_failed = true;
-                error!("failed to check for updates: {}", why);
-                Cow::Borrowed("Failed to check for updates")
-            }
-        }
-    };
-
-    send(UiEvent::Completed(CompletedEvent::Scan(ScanEvent::Found {
-        upgrade_text: Box::from(upgrade_text.as_ref()),
-        upgrade,
-        refresh: client.recovery_exists(),
-        is_lts,
-        status_failed,
-        reboot_ready,
-    })));
-}
-
-fn get_status(client: &Client, send: &dyn Fn(UiEvent), from: DaemonStatus) {
-    match from {
-        DaemonStatus::RecoveryUpgrade => {
-            let event = match client.recovery_upgrade_release_status() {
-                Ok(status) => {
-                    if status.status == 0 {
-                        UiEvent::Completed(CompletedEvent::Recovery)
-                    } else {
-                        UiEvent::Error(UiError::Recovery(status.why.into()))
-                    }
-                }
-                Err(why) => UiEvent::Error(UiError::Recovery(why.into())),
-            };
-
-            send(event);
-        }
-        DaemonStatus::ReleaseUpgrade => {
-            let event = match client.release_upgrade_status() {
-                Ok(status) => {
-                    if status.status == 0 {
-                        UiEvent::Completed(CompletedEvent::Download)
-                    } else {
-                        UiEvent::Error(UiError::Upgrade(status.why.into()))
-                    }
-                }
-                Err(why) => UiEvent::Error(UiError::Upgrade(why.into())),
-            };
-
-            send(event);
-        }
-        _ => (),
-    }
-}
-
-fn refresh_os(client: &Client, send: &dyn Fn(UiEvent)) {
-    send(UiEvent::Initiated(InitiatedEvent::Refresh));
-
-    if let Err(why) = client.refresh_os(RefreshOp::Enable) {
-        send(UiEvent::Error(UiError::Refresh(why.into())));
-        return;
-    }
-
-    send(UiEvent::Completed(CompletedEvent::Refresh));
-}
-
-fn repo_modify(
-    client: &Client,
-    send: &dyn Fn(UiEvent),
-    failures: Vec<Box<str>>,
-    answers: Vec<bool>,
-) {
-    let input = failures.into_iter().zip(answers.into_iter());
-    if let Err(why) = client.repo_modify(input) {
-        send(UiEvent::Error(UiError::Repos(why.into())));
-        return;
-    }
-
-    send(UiEvent::UpgradeClicked);
-}
-
-fn status_changed(send: &dyn Fn(UiEvent), new_status: Status, expected: DaemonStatus) {
-    let status = DaemonStatus::from_u8(new_status.status).expect("unknown daemon status value");
-    send(UiEvent::StatusChanged(expected, status, new_status.why));
-}
-
-fn update_system(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
-    info!("checking if updates are required");
-    let updates = match client.fetch_updates(Vec::new(), false) {
-        Ok(updates) => updates,
-        Err(why) => {
-            send(UiEvent::Error(UiError::Updates(why.into())));
-            return false;
-        }
-    };
-
-    if updates.updates_available {
-        send(UiEvent::Progress(ProgressEvent::Fetching(
-            updates.completed as u64,
-            updates.total as u64,
-        )));
-
-        let error = &mut None;
-
-        debug!("listening for package fetching signals");
-        client.event_listen(
-            DaemonStatus::FetchingPackages,
-            Client::fetch_updates_status,
-            |status| status_changed(send, status, DaemonStatus::FetchingPackages),
-            |_client, signal| {
-                match signal {
-                    Signal::PackageFetchResult(status) => {
-                        if status.status != 0 {
-                            *error = Some(status.why);
-                        }
-
-                        return Ok(client::Continue(false));
-                    }
-                    Signal::PackageFetched(status) => {
-                        send(UiEvent::Progress(ProgressEvent::Fetching(
-                            status.completed as u64,
-                            status.total as u64,
-                        )));
-                    }
-                    Signal::PackageUpgrade(event) => {
-                        match AptUpgradeEvent::from_dbus_map(event.into_iter()) {
-                            Ok(AptUpgradeEvent::Progress { percent }) => {
-                                send(UiEvent::Progress(ProgressEvent::Updates(percent)))
-                            }
-                            Ok(AptUpgradeEvent::WaitingOnLock) => {
-                                send(UiEvent::WaitingOnLock);
-                            }
-                            _ => (),
-                        }
-                    }
-                    Signal::ReleaseEvent(event) => {
-                        send(UiEvent::UpgradeEvent(event));
-                    }
-                    _ => (),
-                }
-
-                Ok(client::Continue(true))
-            },
-        );
-
-        if let Some(why) = error.take() {
-            send(UiEvent::Error(UiError::Updates(why.into())));
-            return false;
-        }
-    }
-
-    true
-}
-
 fn download_upgrade(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) {
     info!("downloading updates for {}", info.next);
     if !update_system(client, send) {
@@ -834,6 +644,213 @@ fn download_upgrade(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) 
     }
 }
 
+fn get_status(client: &Client, send: &dyn Fn(UiEvent), from: DaemonStatus) {
+    match from {
+        DaemonStatus::RecoveryUpgrade => {
+            let event = match client.recovery_upgrade_release_status() {
+                Ok(status) => {
+                    if status.status == 0 {
+                        UiEvent::Completed(CompletedEvent::Recovery)
+                    } else {
+                        UiEvent::Error(UiError::Recovery(status.why.into()))
+                    }
+                }
+                Err(why) => UiEvent::Error(UiError::Recovery(why.into())),
+            };
+
+            send(event);
+        }
+        DaemonStatus::ReleaseUpgrade => {
+            let event = match client.release_upgrade_status() {
+                Ok(status) => {
+                    if status.status == 0 {
+                        UiEvent::Completed(CompletedEvent::Download)
+                    } else {
+                        UiEvent::Error(UiError::Upgrade(status.why.into()))
+                    }
+                }
+                Err(why) => UiEvent::Error(UiError::Upgrade(why.into())),
+            };
+
+            send(event);
+        }
+        _ => (),
+    }
+}
+
+fn is_dismissed(next: &str) -> bool {
+    if Path::new(DISMISSED).exists() {
+        if let Some(dismissed) = fs::read_to_string(DISMISSED).ok() {
+            if dismissed.as_str() == next {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
+fn refresh_os(client: &Client, send: &dyn Fn(UiEvent)) {
+    send(UiEvent::Initiated(InitiatedEvent::Refresh));
+
+    if let Err(why) = client.refresh_os(RefreshOp::Enable) {
+        send(UiEvent::Error(UiError::Refresh(why.into())));
+        return;
+    }
+
+    send(UiEvent::Completed(CompletedEvent::Refresh));
+}
+
+fn repo_modify(
+    client: &Client,
+    send: &dyn Fn(UiEvent),
+    failures: Vec<Box<str>>,
+    answers: Vec<bool>,
+) {
+    let input = failures.into_iter().zip(answers.into_iter());
+    if let Err(why) = client.repo_modify(input) {
+        send(UiEvent::Error(UiError::Repos(why.into())));
+        return;
+    }
+
+    send(UiEvent::UpgradeClicked);
+}
+
+fn reboot() { let _ = Command::new("systemctl").arg("reboot").status(); }
+
+fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
+    debug!("scanning");
+    send(UiEvent::Initiated(InitiatedEvent::Scanning));
+    let mut upgrade = None;
+    let mut is_lts = false;
+    let mut status_failed = false;
+
+    if !users::is_admin() {
+        send(UiEvent::Completed(CompletedEvent::Scan(ScanEvent::PermissionDenied)));
+        return;
+    }
+
+    let reboot_ready = Path::new(STARTUP_UPGRADE_FILE).exists();
+
+    let upgrade_text = if release::upgrade_in_progress() {
+        Cow::Borrowed("Pop!_OS is currently downloading.")
+    } else {
+        let devel = pop_upgrade::development_releases_enabled();
+        let result = dbg!(client.release_check(devel));
+        match result {
+            Ok(info) => {
+                is_lts = info.is_lts;
+                if devel || info.build >= 0 {
+                    info!("upgrade from {} to {} is available", info.current, info.next);
+
+                    let upgrade_text = Cow::Owned(if reboot_ready {
+                        format!("Pop!_OS is ready to upgrade to {}", info.next)
+                    } else {
+                        format!("Pop!_OS {} is available.", info.next)
+                    });
+                    upgrade = Some(info);
+                    upgrade_text
+                } else {
+                    status_failed = true;
+                    Cow::Borrowed(match info.build {
+                        -1 => "Failed to retrieve build status due to an internal error.",
+                        -2 => "You are running the most current Pop!_OS version.",
+                        -3 => "Connection failed. You may be offline.",
+                        _ => "Unknown status received.",
+                    })
+                }
+            }
+            Err(why) => {
+                status_failed = true;
+                error!("failed to check for updates: {}", why);
+                Cow::Borrowed("Failed to check for updates")
+            }
+        }
+    };
+
+    send(UiEvent::Completed(CompletedEvent::Scan(ScanEvent::Found {
+        upgrade_text: Box::from(upgrade_text.as_ref()),
+        upgrade,
+        refresh: client.recovery_exists(),
+        is_lts,
+        status_failed,
+        reboot_ready,
+    })));
+}
+
+fn status_changed(send: &dyn Fn(UiEvent), new_status: Status, expected: DaemonStatus) {
+    let status = DaemonStatus::from_u8(new_status.status).expect("unknown daemon status value");
+    send(UiEvent::StatusChanged(expected, status, new_status.why));
+}
+
+fn update_system(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
+    info!("checking if updates are required");
+    let updates = match client.fetch_updates(Vec::new(), false) {
+        Ok(updates) => updates,
+        Err(why) => {
+            send(UiEvent::Error(UiError::Updates(why.into())));
+            return false;
+        }
+    };
+
+    if updates.updates_available {
+        send(UiEvent::Progress(ProgressEvent::Fetching(
+            updates.completed as u64,
+            updates.total as u64,
+        )));
+
+        let error = &mut None;
+
+        debug!("listening for package fetching signals");
+        client.event_listen(
+            DaemonStatus::FetchingPackages,
+            Client::fetch_updates_status,
+            |status| status_changed(send, status, DaemonStatus::FetchingPackages),
+            |_client, signal| {
+                match signal {
+                    Signal::PackageFetchResult(status) => {
+                        if status.status != 0 {
+                            *error = Some(status.why);
+                        }
+
+                        return Ok(client::Continue(false));
+                    }
+                    Signal::PackageFetched(status) => {
+                        send(UiEvent::Progress(ProgressEvent::Fetching(
+                            status.completed as u64,
+                            status.total as u64,
+                        )));
+                    }
+                    Signal::PackageUpgrade(event) => {
+                        match AptUpgradeEvent::from_dbus_map(event.into_iter()) {
+                            Ok(AptUpgradeEvent::Progress { percent }) => {
+                                send(UiEvent::Progress(ProgressEvent::Updates(percent)))
+                            }
+                            Ok(AptUpgradeEvent::WaitingOnLock) => {
+                                send(UiEvent::WaitingOnLock);
+                            }
+                            _ => (),
+                        }
+                    }
+                    Signal::ReleaseEvent(event) => {
+                        send(UiEvent::UpgradeEvent(event));
+                    }
+                    _ => (),
+                }
+
+                Ok(client::Continue(true))
+            },
+        );
+
+        if let Some(why) = error.take() {
+            send(UiEvent::Error(UiError::Updates(why.into())));
+            return false;
+        }
+    }
+
+    true
+}
+
 fn upgrade_recovery(client: &Client, send: &dyn Fn(UiEvent), version: &str) -> bool {
     send(UiEvent::Initiated(InitiatedEvent::Recovery));
 
@@ -880,18 +897,4 @@ fn upgrade_recovery(client: &Client, send: &dyn Fn(UiEvent), version: &str) -> b
 
     send(UiEvent::Completed(CompletedEvent::Recovery));
     true
-}
-
-fn reboot() { let _ = Command::new("systemctl").arg("reboot").status(); }
-
-fn is_dismissed(next: &str) -> bool {
-    if Path::new(DISMISSED).exists() {
-        if let Some(dismissed) = fs::read_to_string(DISMISSED).ok() {
-            if dismissed.as_str() == next {
-                return true;
-            }
-        }
-    }
-
-    false
 }
