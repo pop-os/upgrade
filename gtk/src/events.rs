@@ -33,6 +33,7 @@ pub enum UiEvent {
     StatusChanged(DaemonStatus, DaemonStatus, Box<str>),
     UpgradeClicked,
     UpgradeEvent(UpgradeEvent),
+    UpgradeNotificationClicked,
     WaitingOnLock,
 }
 
