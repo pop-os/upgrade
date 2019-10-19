@@ -735,7 +735,7 @@ fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
 
     let reboot_ready = Path::new(STARTUP_UPGRADE_FILE).exists();
 
-    let upgrade_text = if release::upgrade_in_progress() {
+    let upgrade_text = if !reboot_ready && release::upgrade_in_progress() {
         Cow::Borrowed("Pop!_OS is currently downloading.")
     } else {
         let devel = pop_upgrade::development_releases_enabled();
