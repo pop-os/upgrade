@@ -28,7 +28,7 @@ use pop_upgrade::{
     client::{self, Client, ReleaseInfo, Signal, Status},
     daemon::{DaemonStatus, DISMISSED},
     recovery::ReleaseFlags,
-    release::{self, RefreshOp, UpgradeEvent, UpgradeMethod, STARTUP_UPGRADE_FILE},
+    release::{self, RefreshOp, UpgradeMethod, STARTUP_UPGRADE_FILE},
 };
 use std::{
     borrow::Cow,
@@ -185,7 +185,7 @@ impl UpgradeWidget {
                             dismisser_frame.hide();
                         }
                     }
-                    UiEvent::UpgradeEvent(event) => (),
+                    UiEvent::UpgradeEvent(_) => (),
                     UiEvent::Progress(ProgressEvent::Fetching(progress, total)) => {
                         let progress = if fetching_release { progress } else { progress / 2 };
                         option_upgrade.progress(progress, total).show_all();
@@ -403,7 +403,7 @@ impl UpgradeWidget {
                         let answer = dialog.run();
                         dialog.destroy();
                         if gtk::ResponseType::Accept == answer {
-                            reboot()
+                            let _ = sender.send(BackgroundEvent::Finalize);
                         } else {
                             // Send upgrading event to prevent closing
                             if let Some(cb) = callback_event.upgrade() {
@@ -485,6 +485,10 @@ impl UpgradeWidget {
                 while let Ok(event) = receiver.recv() {
                     trace!("received BackgroundEvent: {:?}", event);
                     match event {
+                        BackgroundEvent::Finalize => match client.release_upgrade_finalize() {
+                            Ok(()) => reboot(),
+                            Err(why) => send(UiEvent::Error(UiError::Finalize(why))),
+                        },
                         BackgroundEvent::GetStatus(from) => {
                             get_status(client, send, from);
                         }
@@ -513,21 +517,17 @@ impl UpgradeWidget {
                         }
                         BackgroundEvent::Shutdown => {
                             send(UiEvent::Shutdown);
-                            debug!("stopping background thread");
                             break;
                         }
                         BackgroundEvent::Reset => {
-                            if let Err(why) = client.reset() {
-                                error!("failed to reset daemon: {}", why);
-                            }
-                            eprintln!("proceeding");
-                            send(UiEvent::CancelledUpgrade);
+                            send(match client.reset() {
+                                Ok(()) => UiEvent::CancelledUpgrade,
+                                Err(why) => UiEvent::Error(UiError::Cancel(why)),
+                            });
                         }
                     }
                 }
             }
-
-            debug!("breaking free");
         });
     }
 }
