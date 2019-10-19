@@ -10,6 +10,7 @@ use std::sync::mpsc::SyncSender;
 #[derive(Debug)]
 pub enum BackgroundEvent {
     DownloadUpgrade(ReleaseInfo),
+    Finalize,
     GetStatus(DaemonStatus),
     IsActive(SyncSender<bool>),
     DismissNotification,

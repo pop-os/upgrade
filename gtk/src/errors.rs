@@ -3,8 +3,12 @@ use std::error::Error as ErrorTrait;
 
 #[derive(Debug, Error)]
 pub enum UiError {
+    #[error(display = "failed to cancel upgrade")]
+    Cancel(#[error(cause)] ClientError),
     #[error(display = "failed to dismiss notifications")]
     Dismiss(#[error(cause)] UnderlyingError),
+    #[error(display = "failed to finalize release upgrade")]
+    Finalize(#[error(cause)] ClientError),
     #[error(display = "recovery upgrade failed")]
     Recovery(#[error(cause)] UnderlyingError),
     #[error(display = "failed to set up OS refresh")]

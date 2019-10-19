@@ -10,8 +10,8 @@ pub const APP_ID: &str = "com.system76.UpgradeManager";
 fn main() {
     glib::set_program_name(APP_ID.into());
 
-    let application =
-        Application::new(Some(APP_ID), ApplicationFlags::empty()).expect("GTK initialization failed");
+    let application = Application::new(Some(APP_ID), ApplicationFlags::empty())
+        .expect("GTK initialization failed");
 
     application.connect_activate(|app| {
         if let Some(window) = app.get_window_by_id(0) {
