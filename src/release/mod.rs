@@ -358,42 +358,10 @@ impl<'a> DaemonRuntime<'a> {
 
         // Update the source lists to the new release,
         // then fetch the packages required for the upgrade.
-        let mut upgrader = self.fetch_new_release_packages(logger, retain, fetch, from, to)?;
-        let result = self.perform_action(logger, action, from, to);
+        let _ = self.fetch_new_release_packages(logger, retain, fetch, from, to)?;
 
-        // We know that an offline install will trigger the upgrade script at init.
-        // We want to ensure that the recovery partition has removed this file on completion.
-        if let UpgradeMethod::Offline = action {
-            let _ = fs::remove_file(RELEASE_FETCH_FILE);
-        }
-
-        if let Err(ref why) = result {
-            (*logger)(UpgradeEvent::Failure);
-            rollback(&mut upgrader, why);
-        } else {
-            (*logger)(UpgradeEvent::Success);
-        }
-
-        result
-    }
-
-    fn perform_action(
-        &mut self,
-        logger: &dyn Fn(UpgradeEvent),
-        action: UpgradeMethod,
-        from: &str,
-        to: &str,
-    ) -> RelResult<()> {
-        match action {
-            UpgradeMethod::Offline => {
-                (*logger)(UpgradeEvent::AttemptingSystemdUnit);
-                Self::systemd_upgrade_set(from, to)
-            }
-            UpgradeMethod::Recovery => {
-                (*logger)(UpgradeEvent::AttemptingRecovery);
-                set_recovery_as_default_boot_option("UPGRADE").map(|_| ())
-            }
-        }
+        (*logger)(UpgradeEvent::Success);
+        Ok(())
     }
 
     /// Search for any active processes which are incompatible with the upgrade daemon,
@@ -443,18 +411,6 @@ impl<'a> DaemonRuntime<'a> {
         }
 
         Ok(())
-    }
-
-    /// Create the system upgrade files that systemd will check for at startup.
-    fn systemd_upgrade_set(from: &str, to: &str) -> RelResult<()> {
-        let current =
-            from.parse::<Version>().map(Codename::from).map(<&'static str>::from).unwrap_or(from);
-
-        let new = to.parse::<Version>().map(Codename::from).map(<&'static str>::from).unwrap_or(to);
-
-        fs::write(STARTUP_UPGRADE_FILE, &format!("{} {}", current, new))
-            .and_then(|_| symlink("/var/cache/apt/archives", SYSTEM_UPDATE))
-            .map_err(ReleaseError::StartupFileCreation)
     }
 
     fn attempt_fetch(
@@ -509,12 +465,31 @@ impl<'a> DaemonRuntime<'a> {
     }
 }
 
+pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResult<()> {
+    match action {
+        UpgradeMethod::Offline => systemd_upgrade_set(from, to),
+        UpgradeMethod::Recovery => set_recovery_as_default_boot_option("UPGRADE").map(|_| ()),
+    }
+}
+
 fn rollback<E: ::std::fmt::Display>(upgrader: &mut Upgrader, why: &E) {
     error!("failed to fetch packages: {}", why);
     warn!("attempting to roll back apt release files");
     if let Err(why) = upgrader.revert_apt_sources() {
         error!("failed to revert release name changes to source lists in /etc/apt/: {}", why);
     }
+}
+
+/// Create the system upgrade files that systemd will check for at startup.
+fn systemd_upgrade_set(from: &str, to: &str) -> RelResult<()> {
+    let current =
+        from.parse::<Version>().map(Codename::from).map(<&'static str>::from).unwrap_or(from);
+
+    let new = to.parse::<Version>().map(Codename::from).map(<&'static str>::from).unwrap_or(to);
+
+    fs::write(STARTUP_UPGRADE_FILE, &format!("{} {}", current, new))
+        .and_then(|_| symlink("/var/cache/apt/archives", SYSTEM_UPDATE))
+        .map_err(ReleaseError::StartupFileCreation)
 }
 
 fn get_recovery_value_set(option: &str) -> RelResult<bool> {
