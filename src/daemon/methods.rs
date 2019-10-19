@@ -236,6 +236,20 @@ pub fn release_upgrade(
     method.inarg::<u8>("how").inarg::<&str>("from").inarg::<&str>("to").consume()
 }
 
+pub const RELEASE_UPGRADE_FINALIZE: &str = "ReleaseUpgradeFinalize";
+
+pub fn release_upgrade_finalize(
+    daemon: Rc<RefCell<Daemon>>,
+    dbus_factory: &DbusFactory,
+) -> Method<MTFn<()>, ()> {
+    let method = dbus_factory.method::<_, String>(RELEASE_UPGRADE_FINALIZE, move |_| {
+        daemon.borrow_mut().release_upgrade_finalize()?;
+        Ok(Vec::new())
+    });
+
+    method.inarg::<u8>("how").inarg::<&str>("from").inarg::<&str>("to").consume()
+}
+
 pub const RELEASE_UPGRADE_STATUS: &str = "ReleaseUpgradeStatus";
 
 pub fn release_upgrade_status(

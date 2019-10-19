@@ -261,6 +261,11 @@ impl Client {
         Ok(())
     }
 
+    pub fn release_upgrade_finalize(&self) -> Result<(), Error> {
+        self.call_method(methods::RELEASE_UPGRADE_FINALIZE, |m| m)?;
+        Ok(())
+    }
+
     /// Retrieves the last known status of a release upgrade.
     pub fn release_upgrade_status(&self) -> Result<Status, Error> {
         self.call_method(methods::RELEASE_UPGRADE_STATUS, |m| m)?

@@ -60,6 +60,11 @@ pub enum Event {
     ReleaseUpgrade { how: ReleaseUpgradeMethod, from: String, to: String },
 }
 
+#[derive(Debug)]
+pub enum FgEvent {
+    SetUpgradeState(ReleaseUpgradeMethod, Box<str>, Box<str>),
+}
+
 pub struct LastKnown {
     fetch:            Result<(), ReleaseError>,
     recovery_upgrade: Result<(), RecoveryError>,
@@ -72,15 +77,23 @@ impl Default for LastKnown {
     }
 }
 
+pub struct ReleaseUpgradeState {
+    action: release::UpgradeMethod,
+    from:   Box<str>,
+    to:     Box<str>,
+}
+
 pub struct Daemon {
-    event_tx:       Sender<Event>,
-    dbus_rx:        Receiver<SignalEvent>,
-    connection:     Arc<Connection>,
-    status:         Arc<Atomic<DaemonStatus>>,
-    sub_status:     Arc<Atomic<u8>>,
-    fetching_state: Arc<Atomic<(u64, u64)>>,
-    last_known:     LastKnown,
-    retain_repos:   Arc<Mutex<HashSet<Box<str>>>>,
+    event_tx:        Sender<Event>,
+    fg_rx:           Receiver<FgEvent>,
+    dbus_rx:         Receiver<SignalEvent>,
+    connection:      Arc<Connection>,
+    status:          Arc<Atomic<DaemonStatus>>,
+    sub_status:      Arc<Atomic<u8>>,
+    fetching_state:  Arc<Atomic<(u64, u64)>>,
+    last_known:      LastKnown,
+    release_upgrade: Option<ReleaseUpgradeState>,
+    retain_repos:    Arc<Mutex<HashSet<Box<str>>>>,
 }
 
 impl Daemon {
@@ -95,6 +108,9 @@ impl Daemon {
 
         // Only accept one event at a time.
         let (event_tx, event_rx) = bounded(4);
+
+        // Events to be handled in the foreground.
+        let (fg_tx, fg_rx) = bounded(4);
 
         // Dbus events are checked at least once per second, so we will allow buffering some events.
         let (dbus_tx, dbus_rx) = bounded(64);
@@ -252,6 +268,14 @@ impl Daemon {
                                 },
                             );
 
+                            if result.is_ok() {
+                                let _ = fg_tx.send(FgEvent::SetUpgradeState(
+                                    how,
+                                    from.into(),
+                                    to.into(),
+                                ));
+                            }
+
                             let _ = dbus_tx.send(SignalEvent::ReleaseUpgradeResult(result));
                         }
                     }
@@ -265,11 +289,13 @@ impl Daemon {
         Ok(Daemon {
             event_tx,
             dbus_rx,
+            fg_rx,
             connection,
             fetching_state: prog_state,
             status,
             sub_status,
             last_known: Default::default(),
+            release_upgrade: None,
             retain_repos,
         })
     }
@@ -366,8 +392,9 @@ impl Daemon {
             .add_m(methods::refresh_os(daemon.clone(), &dbus_factory))
             .add_m(methods::release_check(daemon.clone(), &dbus_factory))
             .add_m(methods::release_repair(daemon.clone(), &dbus_factory))
-            .add_m(methods::release_upgrade_status(daemon.clone(), &dbus_factory))
             .add_m(methods::release_upgrade(daemon.clone(), &dbus_factory))
+            .add_m(methods::release_upgrade_finalize(daemon.clone(), &dbus_factory))
+            .add_m(methods::release_upgrade_status(daemon.clone(), &dbus_factory))
             .add_m(methods::repo_modify(daemon.clone(), &dbus_factory))
             .add_m(methods::reset(daemon.clone(), &dbus_factory))
             .add_m(methods::status(daemon.clone(), &dbus_factory))
@@ -381,9 +408,9 @@ impl Daemon {
             .add_s(repo_compat_error.clone())
             .add_s(upgrade_event.clone());
 
-        let (connection, receiver) = {
+        let (connection, fg_receiver, receiver) = {
             let daemon = daemon.borrow();
-            (daemon.connection.clone(), daemon.dbus_rx.clone())
+            (daemon.connection.clone(), daemon.fg_rx.clone(), daemon.dbus_rx.clone())
         };
 
         let tree = factory
@@ -416,6 +443,16 @@ impl Daemon {
                         break Ok(());
                     }
                     _ => (),
+                }
+            }
+
+            while let Ok(fg_event) = fg_receiver.try_recv() {
+                match fg_event {
+                    FgEvent::SetUpgradeState(action, from, to) => {
+                        info!("setting release upgrade state");
+                        let state = ReleaseUpgradeState { action, from, to };
+                        daemon.borrow_mut().release_upgrade = Some(state);
+                    }
                 }
             }
 
@@ -653,6 +690,18 @@ impl Daemon {
         Ok(())
     }
 
+    fn release_upgrade_finalize(&mut self) -> Result<(), String> {
+        match self.release_upgrade.as_ref() {
+            Some(ReleaseUpgradeState { action, from, to }) => {
+                release::upgrade_finalize(*action, from, to)
+                    .map_err(|why| format!("release upgrade finalization failed: {}", why))
+            }
+            None => Err("release upgrade cannot be finalized, because a release upgrade was not \
+                         performed"
+                .into()),
+        }
+    }
+
     fn release_repair(&mut self) -> Result<(), String> {
         crate::repair::repair().map_err(|why| format!("{}", why))
     }
@@ -669,6 +718,7 @@ impl Daemon {
         self.status.store(DaemonStatus::Inactive, Ordering::SeqCst);
         self.sub_status.store(0, Ordering::SeqCst);
         self.fetching_state.store((0, 0), Ordering::SeqCst);
+        self.release_upgrade = None;
         self.retain_repos.lock().expect("failed to lock retain_repos").clear();
 
         release::cleanup();
