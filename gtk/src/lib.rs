@@ -405,6 +405,10 @@ impl UpgradeWidget {
                         if gtk::ResponseType::Accept == answer {
                             reboot()
                         } else {
+                            // Send upgrading event to prevent closing
+                            if let Some(cb) = callback_event.upgrade() {
+                                cb.borrow()(Event::Upgrading);
+                            }
                             option_upgrade.set_label("Canceling upgrade");
                             let _ = sender.send(BackgroundEvent::Reset);
                             return gtk::Continue(true);
