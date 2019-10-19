@@ -221,6 +221,10 @@ impl UpgradeWidget {
                         fetching_release = true;
                     }
                     UiEvent::CancelledUpgrade => {
+                        if let Some(cb) = callback_event.upgrade() {
+                            cb.borrow()(Event::NotUpgrading);
+                        }
+
                         upgrade_downloaded = false;
                         option_upgrade
                             .set_label(&*upgrade_label)
@@ -402,11 +406,6 @@ impl UpgradeWidget {
                             reboot()
                         } else {
                             option_upgrade.set_label("Canceling upgrade");
-
-                            if let Some(cb) = callback_event.upgrade() {
-                                cb.borrow()(Event::NotUpgrading);
-                            }
-
                             let _ = sender.send(BackgroundEvent::Reset);
                             return gtk::Continue(true);
                         }
