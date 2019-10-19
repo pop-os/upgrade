@@ -13,7 +13,7 @@ use dbus::{
 
 use std::collections::HashMap;
 
-const TIMEOUT: i32 = -1;
+const TIMEOUT: i32 = 0x7fffffff;
 
 // Information about the current fetch progress.
 #[derive(Clone, Debug)]
