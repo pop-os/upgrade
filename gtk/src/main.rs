@@ -11,7 +11,7 @@ fn main() {
     glib::set_program_name(APP_ID.into());
 
     let application =
-        Application::new(APP_ID, ApplicationFlags::empty()).expect("GTK initialization failed");
+        Application::new(Some(APP_ID), ApplicationFlags::empty()).expect("GTK initialization failed");
 
     application.connect_activate(|app| {
         if let Some(window) = app.get_window_by_id(0) {
@@ -25,7 +25,7 @@ fn main() {
 
         let headerbar = cascade! {
             gtk::HeaderBar::new();
-            ..set_title("Pop! Upgrade Manager");
+            ..set_title(Some("Pop! Upgrade Manager"));
             ..set_show_close_button(true);
             ..show();
         };
@@ -33,7 +33,7 @@ fn main() {
         let _window = cascade! {
             gtk::ApplicationWindow::new(app);
             ..set_titlebar(Some(&headerbar));
-            ..set_icon_name("firmware-manager");
+            ..set_icon_name(Some("firmware-manager"));
             ..set_keep_above(true);
             ..set_property_window_position(gtk::WindowPosition::Center);
             ..add(cascade! {
