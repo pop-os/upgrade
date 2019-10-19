@@ -157,6 +157,9 @@ impl Client {
                         self.release_upgrade(method, current.as_ref(), next.as_ref())?;
                         recall = self.event_listen_release_upgrade()?;
                     }
+
+                    // Finalize the release upgrade.
+                    self.release_upgrade_finalize()?;
                 } else {
                     println!("no release available to upgrade to");
                 }
