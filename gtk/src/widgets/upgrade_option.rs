@@ -140,6 +140,12 @@ impl UpgradeOption {
         self
     }
 
+    /// Reset the progress bar % to 0.
+    pub fn reset_progress(&self) -> &Self {
+        self.progress.set_fraction(0f64);
+        self
+    }
+
     /// Show the button, and hide the progress bar.
     pub fn show_button(&self) -> &Self {
         self.button.show();
