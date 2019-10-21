@@ -6,12 +6,14 @@ use std::cell::RefCell;
 pub struct UpgradeOption {
     #[shrinkwrap(main_field)]
     container: gtk::Container,
+
     pub button: gtk::Button,
-    button_signal: RefCell<Option<SignalHandlerId>>,
-    label: gtk::Label,
-    progress: gtk::ProgressBar,
-    pub stack: gtk::Stack,
+
+    label:    gtk::Label,
     sublabel: gtk::Label,
+    progress: gtk::ProgressBar,
+
+    button_signal: RefCell<Option<SignalHandlerId>>,
 }
 
 impl UpgradeOption {
@@ -36,21 +38,21 @@ impl UpgradeOption {
             ..set_xalign(0.0);
             ..get_style_context().add_class(&gtk::STYLE_CLASS_DIM_LABEL);
             ..set_no_show_all(true);
+            ..hide();
+        };
+
+        let labels = cascade! {
+            gtk::Box::new(gtk::Orientation::Vertical, 6);
+            ..add(&label);
+            ..add(&sublabel);
         };
 
         let progress = cascade! {
             gtk::ProgressBar::new();
             ..set_ellipsize(pango::EllipsizeMode::End);
             ..set_hexpand(true);
-            ..set_valign(gtk::Align::End);
-        };
-
-        let stack = cascade! {
-            gtk::Stack::new();
-            ..add(&button);
-            ..add(&progress);
-            ..set_visible_child(&button);
-            ..show_all();
+            ..set_no_show_all(true);
+            ..hide();
         };
 
         let container = cascade! {
@@ -60,9 +62,10 @@ impl UpgradeOption {
             ..set_margin_top(9);
             ..set_margin_bottom(9);
             ..set_column_spacing(12);
-            ..attach(&label,    0, 0, 1, 1);
-            ..attach(&sublabel, 0, 1, 1, 1);
-            ..attach(&stack,   1, 0, 1, 2);
+            ..set_row_spacing(12);
+            ..attach(&labels,   0, 0, 1, 1);
+            ..attach(&button,   1, 0, 1, 1);
+            ..attach(&progress, 0, 1, 2, 1);
             ..show_all();
         };
 
@@ -72,57 +75,20 @@ impl UpgradeOption {
             container: container.upcast::<gtk::Container>(),
             label,
             progress,
-            stack,
             sublabel,
         }
     }
 
-    pub fn button_view(&self) -> &Self {
-        self.progress.hide();
-        self.stack.set_visible_child(&self.button);
-        self
-    }
-
+    /// Sets the button label
     pub fn button_label(&self, label: &str) -> &Self {
         self.button.set_label(label);
-        self.show_all();
         self
     }
 
-    pub fn progress(&self, current: u64, total: u64) -> &Self {
-        self.progress.set_fraction(current as f64 / total as f64);
-        self
-    }
-
-    pub fn progress_exact(&self, percent: u8) -> &Self {
-        self.progress.set_fraction(percent as f64 / 100f64);
-        self.progress_view()
-    }
-
-    pub fn progress_view(&self) -> &Self {
-        self.button.hide();
-        self.stack.set_visible_child(&self.progress);
-        self
-    }
-
-    pub fn set_label(&self, label: &str) -> &Self {
-        self.label.set_label(label);
-        self
-    }
-
-    pub fn set_sublabel(&self, label: Option<&str>) -> &Self {
-        match label {
-            Some(label) => {
-                self.sublabel.set_label(label);
-                self.sublabel.show();
-            }
-            None => self.sublabel.hide(),
-        }
-
-        self
-    }
-
-    pub fn set_button<F: Fn() + 'static>(&self, action: Option<(&str, F)>) -> &Self {
+    /// Programs the click signal of the button.
+    ///
+    /// This automatically hides the button on click.
+    pub fn button_signal<F: Fn() + 'static>(&self, action: Option<(&str, F)>) -> &Self {
         let mut button_signal = self.button_signal.borrow_mut();
 
         if let Some(id) = button_signal.take() {
@@ -132,16 +98,72 @@ impl UpgradeOption {
         match action {
             Some((label, func)) => {
                 self.button.set_label(label);
-                self.button.set_visible(true);
+                self.button.show();
                 let id = self.button.connect_clicked(move |button| {
                     button.hide();
                     func()
                 });
                 *button_signal = Some(id);
             }
-            None => self.button.set_visible(false),
+            None => self.button.hide(),
         }
 
-        self.button_view()
+        self
+    }
+
+    /// Set the label describing the option to be applied, or the status of the operation.
+    pub fn label(&self, label: &str) -> &Self {
+        self.label.set_label(label);
+        self
+    }
+
+    /// Hide the progress bar and button
+    pub fn hide_widgets(&self) -> &Self {
+        self.button.hide();
+        self.progress.hide();
+        self
+    }
+
+    /// Calculate the progress bar percent based on the current and total.
+    pub fn progress(&self, current: u64, total: u64) -> &Self {
+        self.progress_exact((current * 100 / total) as u8)
+    }
+
+    /// Set the progress bar to the exact percent as defined.
+    pub fn progress_exact(&self, percent: u8) -> &Self {
+        // Only set if the new progress is higher than the current.
+        let new = percent as f64 / 100f64;
+        if new > self.progress.get_fraction() {
+            self.progress.set_fraction(new);
+        }
+
+        self
+    }
+
+    /// Show the button, and hide the progress bar.
+    pub fn show_button(&self) -> &Self {
+        self.button.show();
+        self.progress.hide();
+        self
+    }
+
+    /// Show the progress bar, and hide the button.
+    pub fn show_progress(&self) -> &Self {
+        self.button.hide();
+        self.progress.show();
+        self
+    }
+
+    /// Sets a sublabel with additional information about the operation.
+    pub fn sublabel(&self, label: Option<&str>) -> &Self {
+        match label {
+            Some(label) => {
+                self.sublabel.set_label(label);
+                self.sublabel.show();
+            }
+            None => self.sublabel.hide(),
+        }
+
+        self
     }
 }
