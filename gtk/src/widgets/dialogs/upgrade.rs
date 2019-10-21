@@ -12,7 +12,11 @@ pub struct UpgradeDialog {
 impl UpgradeDialog {
     pub fn new(since: &str, version: &str) -> Self {
         let title = gtk::LabelBuilder::new()
-            .label(&["Pop!_OS ", version, " is available. New features include:"].concat())
+            .label(
+                &["Pop!_OS ", version, " is available. ", battery_label(), "New features include:"]
+                    .concat(),
+            )
+            .use_markup(true)
             .xalign(0.0)
             .build();
         let changelog_list = gtk::Box::new(gtk::Orientation::Vertical, 24);
@@ -74,4 +78,16 @@ fn add_version(changelogs: &gtk::Box, version: &str) {
     let upgrade_label =
         gtk::LabelBuilder::new().label(&["Pop!_OS ", version].concat()).xalign(0.0).build();
     changelogs.add(&upgrade_label);
+}
+
+fn battery_label() -> &'static str {
+    if on_battery() {
+        "<b>Plug into power</b> before you begin. "
+    } else {
+        ""
+    }
+}
+
+fn on_battery() -> bool {
+    upower_dbus::UPower::new(-1).and_then(|upower| upower.on_battery()).unwrap_or(false)
 }
