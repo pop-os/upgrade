@@ -28,7 +28,7 @@ use pop_upgrade::{
     client::{self, Client, ReleaseInfo, Signal, Status},
     daemon::{DaemonStatus, DISMISSED},
     recovery::ReleaseFlags,
-    release::{self, RefreshOp, UpgradeMethod, STARTUP_UPGRADE_FILE},
+    release::{self, RefreshOp, UpgradeEvent, UpgradeMethod, STARTUP_UPGRADE_FILE},
 };
 use std::{
     borrow::Cow,
@@ -185,22 +185,34 @@ impl UpgradeWidget {
                             dismisser_frame.hide();
                         }
                     }
+                    UiEvent::UpgradeEvent(UpgradeEvent::UpgradingPackages) => {
+                        option_upgrade.progress_exact(25);
+                    }
+                    UiEvent::UpgradeEvent(UpgradeEvent::UpdatingSourceLists) => {
+                        option_upgrade.progress_exact(50);
+                        fetching_release = true;
+                    }
                     UiEvent::UpgradeEvent(_) => (),
-                    UiEvent::Progress(ProgressEvent::Fetching(progress, total)) => {
-                        let progress = if fetching_release { progress } else { progress / 2 };
-                        option_upgrade.progress(progress, total).show_progress();
+                    UiEvent::Progress(ProgressEvent::Fetching(mut progress, total)) => {
+                        progress = if fetching_release { progress / 2 } else { progress / 4 } * 100
+                            / total;
+                        if fetching_release {
+                            progress += 50;
+                        }
+                        option_upgrade.progress_exact(progress as u8).show_progress();
                     }
                     UiEvent::Progress(ProgressEvent::Recovery(progress, total)) => {
                         option_upgrade.progress(progress, total).show_progress();
                     }
                     UiEvent::Progress(ProgressEvent::Updates(percent)) => {
-                        option_upgrade.progress_exact(percent / 2 + 50).show_progress();
+                        option_upgrade.progress_exact(percent / 4 + 25).show_progress();
                     }
                     UiEvent::Shutdown => return glib::Continue(false),
                     UiEvent::Initiated(InitiatedEvent::Refresh) => {
                         get_upgrade_row(&options).hide();
                     }
                     UiEvent::Initiated(InitiatedEvent::Scanning) => {
+                        option_upgrade.reset_progress();
                         container.hide();
                     }
                     UiEvent::Initiated(InitiatedEvent::Recovery) => {
@@ -214,11 +226,10 @@ impl UpgradeWidget {
                         // get_refresh_row(&options).hide();
                         option_upgrade
                             .label(&*["Downloading Pop!_OS ", &version].concat())
-                            .progress_exact(0)
+                            .reset_progress()
                             .show_progress();
 
                         upgrading_to = version;
-                        fetching_release = true;
                     }
                     UiEvent::CancelledUpgrade => {
                         if let Some(cb) = callback_event.upgrade() {
@@ -229,6 +240,7 @@ impl UpgradeWidget {
                         option_upgrade
                             .label(&*upgrade_label)
                             .button_signal(Some(download_action(gui_sender.clone())))
+                            .reset_progress()
                             .show_button();
                     }
                     UiEvent::Completed(CompletedEvent::Recovery) => {
