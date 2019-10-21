@@ -91,8 +91,8 @@ impl UpgradeWidget {
         }
 
         option_refresh
-            .set_label("Refresh OS install")
-            .set_sublabel("Reinstall while keeping user accounts and files".into());
+            .label("Refresh OS install")
+            .sublabel("Reinstall while keeping user accounts and files".into());
 
         let options = cascade! {
             gtk::ListBox::new();
@@ -165,12 +165,12 @@ impl UpgradeWidget {
                     fetching_release = false;
 
                     if refresh_found {
-                        option_refresh.button_view().show_all();
+                        option_refresh.show_button();
                         // get_refresh_row(&options).show();
                     }
 
                     if upgrade_found {
-                        option_upgrade.button_view().show_all();
+                        option_upgrade.show_button();
                         get_upgrade_row(&options).show();
                     }
                 };
@@ -188,13 +188,13 @@ impl UpgradeWidget {
                     UiEvent::UpgradeEvent(_) => (),
                     UiEvent::Progress(ProgressEvent::Fetching(progress, total)) => {
                         let progress = if fetching_release { progress } else { progress / 2 };
-                        option_upgrade.progress(progress, total).show_all();
+                        option_upgrade.progress(progress, total).show_progress();
                     }
                     UiEvent::Progress(ProgressEvent::Recovery(progress, total)) => {
-                        option_upgrade.progress(progress, total).show_all();
+                        option_upgrade.progress(progress, total).show_progress();
                     }
                     UiEvent::Progress(ProgressEvent::Updates(percent)) => {
-                        option_upgrade.progress_exact(percent / 2 + 50).show_all();
+                        option_upgrade.progress_exact(percent / 2 + 50).show_progress();
                     }
                     UiEvent::Shutdown => return glib::Continue(false),
                     UiEvent::Initiated(InitiatedEvent::Refresh) => {
@@ -206,16 +206,16 @@ impl UpgradeWidget {
                     UiEvent::Initiated(InitiatedEvent::Recovery) => {
                         // get_refresh_row(&options).hide();
                         option_upgrade
-                            .set_label("Upgrading recovery partition")
+                            .label("Upgrading recovery partition")
                             .progress_exact(0)
-                            .show_all();
+                            .show_progress();
                     }
                     UiEvent::Initiated(InitiatedEvent::Download(version)) => {
                         // get_refresh_row(&options).hide();
                         option_upgrade
-                            .set_label(&*["Downloading Pop!_OS ", &version].concat())
+                            .label(&*["Downloading Pop!_OS ", &version].concat())
                             .progress_exact(0)
-                            .show_all();
+                            .show_progress();
 
                         upgrading_to = version;
                         fetching_release = true;
@@ -227,9 +227,9 @@ impl UpgradeWidget {
 
                         upgrade_downloaded = false;
                         option_upgrade
-                            .set_label(&*upgrade_label)
-                            .set_button(Some(download_action(gui_sender.clone())))
-                            .button_view();
+                            .label(&*upgrade_label)
+                            .button_signal(Some(download_action(gui_sender.clone())))
+                            .show_button();
                     }
                     UiEvent::Completed(CompletedEvent::Recovery) => {
                         info!("successfully upgraded recovery partition");
@@ -261,9 +261,9 @@ impl UpgradeWidget {
                         }
 
                         option_upgrade
-                            .button_view()
+                            .show_button()
                             .button_label("Upgrade")
-                            .set_label(&format!("Pop!_OS {} download complete", &*upgrading_to));
+                            .label(&format!("Pop!_OS {} download complete", &*upgrading_to));
                     }
                     UiEvent::Completed(CompletedEvent::Scan(ScanEvent::PermissionDenied)) => {
                         upgrade_frame.remove(&options);
@@ -284,9 +284,10 @@ impl UpgradeWidget {
                         refresh_found = refresh;
 
                         option_upgrade
-                            .set_label(&upgrade_label)
-                            .set_sublabel(None)
-                            .set_button(if let Some(info) = upgrade_version.as_ref() {
+                            .label(&upgrade_label)
+                            .sublabel(None)
+                            .show_button()
+                            .button_signal(if let Some(info) = upgrade_version.as_ref() {
                                 upgrade_found = true;
                                 upgrading_from = info.current.clone();
 
@@ -324,8 +325,7 @@ impl UpgradeWidget {
                                 })
                             } else {
                                 None
-                            })
-                            .show_all();
+                            });
 
                         if refresh {
                             let sender = sender.clone();
@@ -333,11 +333,11 @@ impl UpgradeWidget {
                                 let _ = sender.send(BackgroundEvent::RefreshOS);
                             };
 
-                            option_refresh.set_button(Some(("Refresh", action))).show();
+                            option_refresh.button_signal(Some(("Refresh", action))).show();
                         }
 
                         if status_failed {
-                            option_upgrade.stack.hide();
+                            option_upgrade.hide_widgets();
                         }
 
                         container.show();
@@ -379,10 +379,7 @@ impl UpgradeWidget {
                             if let Some(cb) = callback_event.upgrade() {
                                 cb.borrow()(Event::Upgrading);
                             }
-                            option_upgrade
-                                .set_label("Preparing Upgrade")
-                                .progress_view()
-                                .show_all();
+                            option_upgrade.label("Preparing Upgrade").show_progress();
                             option_refresh.hide();
 
                             if let Some(dismisser) = dismisser.take() {
@@ -409,7 +406,7 @@ impl UpgradeWidget {
                             if let Some(cb) = callback_event.upgrade() {
                                 cb.borrow()(Event::Upgrading);
                             }
-                            option_upgrade.set_label("Canceling upgrade");
+                            option_upgrade.label("Canceling upgrade");
                             let _ = sender.send(BackgroundEvent::Reset);
                             return gtk::Continue(true);
                         }
