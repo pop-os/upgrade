@@ -1,5 +1,6 @@
 pub mod fstab;
 pub mod misc;
+pub mod packaging;
 pub mod sources;
 
 use self::{fstab::FstabError, sources::SourcesError};
@@ -8,6 +9,8 @@ use ubuntu_version::{Codename, Version, VersionError};
 
 #[derive(Debug, Error)]
 pub enum RepairError {
+    #[error(display = "packaging error: {}", _0)]
+    Packaging(packaging::Error),
     #[error(display = "error checking and fixing fstab: {}", _0)]
     Fstab(FstabError),
     #[error(display = "version is not an ubuntu codename: {}", _0)]
@@ -26,6 +29,7 @@ pub fn repair() -> Result<(), RepairError> {
 
     fstab::repair().map_err(RepairError::Fstab)?;
     sources::repair(codename).map_err(RepairError::Sources)?;
+    packaging::repair().map_err(RepairError::Packaging)?;
 
     Ok(())
 }
