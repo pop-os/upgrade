@@ -15,6 +15,8 @@ pub enum ReleaseError {
     AptPurge(io::Error),
     #[error(display = "unable to upgrade to next release: {}", _0)]
     Check(DistUpgradeError),
+    #[error(display = "conflicting and/or deprecated packages could not be removed")]
+    ConflictRemoval(#[error(cause)] io::Error),
     #[error(display = "failed to update package lists for the current release: {}", _0)]
     CurrentUpdate(io::Error),
     #[error(display = "status for `dpkg --configure -a` failed: {}", _0)]
@@ -59,8 +61,9 @@ pub enum ReleaseError {
     UnholdPopUpgrade(io::Error),
     #[error(display = "failed to perform apt upgrade of the current release: {}", _0)]
     Upgrade(io::Error),
-    #[error(display = "failed to install core packages: {}", _0)]
-    InstallCore(io::Error),
+    #[error(display = "unable to install core packages: a package may be preventing pop-desktop \
+                       from being installed")]
+    InstallCore(#[error(cause)] io::Error),
     #[error(display = "failed to create /pop-upgrade file: {}", _0)]
     StartupFileCreation(io::Error),
     #[error(display = "failed to load systemd-boot configuration: {}", _0)]

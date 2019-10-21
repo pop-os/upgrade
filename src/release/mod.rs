@@ -34,7 +34,19 @@ const REQUIRED_PPAS: &[&str] = &[
     "apt.pop-os.org/proprietary",
 ];
 
-const CORE_PACKAGES: &[&str] = &["linux-generic", "pop-desktop"];
+/// Packages which should be removed before upgrading.
+///
+/// - `gnome-software` conflicts with `pop-desktop` and its `sessioninstaller` dependency
+/// - `ureadahead` was deprecated and removed from the repositories
+const REMOVE_PACKAGES: &[&str] = &["gnome-software", "ureadahead"];
+
+/// Packages which should be installed before upgrading.
+///
+/// - `linux-generic` because some systems may have a different kernel installed
+/// - `pop-desktop` because it pulls in all of our required desktop dependencies
+/// - `sessioninstaller` because it may have been removed by `gnome-software`
+const CORE_PACKAGES: &[&str] = &["linux-generic", "pop-desktop", "sessioninstaller"];
+
 const DPKG_LOCK: &str = "/var/lib/dpkg/lock";
 const LISTS_LOCK: &str = "/var/lib/apt/lists/lock";
 const RELEASE_FETCH_FILE: &str = "/pop_preparing_release_upgrade";
@@ -159,19 +171,13 @@ pub enum UpgradeEvent {
     SuccessLive = 11,
     Failure = 12,
     AptFilesLocked = 13,
+    RemovingConflicts = 14,
 }
 
 impl From<UpgradeEvent> for &'static str {
     fn from(action: UpgradeEvent) -> Self {
         match action {
-            UpgradeEvent::UpdatingPackageLists => "updating package lists for the current release",
-            UpgradeEvent::FetchingPackages => "fetching updated packages for the current release",
-            UpgradeEvent::UpgradingPackages => "upgrading packages for the current release",
-            UpgradeEvent::InstallingPackages => {
-                "ensuring that system-critical packages are installed"
-            }
-            UpgradeEvent::UpdatingSourceLists => "updating the source lists to the new release",
-            UpgradeEvent::FetchingPackagesForNewRelease => "fetching packages for the new release",
+            UpgradeEvent::AptFilesLocked => "waiting on a process holding the apt lock files",
             UpgradeEvent::AttemptingLiveUpgrade => "attempting live upgrade to the new release",
             UpgradeEvent::AttemptingSystemdUnit => {
                 "setting up the system to perform an offline upgrade on the next boot"
@@ -179,10 +185,18 @@ impl From<UpgradeEvent> for &'static str {
             UpgradeEvent::AttemptingRecovery => {
                 "setting up the recovery partition to install the new release"
             }
+            UpgradeEvent::Failure => "an error occurred while setting up the release upgrade",
+            UpgradeEvent::FetchingPackages => "fetching updated packages for the current release",
+            UpgradeEvent::FetchingPackagesForNewRelease => "fetching packages for the new release",
+            UpgradeEvent::InstallingPackages => {
+                "ensuring that system-critical packages are installed"
+            }
+            UpgradeEvent::RemovingConflicts => "removing deprecated and/or conflicting packages",
             UpgradeEvent::Success => "new release is ready to install",
             UpgradeEvent::SuccessLive => "new release was successfully installed",
-            UpgradeEvent::Failure => "an error occurred while setting up the release upgrade",
-            UpgradeEvent::AptFilesLocked => "waiting on a process holding the apt lock files",
+            UpgradeEvent::UpdatingPackageLists => "updating package lists for the current release",
+            UpgradeEvent::UpdatingSourceLists => "updating the source lists to the new release",
+            UpgradeEvent::UpgradingPackages => "upgrading packages for the current release",
         }
     }
 }
@@ -322,6 +336,9 @@ impl<'a> DaemonRuntime<'a> {
             UpgradeMethod::Recovery => recovery_prereq()?,
             UpgradeMethod::Offline => Self::systemd_upgrade_prereq_check()?,
         }
+
+        apt_remove(REMOVE_PACKAGES, |ready| lock_or(ready, UpgradeEvent::RemovingConflicts))
+            .map_err(ReleaseError::ConflictRemoval)?;
 
         // Update the package lists for the current release.
         apt_update(|ready| lock_or(ready, UpgradeEvent::UpdatingPackageLists))
