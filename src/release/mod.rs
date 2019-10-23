@@ -337,7 +337,9 @@ impl<'a> DaemonRuntime<'a> {
             UpgradeMethod::Offline => Self::systemd_upgrade_prereq_check()?,
         }
 
-        apt_remove(REMOVE_PACKAGES, |ready| lock_or(ready, UpgradeEvent::RemovingConflicts))
+        let string_buffer = &mut String::new();
+        let conflicting = installed(string_buffer, REMOVE_PACKAGES);
+        apt_remove(conflicting, |ready| lock_or(ready, UpgradeEvent::RemovingConflicts))
             .map_err(ReleaseError::ConflictRemoval)?;
 
         // Update the package lists for the current release.
