@@ -393,7 +393,7 @@ impl<'a> DaemonRuntime<'a> {
         let processes = match procfs::process::all_processes() {
             Ok(proc) => proc,
             Err(why) => {
-                warn!("failed to running processes: {}", why);
+                warn!("failed to fetch running processes: {}", why);
                 return;
             }
         };
@@ -406,7 +406,6 @@ impl<'a> DaemonRuntime<'a> {
                             exe = &exe[..exe.len() - 10];
                         }
 
-                        // eprintln!("found process: {} ({})", exe, proc.pid());
                         if exe == APPCENTER {
                             eprintln!("killing {}", APPCENTER);
                             unsafe {
