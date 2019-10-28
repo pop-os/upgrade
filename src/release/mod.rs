@@ -390,7 +390,15 @@ impl<'a> DaemonRuntime<'a> {
         // notifications.
         const APPCENTER: &str = "io.elementary.appcenter";
 
-        for proc in procfs::all_processes() {
+        let processes = match procfs::process::all_processes() {
+            Ok(proc) => proc,
+            Err(why) => {
+                warn!("failed to running processes: {}", why);
+                return;
+            }
+        };
+
+        for proc in processes {
             if let Ok(exe_path) = proc.exe() {
                 if let Some(exe) = exe_path.file_name() {
                     if let Some(mut exe) = exe.to_str() {
