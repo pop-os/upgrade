@@ -390,7 +390,15 @@ impl<'a> DaemonRuntime<'a> {
         // notifications.
         const APPCENTER: &str = "io.elementary.appcenter";
 
-        for proc in procfs::all_processes() {
+        let processes = match procfs::process::all_processes() {
+            Ok(proc) => proc,
+            Err(why) => {
+                warn!("failed to fetch running processes: {}", why);
+                return;
+            }
+        };
+
+        for proc in processes {
             if let Ok(exe_path) = proc.exe() {
                 if let Some(exe) = exe_path.file_name() {
                     if let Some(mut exe) = exe.to_str() {
@@ -398,7 +406,6 @@ impl<'a> DaemonRuntime<'a> {
                             exe = &exe[..exe.len() - 10];
                         }
 
-                        // eprintln!("found process: {} ({})", exe, proc.pid());
                         if exe == APPCENTER {
                             eprintln!("killing {}", APPCENTER);
                             unsafe {
@@ -457,30 +464,39 @@ impl<'a> DaemonRuntime<'a> {
         next: &str,
     ) -> RelResult<Upgrader<'b>> {
         (*logger)(UpgradeEvent::UpdatingSourceLists);
+        // Updates the source lists, with a handle for reverting the change.
         let mut upgrader = self.release_upgrade(retain, &current, &next)?;
 
-        info!("updated the package lists for the new relaese");
-        apt_update(|ready| {
-            (*logger)(if ready {
-                UpgradeEvent::UpdatingPackageLists
-            } else {
-                UpgradeEvent::AptFilesLocked
+        // Use a closure to capture any early returns due to an error.
+        let updated_list_ops = || {
+            info!("updated the package lists for the new relaese");
+            apt_update(|ready| {
+                (*logger)(if ready {
+                    UpgradeEvent::UpdatingPackageLists
+                } else {
+                    UpgradeEvent::AptFilesLocked
+                })
             })
-        })
-        .map_err(ReleaseError::ReleaseUpdate)?;
+            .map_err(ReleaseError::ReleaseUpdate)?;
 
-        snapd::hold_transitional_packages()?;
+            snapd::hold_transitional_packages()?;
 
-        match self.attempt_fetch(logger, fetch) {
-            Ok(_) => info!("packages fetched successfully"),
+            self.attempt_fetch(logger, fetch)?;
+
+            info!("packages fetched successfully");
+
+            Ok(())
+        };
+
+        // On any error, roll back the source lists.
+        match updated_list_ops() {
+            Ok(_) => Ok(upgrader),
             Err(why) => {
                 rollback(&mut upgrader, &why);
 
                 return Err(why);
             }
         }
-
-        Ok(upgrader)
     }
 }
 
