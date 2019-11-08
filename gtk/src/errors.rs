@@ -3,22 +3,20 @@ use std::error::Error as ErrorTrait;
 
 #[derive(Debug, Error)]
 pub enum UiError {
-    #[error(display = "failed to cancel upgrade")]
-    Cancel(#[error(cause)] ClientError),
-    #[error(display = "failed to dismiss notifications")]
-    Dismiss(#[error(cause)] UnderlyingError),
-    #[error(display = "failed to finalize release upgrade")]
-    Finalize(#[error(cause)] ClientError),
-    #[error(display = "recovery upgrade failed")]
-    Recovery(#[error(cause)] UnderlyingError),
-    #[error(display = "failed to set up OS refresh")]
-    Refresh(#[error(cause)] UnderlyingError),
-    #[error(display = "failed to modify repos")]
-    Repos(#[error(cause)] UnderlyingError),
-    #[error(display = "failed to update system")]
-    Updates(#[error(cause)] UnderlyingError),
-    #[error(display = "failed to upgrade OS")]
-    Upgrade(#[error(cause)] UnderlyingError),
+    #[error("failed to cancel upgrade")]
+    Cancel(#[source] ClientError),
+    #[error("failed to finalize release upgrade")]
+    Finalize(#[source] ClientError),
+    #[error("recovery upgrade failed")]
+    Recovery(#[source] UnderlyingError),
+    #[error("failed to set up OS refresh")]
+    Refresh(#[source] UnderlyingError),
+    #[error("failed to modify repos")]
+    Repos(#[source] UnderlyingError),
+    #[error("failed to update system")]
+    Updates(#[source] UnderlyingError),
+    #[error("failed to upgrade OS")]
+    Upgrade(#[source] UnderlyingError),
 }
 
 impl UiError {
@@ -26,23 +24,19 @@ impl UiError {
 }
 
 #[derive(Debug, Error)]
-#[error(display = "{}", _0)]
+#[error("{}", _0)]
 pub struct StatusError(Box<str>);
 
 #[derive(Debug, Error)]
 pub enum UnderlyingError {
-    #[error(display = "client error")]
-    Client(#[error(cause)] ClientError),
-    #[error(display = "failed status")]
-    Status(#[error(cause)] StatusError),
+    #[error("client error")]
+    Client(#[from] ClientError),
+    #[error("failed status")]
+    Status(#[from] StatusError),
 }
 
 impl From<Box<str>> for UnderlyingError {
     fn from(why: Box<str>) -> Self { UnderlyingError::Status(StatusError(why)) }
-}
-
-impl From<ClientError> for UnderlyingError {
-    fn from(why: ClientError) -> Self { UnderlyingError::Client(why) }
 }
 
 pub struct ErrorIter<'a> {

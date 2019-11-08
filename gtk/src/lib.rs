@@ -1,11 +1,11 @@
 #[macro_use]
 extern crate cascade;
 #[macro_use]
-extern crate err_derive;
-#[macro_use]
 extern crate log;
 #[macro_use]
 extern crate shrinkwraprs;
+#[macro_use]
+extern crate thiserror;
 
 mod errors;
 mod events;
