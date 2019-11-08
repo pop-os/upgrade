@@ -75,6 +75,8 @@ impl UpgradeWidget {
             });
         }
 
+        let dismisser_frame = gtk::Frame::new(None);
+
         let option_upgrade = UpgradeOption::new();
         let option_refresh = UpgradeOption::new();
 
@@ -109,8 +111,6 @@ impl UpgradeWidget {
         // fn get_refresh_row(options: &gtk::ListBox) -> gtk::ListBoxRow {
         //     options.get_row_at_index(1).expect("refresh option is not at index 1")
         // }
-
-        let dismisser_frame = gtk::Frame::new(None);
 
         let upgrade_frame = cascade! {
             gtk::Frame::new(None);
@@ -179,10 +179,10 @@ impl UpgradeWidget {
             gui_receiver.attach(None, move |event| {
                 eprintln!("{:?}", event);
                 match event {
-                    UiEvent::Dismissed => {
-                        if let Some(dismisser) = dismisser.take() {
-                            dismisser.destroy();
-                            dismisser_frame.hide();
+                    UiEvent::Dismissed(dismissed) => {
+                        info!("{} release", if dismissed { "dismissed" } else { "un-dismissed" });
+                        if let Some(dismisser) = dismisser.as_mut() {
+                            dismisser.set_dismissed(dismissed);
                         }
                     }
                     UiEvent::UpgradeEvent(UpgradeEvent::UpgradingPackages) => {
@@ -303,24 +303,26 @@ impl UpgradeWidget {
                                 upgrade_found = true;
                                 upgrading_from = info.current.clone();
 
-                                if is_lts && !is_dismissed(&info.next) {
+                                if is_lts {
                                     let widget = {
                                         let sender = sender.clone();
-                                        Dismisser::new(&info.next, move || {
-                                            let _ =
-                                                sender.send(BackgroundEvent::DismissNotification);
+                                        Dismisser::new(&info.next, move |dismiss| {
+                                            let _ = sender.send(
+                                                BackgroundEvent::DismissNotification(dismiss),
+                                            );
                                         })
                                     };
+
+                                    widget.set_dismissed(is_dismissed(&info.next));
 
                                     dismisser_frame.foreach(WidgetExt::destroy);
                                     dismisser_frame.add(widget.as_ref());
                                     dismisser_frame.show_all();
 
-                                    if let Some(dismisser) = dismisser.take() {
+                                    if let Some(dismisser) = dismisser.as_mut() {
                                         dismisser.destroy();
+                                        *dismisser = widget;
                                     }
-
-                                    dismisser = Some(widget);
                                 }
 
                                 let gui_sender = gui_sender.clone();
@@ -428,8 +430,6 @@ impl UpgradeWidget {
                         let _ = sender.send(BackgroundEvent::GetStatus(from));
                     }
                     UiEvent::Error(why) => {
-                        reset_widget!();
-
                         let error_message = &mut format!("{}", why);
                         why.iter_sources().for_each(|source| {
                             error_message.push_str(": ");
@@ -443,6 +443,14 @@ impl UpgradeWidget {
                         }
 
                         error!("{}", error_message);
+
+                        if let UiError::Dismiss(dismissed, _) = why {
+                            if let Some(dismisser) = dismisser.as_mut() {
+                                dismisser.set_dismissed(!dismissed);
+                            }
+                        } else {
+                            reset_widget!();
+                        }
                     }
                     UiEvent::WaitingOnLock => (),
                 }
@@ -504,12 +512,13 @@ impl UpgradeWidget {
                         BackgroundEvent::IsActive(tx) => {
                             let _ = tx.send(client.status().is_ok());
                         }
-                        BackgroundEvent::DismissNotification => {
-                            let event = match client.dismiss_notification() {
-                                Ok(()) => UiEvent::Dismissed,
-                                Err(why) => {
-                                    UiEvent::Error(UiError::Dismiss(UnderlyingError::Client(why)))
-                                }
+                        BackgroundEvent::DismissNotification(dismiss) => {
+                            let event = match client.dismiss_notification(dismiss) {
+                                Ok(dismissed) => UiEvent::Dismissed(dismissed),
+                                Err(why) => UiEvent::Error(UiError::Dismiss(
+                                    dismiss,
+                                    UnderlyingError::Client(why),
+                                )),
                             };
 
                             send(event)

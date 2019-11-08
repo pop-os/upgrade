@@ -5,7 +5,7 @@ use std::cell::RefCell;
 #[derive(Shrinkwrap)]
 pub struct UpgradeOption {
     #[shrinkwrap(main_field)]
-    container: gtk::Container,
+    container: gtk::Grid,
 
     pub button: gtk::Button,
 
@@ -69,14 +69,7 @@ impl UpgradeOption {
             ..show_all();
         };
 
-        Self {
-            button_signal: RefCell::new(None),
-            button,
-            container: container.upcast::<gtk::Container>(),
-            label,
-            progress,
-            sublabel,
-        }
+        Self { button_signal: RefCell::new(None), button, container, label, progress, sublabel }
     }
 
     /// Sets the button label

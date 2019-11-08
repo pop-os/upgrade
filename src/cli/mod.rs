@@ -76,7 +76,7 @@ impl Client {
                 let devel = pop_upgrade::development_releases_enabled();
                 let (_, _, _, is_lts) = self.release_check(devel)?;
                 if is_lts {
-                    self.dismiss_notification()?;
+                    self.dismiss_notification(true)?;
                 } else {
                     println!("Only LTS releases may dismiss notifications");
                 }
