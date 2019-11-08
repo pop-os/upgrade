@@ -5,6 +5,8 @@ use std::error::Error as ErrorTrait;
 pub enum UiError {
     #[error("failed to cancel upgrade")]
     Cancel(#[source] ClientError),
+    #[error("failed to dismiss notifications")]
+    Dismiss(bool, #[source] UnderlyingError),
     #[error("failed to finalize release upgrade")]
     Finalize(#[source] ClientError),
     #[error("recovery upgrade failed")]

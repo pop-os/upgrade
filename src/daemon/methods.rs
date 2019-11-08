@@ -18,10 +18,13 @@ pub fn dismiss_notification(
     dbus_factory: &DbusFactory,
 ) -> Method<MTFn<()>, ()> {
     dbus_factory
-        .method::<_, String>(DISMISS_NOTIFICATION, move |_| {
-            daemon.borrow().dismiss_notification()?;
-            Ok(Vec::new())
+        .method::<_, String>(DISMISS_NOTIFICATION, move |message| {
+            let dismiss = message.read1().map_err(|why| format!("{}", why))?;
+            let dismissed = daemon.borrow().dismiss_notification(dismiss)?;
+            Ok(vec![dismissed.into()])
         })
+        .inarg::<bool>("dismiss")
+        .outarg::<bool>("dismissed")
         .consume()
 }
 

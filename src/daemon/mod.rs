@@ -560,15 +560,22 @@ impl Daemon {
     /// Dismiss future desktop notifications.
     ///
     /// Only applicable for LTS releases.
-    fn dismiss_notification(&self) -> Result<(), String> {
+    fn dismiss_notification(&self, dismiss: bool) -> Result<bool, String> {
         let status = self.release_check(false)?;
         if status.is_lts() && status.build.is_ok() {
-            fs::write(DISMISSED, status.next.as_bytes()).map_err(|why| {
-                format!("failed to write '{}' to '{}': {}", status.next, DISMISSED, why)
-            })?;
+            let result = if dismiss {
+                fs::write(DISMISSED, status.next.as_bytes()).map_err(|why| {
+                    format!("failed to write '{}' to '{}': {}", status.next, DISMISSED, why)
+                })
+            } else {
+                fs::remove_file(DISMISSED)
+                    .map_err(|why| format!("failed to remove '{}': {}", DISMISSED, why))
+            };
+
+            result?;
         }
 
-        Ok(())
+        Ok(dismiss)
     }
 
     fn fetch_apt_uris(args: &[String]) -> Result<HashSet<AptUri>, String> {

@@ -148,9 +148,10 @@ impl Client {
     }
 
     /// Dismiss future desktop notifications for the currently-available upgrade.
-    pub fn dismiss_notification(&self) -> Result<(), Error> {
-        self.call_method(methods::DISMISS_NOTIFICATION, |m| m)?;
-        Ok(())
+    pub fn dismiss_notification(&self, dismiss: bool) -> Result<bool, Error> {
+        self.call_method(methods::DISMISS_NOTIFICATION, |m| m.append1(dismiss))?
+            .read1::<bool>()
+            .map_err(|why| Error::ArgumentMismatch(methods::DISMISS_NOTIFICATION, why))
     }
 
     /// Initiates fetching system updates (not release updates).
