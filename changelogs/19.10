@@ -2,7 +2,7 @@
 
 * The functionality of Dark Mode has been expanded to include the shell, providing a more consistently dark aesthetic across your desktop. If you’re using the User Themes extension to set the shell theme, disable it to use the new integrated Light and Dark mode switcher.
 
-* The default theme on Pop!_OS has been rebuilt based on Adwaita. Though users may only notice a slight difference in their widgets, the new OS theme provides significant measures to prevent application themes from experiencing UI breakage. This breakage manifests in the application as missing or misaligned text, broken widgets, and scaling errors, and should not occur with the new theme in place.
+* The default theme on Pop!_OS has been rebuilt based on Adwaita. Though users may only notice a slight difference in their widgets, the new OS theme provides significant measures to prevent application themes from experiencing UI breakage. This breakage manifests in the application as missing or misaligned text, broken widgets, and scaling errors, and should not occur with the new theme in place. Slim mode has been removed as part of this change, as it could cause breakages with apps due to padding changes.
 
 * The updated theme includes a new set of modernized sound effects. Users will now hear a sound effect when plugging and unplugging a USB or charging cable. The sound effect for adjusting the volume has been removed.
 
