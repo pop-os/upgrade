@@ -1,0 +1,17 @@
+* Pop!_OS Shop Application previews now load faster.
+
+* Improvements to the Pop!_Shop UI to prevent it from freezing.
+
+* Resolved many outstanding memory leaks in Pop!_Shop.
+
+* CUDA, TensorFlow, and cuDNN can now all be installed with one command.
+
+* Numerous bug fixes applied to distinst and the installer.
+
+* Distinst has been modularized into numerous Rust crates. 
+
+* Improved Sysem76 Power CLI utility with new subcommands and arguments.
+
+* A new “–experimental” flag was added to the System76 Power daemon to enable additional power-saving features.
+
+* Pop!_OS now hosts its own repos built from our new open source tool.
