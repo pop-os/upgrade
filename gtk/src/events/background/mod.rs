@@ -51,6 +51,12 @@ pub fn run(
                 }
 
                 BackgroundEvent::DownloadUpgrade(info) => {
+                    if client.recovery_exists() {
+                        if !self::recovery::upgrade(&client, send, &info.next) {
+                            return;
+                        }
+                    }
+
                     self::release::download(client, send, info);
                 }
 
