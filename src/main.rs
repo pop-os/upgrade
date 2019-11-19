@@ -177,9 +177,6 @@ pub fn main() {
                         )
                         .subcommand(SubCommand::with_name("systemd").about(
                             "apply system upgrades offline with systemd's offline-update service",
-                        ))
-                        .subcommand(SubCommand::with_name("recovery").about(
-                            "utilize the recovery partition for performing an offline update",
                         )),
                 ),
         )

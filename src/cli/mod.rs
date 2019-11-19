@@ -126,7 +126,6 @@ impl Client {
             ("upgrade", Some(matches)) => {
                 let (method, matches) = match matches.subcommand() {
                     ("systemd", Some(matches)) => (UpgradeMethod::Offline, matches),
-                    ("recovery", Some(matches)) => (UpgradeMethod::Recovery, matches),
                     _ => unreachable!(),
                 };
 
