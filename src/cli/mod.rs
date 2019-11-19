@@ -138,7 +138,7 @@ impl Client {
                 if forcing || available >= 0 {
                     // Before doing a release upgrade with the recovery partition, ensure that
                     // the recovery partition has been updated in advance.
-                    if let UpgradeMethod::Recovery = method {
+                    if self.recovery_exists() {
                         self.recovery_upgrade_release("", "", RecoveryReleaseFlags::empty())?;
                         self.event_listen_recovery_upgrade()?;
                     }
