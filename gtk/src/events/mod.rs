@@ -3,12 +3,12 @@ pub mod background;
 pub use self::background::BackgroundEvent;
 use crate::{
     errors::UiError,
-    get_upgrade_row, notify, reboot,
+    get_dismiss_row, get_upgrade_row, notify, reboot,
     state::State,
     widgets::{
         dialogs::{RepositoryDialog, UpgradeDialog},
         permissions::PermissionDenied,
-        Dismisser, UpgradeOption,
+        Dismisser, Section,
     },
 };
 use gtk::prelude::*;
@@ -89,20 +89,19 @@ pub enum Event {
 }
 
 pub struct EventWidgets {
-    pub container:       gtk::Box,
-    pub dismisser_frame: gtk::Frame,
-    pub options:         gtk::ListBox,
-    pub option_upgrade:  UpgradeOption,
-    pub option_refresh:  UpgradeOption,
-    pub upgrade_frame:   gtk::Frame,
+    pub button_sg: gtk::SizeGroup,
+    pub container: gtk::Box,
+    pub dismisser: gtk::ListBoxRow,
+
+    pub upgrade: Section,
 }
 
 impl EventWidgets {
     /// Sets the upgrade frame to display a permission denied widget.
     fn permission_denied(&self) {
-        self.upgrade_frame.remove(&self.options);
-        self.upgrade_frame.add(PermissionDenied::new().as_ref());
-        self.upgrade_frame.show_all();
+        self.upgrade.frame.remove(&self.upgrade.list);
+        self.upgrade.frame.add(PermissionDenied::new().as_ref());
+        self.upgrade.frame.show_all();
         self.container.show();
     }
 }
@@ -113,21 +112,21 @@ pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut 
         match event {
             UiEvent::Progress(ProgressEvent::Fetching(progress, total)) => {
                 let progress = state.calculate_fetching_progress(progress, total);
-                widgets.option_upgrade.progress_exact(progress as u8).show_progress();
+                widgets.upgrade.option.progress_exact(progress as u8).show_progress();
             }
 
             UiEvent::Progress(ProgressEvent::Recovery(progress, total)) => {
-                widgets.option_upgrade.progress(progress, total).show_progress();
+                widgets.upgrade.option.progress(progress, total).show_progress();
             }
 
             UiEvent::Progress(ProgressEvent::Updates(percent)) => {
-                widgets.option_upgrade.progress_exact(percent / 4 + 25).show_progress();
+                widgets.upgrade.option.progress_exact(percent / 4 + 25).show_progress();
             }
 
             UiEvent::Initiated(InitiatedEvent::Download(version)) => {
-                // get_refresh_row(&widgets.options).hide();
                 widgets
-                    .option_upgrade
+                    .upgrade
+                    .option
                     .label(&*["Downloading Pop!_OS ", &version].concat())
                     .reset_progress()
                     .show_progress();
@@ -136,29 +135,29 @@ pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut 
             }
 
             UiEvent::Initiated(InitiatedEvent::Refresh) => {
-                get_upgrade_row(&widgets.options).hide();
+                get_upgrade_row(&widgets.upgrade.list).hide();
             }
 
             UiEvent::Initiated(InitiatedEvent::Scanning) => {
-                widgets.option_upgrade.reset_progress();
+                widgets.upgrade.option.reset_progress();
                 widgets.container.hide();
             }
 
             UiEvent::Initiated(InitiatedEvent::Recovery) => {
-                // get_refresh_row(&widgets.options).hide();
                 widgets
-                    .option_upgrade
+                    .upgrade
+                    .option
                     .label("Upgrading recovery partition")
                     .progress_exact(0)
                     .show_progress();
             }
 
             UiEvent::UpgradeEvent(UpgradeEvent::UpgradingPackages) => {
-                widgets.option_upgrade.progress_exact(25);
+                widgets.upgrade.option.progress_exact(25);
             }
 
             UiEvent::UpgradeEvent(UpgradeEvent::UpdatingSourceLists) => {
-                widgets.option_upgrade.progress_exact(50);
+                widgets.upgrade.option.progress_exact(50);
                 state.fetching_release = true;
             }
 
@@ -217,7 +216,8 @@ fn cancelled_upgrade(state: &mut State, widgets: &EventWidgets) {
 
     state.upgrade_downloaded = false;
     widgets
-        .option_upgrade
+        .upgrade
+        .option
         .label(&*state.upgrade_label)
         .button_signal(Some(download_action(state.gui_sender.clone())))
         .reset_progress()
@@ -226,38 +226,43 @@ fn cancelled_upgrade(state: &mut State, widgets: &EventWidgets) {
 
 /// Programs the refresh button
 fn connect_refresh(state: &State, widgets: &EventWidgets) {
-    let sender = state.sender.clone();
-    let action = move || {
-        let _ = sender.send(BackgroundEvent::RefreshOS);
-    };
+    // let sender = state.sender.clone();
+    // let action = move || {
+    //     let _ = sender.send(BackgroundEvent::RefreshOS);
+    // };
 
-    widgets.option_refresh.button_signal(Some(("Refresh", action))).show();
+    // widgets.refresh.option.button_signal(Some(("Refresh", action))).show();
 }
 
 /// Programs the upgrade button, and optionally enables the dismissal widget.
 fn connect_upgrade(state: &mut State, widgets: &EventWidgets, is_lts: bool, reboot_ready: bool) {
-    widgets.option_upgrade.label(&state.upgrade_label).sublabel(None).show_button().button_signal(
-        if let Some(info) = state.upgrade_version.as_ref() {
-            state.upgrade_found = true;
-            state.upgrading_from = info.current.clone();
+    widgets.upgrade.option.label(&state.upgrade_label).sublabel(None).show_button().button_signal(
+        {
+            if let Some(info) = state.upgrade_version.as_ref() {
+                state.upgrade_found = true;
+                state.upgrading_from = info.current.clone();
 
-            if is_lts {
-                set_dismissal_widget(
-                    state.sender.clone(),
-                    state.dismisser.as_mut(),
-                    widgets,
-                    &info.next,
-                );
-            }
+                if is_lts {
+                    get_dismiss_row(&widgets.upgrade.list).show();
 
-            let gui_sender = state.gui_sender.clone();
-            Some(if reboot_ready {
-                upgrade_action(gui_sender)
+                    set_dismissal_widget(
+                        &widgets.button_sg,
+                        state.sender.clone(),
+                        state.dismisser.as_mut(),
+                        widgets,
+                        &info.next,
+                    );
+                }
+
+                let gui_sender = state.gui_sender.clone();
+                Some(if reboot_ready {
+                    upgrade_action(gui_sender)
+                } else {
+                    download_action(gui_sender)
+                })
             } else {
-                download_action(gui_sender)
-            })
-        } else {
-            None
+                None
+            }
         },
     );
 }
@@ -290,7 +295,8 @@ fn download_complete(state: &mut State, widgets: &EventWidgets) {
     (state.callback_event.borrow())(Event::UpgradeReady);
 
     widgets
-        .option_upgrade
+        .upgrade
+        .option
         .show_button()
         .button_label("Upgrade")
         .label(&format!("Pop!_OS {} download complete", &*state.upgrading_to));
@@ -367,7 +373,7 @@ fn release_upgrade_dialog(state: &mut State, widgets: &EventWidgets) {
     } else {
         // Send upgrading event to prevent closing
         (state.callback_event.borrow())(Event::Upgrading);
-        widgets.option_upgrade.label("Canceling upgrade");
+        widgets.upgrade.option.label("Canceling upgrade");
         let _ = state.sender.send(BackgroundEvent::Reset);
     }
 }
@@ -376,34 +382,37 @@ fn release_upgrade_dialog(state: &mut State, widgets: &EventWidgets) {
 fn reset(state: &mut State, widgets: &EventWidgets) {
     state.fetching_release = false;
 
-    if state.refresh_found {
-        widgets.option_refresh.show_button();
-        // get_refresh_row(&widgets.options).show();
-    }
+    // if state.refresh_found {
+    //     widgets.refresh.option.show_button();
+    //     widgets.refresh.show();
+    // }
 
     if state.upgrade_found {
-        widgets.option_upgrade.show_button();
-        get_upgrade_row(&widgets.options).show();
+        widgets.upgrade.option.show_button();
+        get_upgrade_row(&widgets.upgrade.list).show();
     }
 }
 
 /// Creates a new dismisser widget, destroys any prior widget, and assigns it to the dismisser
 /// frame.
 fn set_dismissal_widget(
+    button_sg: &gtk::SizeGroup,
     sender: SyncSender<BackgroundEvent>,
     dismisser: Option<&mut Dismisser>,
     widgets: &EventWidgets,
     next: &str,
 ) {
-    let widget = Dismisser::new(next, move |dismiss| {
-        let _ = sender.send(BackgroundEvent::DismissNotification(dismiss));
+    let widget = Dismisser::new(next, move || {
+        eprintln!("sending dismissal");
+        let _ = sender.send(BackgroundEvent::DismissNotification(true));
     });
 
     widget.set_dismissed(is_dismissed(next));
+    button_sg.add_widget(&widget.button);
 
-    widgets.dismisser_frame.foreach(WidgetExt::destroy);
-    widgets.dismisser_frame.add(widget.as_ref());
-    widgets.dismisser_frame.show_all();
+    widgets.dismisser.foreach(WidgetExt::destroy);
+    widgets.dismisser.add(widget.as_ref());
+    widgets.dismisser.show_all();
 
     if let Some(dismisser) = dismisser {
         dismisser.destroy();
@@ -434,7 +443,7 @@ fn scan_event(state: &mut State, widgets: &EventWidgets, event: ScanEvent) {
             }
 
             if status_failed {
-                widgets.option_upgrade.hide_widgets();
+                widgets.upgrade.option.hide_widgets();
             }
 
             widgets.container.show();
@@ -462,8 +471,8 @@ fn upgrade_clicked(state: &mut State, widgets: &EventWidgets) {
 
     if let Some(info) = state.upgrade_version.clone() {
         (state.callback_event.borrow())(Event::Upgrading);
-        widgets.option_upgrade.label("Preparing Upgrade").show_progress();
-        widgets.option_refresh.hide();
+        widgets.upgrade.option.label("Preparing Upgrade").show_progress();
+        // widgets.refresh.option.hide();
 
         if let Some(dismisser) = state.dismisser.take() {
             dismisser.destroy();

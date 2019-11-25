@@ -62,7 +62,8 @@ impl UpgradeOption {
             ..set_margin_top(9);
             ..set_margin_bottom(9);
             ..set_column_spacing(12);
-            ..set_row_spacing(12);
+            ..set_row_spacing(4);
+            ..set_size_request(-1, 32);
             ..attach(&labels,   0, 0, 1, 1);
             ..attach(&button,   1, 0, 1, 1);
             ..attach(&progress, 0, 1, 2, 1);

@@ -2082,6 +2082,7 @@ dependencies = [
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "notify-rust 3.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "os-release 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pango 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pop-upgrade 0.1.0",
  "shrinkwraprs 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",

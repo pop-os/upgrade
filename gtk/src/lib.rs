@@ -16,7 +16,7 @@ mod state;
 mod users;
 mod widgets;
 
-use self::{events::*, state::State, widgets::UpgradeOption};
+use self::{events::*, state::State, widgets::Section};
 use gtk::prelude::*;
 use std::{
     cell::RefCell,
@@ -56,59 +56,29 @@ impl UpgradeWidget {
             });
         }
 
-        let dismisser_frame = gtk::Frame::new(None);
+        let upgrade = Section::new("<b>OS Upgrade</b>");
 
-        let option_upgrade = UpgradeOption::new();
-        let option_refresh = UpgradeOption::new();
+        let dismisser = gtk::ListBoxRow::new();
+        upgrade.list.add(&dismisser);
+
+        let button_sg = cascade! {
+            gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
+            ..add_widget(&upgrade.option.button);
+        };
 
         cascade! {
             gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
-            ..add_widget(&option_upgrade.button);
-            ..add_widget(&option_refresh.button);
+            ..add_widget(upgrade.option.as_ref());
         }
-
-        cascade! {
-            gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
-            ..add_widget(option_upgrade.as_ref());
-            ..add_widget(option_refresh.as_ref());
-        }
-
-        option_refresh
-            .label("Refresh OS install")
-            .sublabel("Reinstall while keeping user accounts and files".into());
-
-        let options = cascade! {
-            gtk::ListBox::new();
-            ..set_selection_mode(gtk::SelectionMode::None);
-            ..add(option_upgrade.as_ref());
-            // ..add(option_refresh.as_ref());
-            ..show();
-        };
-
-        // fn get_refresh_row(options: &gtk::ListBox) -> gtk::ListBoxRow {
-        //     options.get_row_at_index(1).expect("refresh option is not at index 1")
-        // }
-
-        let upgrade_frame = cascade! {
-            gtk::Frame::new(None);
-            ..add(&options);
-            ..show();
-        };
 
         let container = cascade! {
             gtk::Box::new(gtk::Orientation::Vertical, 12);
-            ..add(&cascade! {
-                gtk::LabelBuilder::new()
-                    .label("<b>OS Upgrade</b>")
-                    .use_markup(true)
-                    .xalign(0.0)
-                    .build();
-                ..show();
-            });
-            ..add(&upgrade_frame);
-            ..add(&dismisser_frame);
-            ..show();
+            ..add(&upgrade.label);
+            ..add(&upgrade.frame);
+            ..show_all();
         };
+
+        get_dismiss_row(&upgrade.list).hide();
 
         let callback_error: ErrorCallback = Rc::new(RefCell::new(Box::new(|_| ())));
         let callback_event: EventCallback = Rc::new(RefCell::new(Box::new(|_| ())));
@@ -116,14 +86,7 @@ impl UpgradeWidget {
 
         events::attach(
             gui_receiver,
-            EventWidgets {
-                container: container.clone(),
-                dismisser_frame,
-                options,
-                option_upgrade,
-                option_refresh,
-                upgrade_frame,
-            },
+            EventWidgets { button_sg, container: container.clone(), dismisser, upgrade },
             State::new(
                 bg_sender.clone(),
                 Arc::downgrade(&gui_sender),
@@ -169,7 +132,11 @@ impl UpgradeWidget {
 }
 
 fn get_upgrade_row(options: &gtk::ListBox) -> gtk::ListBoxRow {
-    options.get_row_at_index(0).expect("upgrade option is not at index 1")
+    options.get_row_at_index(0).expect("upgrade option is not at index 0")
+}
+
+fn get_dismiss_row(options: &gtk::ListBox) -> gtk::ListBoxRow {
+    options.get_row_at_index(1).expect("dismisser frame row is not at index 1")
 }
 
 fn reboot() { let _ = Command::new("systemctl").arg("reboot").status(); }

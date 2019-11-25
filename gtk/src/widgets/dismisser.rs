@@ -6,41 +6,50 @@ pub struct Dismisser {
     #[shrinkwrap(main_field)]
     container: gtk::Widget,
 
-    button:        gtk::Switch,
+    pub button:    gtk::Button,
     button_signal: SignalHandlerId,
 }
 
 impl Dismisser {
-    pub fn new<F: Fn(bool) + 'static>(release: &str, dismiss_action: F) -> Self {
-        let button = gtk::SwitchBuilder::new().halign(gtk::Align::End).build();
+    pub fn new<F: Fn() + 'static>(release: &str, dismiss_action: F) -> Self {
+        let button = gtk::ButtonBuilder::new().label("Dismiss").valign(gtk::Align::Center).build();
 
-        let dismiss_action = move |button: &gtk::Switch| dismiss_action(!button.get_active());
+        let title = gtk::LabelBuilder::new().label("Notifications").xalign(0.0).build();
 
-        let label = gtk::LabelBuilder::new()
-            .label(&["Receive upgrade notifications for Pop!_OS ", release].concat())
-            .xalign(0.0)
-            .hexpand(true)
-            .wrap(true)
-            .build();
+        let label_text = &[
+            "Dismiss upgrade notifications for Pop!_OS ",
+            release,
+            " until the next upgrade is available",
+        ]
+        .concat();
 
-        let container = cascade! {
-            gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        let label =
+            gtk::LabelBuilder::new().label(label_text).xalign(0.0).hexpand(true).wrap(true).build();
+
+        label.get_style_context().add_class("dim-label");
+
+        let grid = cascade! {
+            gtk::Grid::new();
+            ..set_column_spacing(12);
+            ..set_row_spacing(4);
             ..set_margin_start(20);
+            ..set_margin_top(9);
             ..set_margin_end(20);
-            ..add(&label);
-            ..add(&button);
+            ..set_margin_bottom(9);
+            ..attach(&title, 0, 0, 1, 1);
+            ..attach(&label, 0, 1, 1, 1);
+            ..attach(&button, 1, 0, 1, 2);
         };
 
         Self {
-            button_signal: button.connect_changed_active(dismiss_action),
-            container: container.upcast_ref::<gtk::Widget>().clone(),
+            button_signal: button.connect_clicked(move |button: &gtk::Button| {
+                button.set_sensitive(false);
+                dismiss_action();
+            }),
+            container: grid.upcast::<gtk::Widget>(),
             button,
         }
     }
 
-    pub fn set_dismissed(&self, dismissed: bool) {
-        self.button.block_signal(&self.button_signal);
-        self.button.set_active(!dismissed);
-        self.button.unblock_signal(&self.button_signal);
-    }
+    pub fn set_dismissed(&self, dismissed: bool) { self.button.set_sensitive(!dismissed) }
 }
