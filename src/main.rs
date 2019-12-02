@@ -61,7 +61,7 @@ pub mod error {
 }
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
-use std::process::exit;
+use std::{error::Error as _, process::exit};
 
 use self::error::{Error, InitError};
 
@@ -74,6 +74,10 @@ pub fn main() {
         .global_setting(AppSettings::UnifiedHelpMessage)
         .setting(AppSettings::SubcommandRequiredElseHelp)
         // Recovery partition tools.
+        .subcommand(
+            SubCommand::with_name("cancel")
+                .about("cancels any process which is currently in progress"),
+        )
         .subcommand(
             SubCommand::with_name("daemon")
                 .about("launch a daemon for integration with control centers like GNOME's"),
@@ -189,6 +193,13 @@ pub fn main() {
 
     if let Err(why) = main_(&clap.get_matches()) {
         eprintln!("pop-upgrade: {}", why);
+
+        let mut source = why.source();
+        while let Some(why) = source {
+            eprintln!("  caused by: {}", why);
+            source = why.source();
+        }
+
         exit(1);
     }
 }
@@ -197,6 +208,7 @@ fn main_(matches: &ArgMatches) -> Result<(), Error> {
     init()?;
 
     match matches.subcommand() {
+        ("cancel", _) => Client::new()?.cancel()?,
         ("daemon", _) => Daemon::init()?,
         (other, Some(matches)) => {
             let client = Client::new()?;
