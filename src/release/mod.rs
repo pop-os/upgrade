@@ -215,21 +215,17 @@ impl<'a> DaemonRuntime<'a> {
         let mut tries = 0;
 
         loop {
-            let func1 = func.clone();
-            let func2 = func.clone();
-
-            let client = self.client.clone();
             let stream_of_downloads = stream::iter_ok(uris.clone());
             let buffered_stream = stream_of_downloads
-                .map(move |uri| {
-                    func1(FetchEvent::Fetching(uri.clone()));
+                .map(enclose!((func, self.client => client) move |uri| {
+                    func(FetchEvent::Fetching(uri.clone()));
                     uri.fetch(&client)
-                })
+                }))
                 .buffer_unordered(8)
-                .for_each(move |uri| {
-                    func2(FetchEvent::Fetched(uri));
+                .for_each(enclose!((func) move |uri| {
+                    func(FetchEvent::Fetched(uri));
                     Ok(())
-                })
+                }))
                 .map_err(|(uri, why)| ReleaseError::PackageFetch(uri.name, uri.uri, why));
 
             match self.runtime.block_on(buffered_stream) {
