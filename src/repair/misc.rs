@@ -17,7 +17,7 @@ pub fn dkms_gcc9_fix() -> io::Result<()> {
         [" -mindirect-branch=thunk-extern", " -mindirect-branch=thunk-inline"];
 
     let lib_modules_dir: &'static Path = ["/lib/modules", "/usr/lib/modules"]
-        .into_iter()
+        .iter()
         .map(Path::new)
         .find(|path| path.exists())
         .ok_or_else(|| {

@@ -55,7 +55,7 @@ const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
 const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
 
 pub fn is_required_ppa(ppa: &str) -> bool {
-    REQUIRED_PPAS.into_iter().any(|&required| ppa.contains(required))
+    REQUIRED_PPAS.iter().any(|&required| ppa.contains(required))
 }
 
 pub fn upgrade_in_progress() -> bool {
@@ -227,7 +227,7 @@ impl<'a> DaemonRuntime<'a> {
                 })
                 .buffer_unordered(8)
                 .for_each(move |uri| {
-                    func2(FetchEvent::Fetched(uri.clone()));
+                    func2(FetchEvent::Fetched(uri));
                     Ok(())
                 })
                 .map_err(|(uri, why)| ReleaseError::PackageFetch(uri.name, uri.uri, why));
@@ -494,7 +494,7 @@ impl<'a> DaemonRuntime<'a> {
             Err(why) => {
                 rollback(&mut upgrader, &why);
 
-                return Err(why);
+                Err(why)
             }
         }
     }

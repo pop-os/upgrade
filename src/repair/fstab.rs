@@ -271,7 +271,7 @@ fn fstab_insert<P: AsRef<Path>>(
     let dest = dest.as_ref();
     for mount in buffer.iter_mounts_mut() {
         if mount.dest == dest {
-            mount.source = id.source.clone();
+            mount.source = id.source;
             return Ok(());
         }
     }
