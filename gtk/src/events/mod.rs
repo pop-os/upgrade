@@ -71,6 +71,7 @@ pub enum CompletedEvent {
 pub enum ScanEvent {
     PermissionDenied,
     Found {
+        is_current:    bool,
         is_lts:        bool,
         refresh:       bool,
         status_failed: bool,
@@ -463,6 +464,7 @@ fn scan_event(state: &mut State, widgets: &EventWidgets, event: ScanEvent) {
             upgrade_text,
             upgrade,
             refresh,
+            is_current,
             is_lts,
             status_failed,
             reboot_ready,
@@ -471,14 +473,16 @@ fn scan_event(state: &mut State, widgets: &EventWidgets, event: ScanEvent) {
             state.upgrade_version = upgrade;
             state.refresh_found = refresh;
 
-            connect_upgrade(state, widgets, is_lts, reboot_ready);
+            if is_current {
+                widgets.upgrade.disable("You are running the most current Pop!_OS version");
+            } else if status_failed {
+                widgets.upgrade.disable("Failed to check for upgrade status");
+            } else {
+                connect_upgrade(state, widgets, is_lts, reboot_ready);
+            }
 
             if refresh {
                 connect_refresh(&state, widgets);
-            }
-
-            if status_failed {
-                widgets.upgrade.option.hide_widgets();
             }
 
             widgets.container.show();

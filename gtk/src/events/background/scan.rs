@@ -14,6 +14,7 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
     debug!("scanning");
     send(UiEvent::Initiated(InitiatedEvent::Scanning));
     let mut upgrade = None;
+    let mut is_current = false;
     let mut is_lts = false;
     let mut status_failed = false;
 
@@ -46,7 +47,10 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
                     status_failed = true;
                     Cow::Borrowed(match info.build {
                         -1 => "Failed to retrieve build status due to an internal error.",
-                        -2 | -4 => "You are running the most current Pop!_OS version.",
+                        -2 | -4 => {
+                            is_current = true;
+                            "You are running the most current Pop!_OS version."
+                        }
                         -3 => "Connection failed. You may be offline.",
                         _ => "Unknown status received.",
                     })
@@ -61,11 +65,12 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
     };
 
     send(UiEvent::Completed(CompletedEvent::Scan(ScanEvent::Found {
+        is_current,
+        is_lts,
+        reboot_ready,
+        refresh: client.recovery_exists(),
+        status_failed,
         upgrade_text: Box::from(upgrade_text.as_ref()),
         upgrade,
-        refresh: client.recovery_exists(),
-        is_lts,
-        status_failed,
-        reboot_ready,
     })));
 }

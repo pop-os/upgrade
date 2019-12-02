@@ -26,6 +26,8 @@ impl Section {
         Self { frame, label, list, option }
     }
 
+    pub fn disable(&self, message: &str) { self.option.label(message).button.hide(); }
+
     pub fn hide(&self) {
         self.frame.hide();
         self.label.hide();

@@ -110,7 +110,7 @@ impl UpgradeOption {
         match action {
             Some((label, func)) => {
                 self.button_label(label);
-                self.button.show();
+                self.show_button();
                 let id = self.button.connect_clicked(move |button| {
                     button.hide();
                     func()
