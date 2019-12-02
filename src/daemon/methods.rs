@@ -13,6 +13,17 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::atomic::Ordering};
 use super::result_signal;
 
 // Methods supported by the daemon.
+pub const CANCEL: &str = "Cancel";
+
+pub fn cancel(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method<MTFn<()>, ()> {
+    let method = dbus_factory.method::<_, String>(CANCEL, move |_| {
+        daemon.borrow_mut().cancel();
+        Ok(Vec::new())
+    });
+
+    method.consume()
+}
+
 pub const DISMISS_NOTIFICATION: &str = "DismissNotification";
 
 #[repr(u8)]

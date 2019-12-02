@@ -48,7 +48,10 @@ use std::{
     fs,
     path::PathBuf,
     rc::Rc,
-    sync::{atomic::Ordering, Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     thread,
 };
 use tokio::runtime::Runtime;
@@ -58,6 +61,7 @@ pub const INSTALL_DATE: &str = "/usr/lib/pop-upgrade/install_date";
 
 #[derive(Debug)]
 pub enum Event {
+    Cancel,
     FetchUpdates { apt_uris: HashSet<AptUri>, download_only: bool },
     PackageUpgrade,
     RecoveryUpgrade(RecoveryUpgradeMethod),
@@ -95,6 +99,7 @@ pub struct Daemon {
     status:          Arc<Atomic<DaemonStatus>>,
     sub_status:      Arc<Atomic<u8>>,
     fetching_state:  Arc<Atomic<(u64, u64)>>,
+    cancel:          Arc<AtomicBool>,
     last_known:      LastKnown,
     release_upgrade: Option<ReleaseUpgradeState>,
     retain_repos:    Arc<Mutex<HashSet<Box<str>>>>,
@@ -130,7 +135,14 @@ impl Daemon {
 
         let retain_repos = Arc::new(Mutex::new(HashSet::new()));
 
+        // Cancels a process which is in progress
+        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel_process: Arc<dyn Fn() -> bool + Send + Sync> =
+            Arc::new(enclose!((cancel => c) move || c.swap(false, Ordering::SeqCst)));
+        let mut processing = false;
+
         {
+            let cancel = cancel.clone();
             let status = status.clone();
             let sub_status = sub_status.clone();
             let prog_state = prog_state.clone();
@@ -188,6 +200,12 @@ impl Daemon {
                     });
 
                     match event {
+                        Event::Cancel => {
+                            if processing {
+                                cancel.store(true, Ordering::SeqCst);
+                                continue;
+                            }
+                        }
                         Event::FetchUpdates { apt_uris, download_only } => {
                             info!("fetching packages for {:?}", apt_uris);
                             let npackages = apt_uris.len() as u32;
@@ -217,9 +235,11 @@ impl Daemon {
                             });
                         }
                         Event::RecoveryUpgrade(action) => {
+                            processing = true;
                             info!("attempting recovery upgrade with {:?}", action);
                             let prog_state_ = prog_state.clone();
                             let result = recovery::recovery(
+                                &cancel_process,
                                 &action,
                                 {
                                     let dbus_tx = dbus_tx.clone();
@@ -241,6 +261,7 @@ impl Daemon {
                             );
 
                             let _ = dbus_tx.send(SignalEvent::RecoveryUpgradeResult(result));
+                            processing = false;
                         }
                         Event::ReleaseUpgrade { how, from, to } => {
                             info!(
@@ -284,6 +305,7 @@ impl Daemon {
                         }
                     }
 
+                    cancel.store(false, Ordering::SeqCst);
                     status.store(DaemonStatus::Inactive, Ordering::SeqCst);
                     info!("event processed");
                 }
@@ -291,16 +313,17 @@ impl Daemon {
         }
 
         Ok(Daemon {
-            event_tx,
-            dbus_rx,
-            fg_rx,
+            cancel,
             connection,
+            dbus_rx,
+            event_tx,
             fetching_state: prog_state,
-            status,
-            sub_status,
+            fg_rx,
             last_known: Default::default(),
             release_upgrade: None,
             retain_repos,
+            status,
+            sub_status,
         })
     }
 
@@ -385,6 +408,7 @@ impl Daemon {
 
         let interface = factory
             .interface(DBUS_IFACE, ())
+            .add_m(methods::cancel(daemon.clone(), &dbus_factory))
             .add_m(methods::dismiss_notification(daemon.clone(), &dbus_factory))
             .add_m(methods::fetch_updates_status(daemon.clone(), &dbus_factory))
             .add_m(methods::fetch_updates(daemon.clone(), &dbus_factory))
@@ -633,6 +657,12 @@ impl Daemon {
 
         self.submit_event(Event::PackageUpgrade)?;
         Ok(())
+    }
+
+    fn cancel(&mut self) {
+        info!("cancelling a process which is in progress");
+
+        self.cancel.store(true, Ordering::SeqCst);
     }
 
     fn recovery_upgrade_file(&mut self, path: &str) -> Result<(), String> {

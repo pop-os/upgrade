@@ -780,6 +780,11 @@ version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "enclose"
+version = "1.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "encoding_rs"
 version = "0.8.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2001,7 +2006,7 @@ dependencies = [
 [[package]]
 name = "parallel-getter"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/pop-os/parallel-getter#effa3f3c71fcbc1a4da3892390ea267c5629a999"
 dependencies = [
  "crossbeam 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "numtoa 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2107,6 +2112,7 @@ dependencies = [
  "disk-types 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "distinst-chroot 0.1.0 (git+https://github.com/pop-os/distinst/)",
  "distinst-disks 0.1.0 (git+https://github.com/pop-os/distinst/)",
+ "enclose 1.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "envfile 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "err-derive 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "exec 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2121,7 +2127,7 @@ dependencies = [
  "num-derive 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "os-release 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "parallel-getter 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parallel-getter 0.2.0 (git+https://github.com/pop-os/parallel-getter)",
  "partition-identity 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-mounts 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "procfs 0.7.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2135,6 +2141,7 @@ dependencies = [
  "sysfs-class 0.1.2 (git+https://github.com/pop-os/sysfs-class)",
  "systemd-boot-conf 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "thiserror 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-process 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "ubuntu-version 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3675,6 +3682,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum distinst-utils 0.1.0 (git+https://github.com/pop-os/distinst/)" = "<none>"
 "checksum dtoa 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "ea57b42383d091c85abcc2706240b94ab2a8fa1fc81c10ff23c4de06e2a90b5e"
 "checksum either 1.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
+"checksum enclose 1.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "1056f553da426e9c025a662efa48b52e62e0a3a7648aa2d15aeaaf7f0d329357"
 "checksum encoding_rs 0.8.22 (registry+https://github.com/rust-lang/crates.io-index)" = "cd8d03faa7fe0c1431609dfad7bbe827af30f82e1e2ae6f7ee4fca6bd764bc28"
 "checksum env_logger 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "3ddf21e73e016298f5cb37d6ef8e8da8e39f91f9ec8b0df44b7deb16a9f8cd5b"
 "checksum envfile 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "5fe7fe9d71fc403a41672475b8895d6b817cac0fe23c471e01d36f5af503008c"
@@ -3806,7 +3814,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum owning_ref 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "49a4b8ea2179e6a2e27411d3bca09ca6dd630821cf6894c6c7c8467a8ee7ef13"
 "checksum pango 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1e9c6b728f1be8edb5f9f981420b651d5ea30bdb9de89f1f1262d0084a020577"
 "checksum pango-sys 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)" = "86b93d84907b3cf0819bff8f13598ba72843bee579d5ebc2502e4b0367b4be7d"
-"checksum parallel-getter 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "de9156f5b45178d136c454baa0f56016b248ea1612a118e1d4c936b8824f7337"
+"checksum parallel-getter 0.2.0 (git+https://github.com/pop-os/parallel-getter)" = "<none>"
 "checksum parking_lot 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)" = "f0802bff09003b291ba756dc7e79313e51cc31667e94afbe847def490424cde5"
 "checksum parking_lot 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f842b1982eb6c2fe34036a4fbfb06dd185a3f5c8edfaacdf7d1ea10b07de6252"
 "checksum parking_lot_core 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ad7f7e6ebdc79edff6fdcb87a55b620174f7a989e3eb31b65231f4af57f00b8c"
