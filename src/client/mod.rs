@@ -13,7 +13,7 @@ use num_traits::FromPrimitive;
 use std::collections::HashMap;
 use thiserror::Error;
 
-const TIMEOUT: i32 = 0x7fffffff;
+const TIMEOUT: i32 = 0x7fff_ffff;
 
 // Information about the current fetch progress.
 #[derive(Clone, Debug)]
