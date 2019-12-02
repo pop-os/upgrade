@@ -60,6 +60,15 @@ impl UpgradeWidget {
         }
 
         let upgrade = Section::new("<b>OS Upgrade</b>");
+        let refresh = Section::new("<b>Refresh OS Install</b>");
+
+        upgrade.option.button_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION);
+
+        refresh
+            .option
+            .button_label("Refresh")
+            .label("Refresh OS")
+            .sublabel(Some("Reinstall while keeping user accounts and files"));
 
         let dismisser = gtk::ListBoxRow::new();
         upgrade.list.add(&dismisser);
@@ -67,17 +76,21 @@ impl UpgradeWidget {
         let button_sg = cascade! {
             gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
             ..add_widget(&upgrade.option.button);
+            ..add_widget(&refresh.option.button);
         };
 
         cascade! {
             gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
             ..add_widget(upgrade.option.as_ref());
+            ..add_widget(refresh.option.as_ref());
         }
 
         let container = cascade! {
             gtk::Box::new(gtk::Orientation::Vertical, 12);
             ..add(&upgrade.label);
             ..add(&upgrade.frame);
+            ..add(&refresh.label);
+            ..add(&refresh.frame);
             ..show_all();
         };
 
@@ -89,7 +102,7 @@ impl UpgradeWidget {
 
         events::attach(
             gui_receiver,
-            EventWidgets { button_sg, container: container.clone(), dismisser, upgrade },
+            EventWidgets { button_sg, container: container.clone(), dismisser, upgrade, refresh },
             State::new(
                 bg_sender.clone(),
                 Arc::downgrade(&gui_sender),

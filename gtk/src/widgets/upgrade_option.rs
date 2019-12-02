@@ -91,6 +91,11 @@ impl UpgradeOption {
         }
     }
 
+    pub fn button_class(&self, class: &str) -> &Self {
+        self.button.get_style_context().add_class(class);
+        self
+    }
+
     /// Sets the button label
     pub fn button_label(&self, label: &str) -> &Self {
         self.button_label.set_text(label);

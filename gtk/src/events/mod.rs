@@ -99,8 +99,8 @@ pub struct EventWidgets {
     pub button_sg: gtk::SizeGroup,
     pub container: gtk::Box,
     pub dismisser: gtk::ListBoxRow,
-
-    pub upgrade: Section,
+    pub refresh:   Section,
+    pub upgrade:   Section,
 }
 
 impl EventWidgets {
@@ -233,12 +233,12 @@ fn cancelled_upgrade(state: &mut State, widgets: &EventWidgets) {
 
 /// Programs the refresh button
 fn connect_refresh(state: &State, widgets: &EventWidgets) {
-    // let sender = state.sender.clone();
-    // let action = move || {
-    //     let _ = sender.send(BackgroundEvent::RefreshOS);
-    // };
+    let sender = state.sender.clone();
+    let action = move || {
+        let _ = sender.send(BackgroundEvent::RefreshOS);
+    };
 
-    // widgets.refresh.option.button_signal(Some(("Refresh", action))).show();
+    widgets.refresh.option.button_signal(Some(("Refresh", action))).show();
 }
 
 /// Programs the upgrade button, and optionally enables the dismissal widget.
@@ -418,10 +418,10 @@ fn release_upgrade_dialog(state: &mut State, widgets: &EventWidgets) {
 fn reset(state: &mut State, widgets: &EventWidgets) {
     state.fetching_release = false;
 
-    // if state.refresh_found {
-    //     widgets.refresh.option.show_button();
-    //     widgets.refresh.show();
-    // }
+    if state.refresh_found {
+        widgets.refresh.option.show_button();
+        widgets.refresh.show();
+    }
 
     if state.upgrade_found {
         widgets.upgrade.option.show_button();
@@ -482,7 +482,10 @@ fn scan_event(state: &mut State, widgets: &EventWidgets, event: ScanEvent) {
             }
 
             if refresh {
+                widgets.refresh.show();
                 connect_refresh(&state, widgets);
+            } else {
+                widgets.refresh.hide();
             }
 
             widgets.container.show();
