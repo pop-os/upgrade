@@ -2,7 +2,7 @@ use crate::{
     daemon::{DaemonStatus as PrimaryStatus, *},
     recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags},
     release::{RefreshOp, UpgradeEvent, UpgradeMethod},
-    DBUS_IFACE, DBUS_NAME, DBUS_PATH,
+    sighandler, DBUS_IFACE, DBUS_NAME, DBUS_PATH,
 };
 
 use dbus::{
@@ -335,6 +335,10 @@ impl Client {
     ) -> Result<(), Error> {
         let mut break_on_next = false;
         for item in self.bus.iter(3000) {
+            if sighandler::status().is_some() {
+                let _ = self.cancel();
+            }
+
             if let ConnectionItem::Nothing = item {
                 if !self.status_is(expected_status)? {
                     if break_on_next {

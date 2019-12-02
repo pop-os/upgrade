@@ -10,7 +10,7 @@ mod logging;
 mod notify;
 
 use crate::{cli::Client, logging::setup_logging};
-use pop_upgrade::daemon::Daemon;
+use pop_upgrade::{daemon::Daemon, sighandler};
 
 pub mod error {
     use pop_upgrade::{
@@ -228,6 +228,7 @@ fn main_(matches: &ArgMatches) -> Result<(), Error> {
 }
 
 fn init() -> Result<(), InitError> {
+    sighandler::init();
     ::std::fs::create_dir_all("/var/cache/apt/archives/partial/")
         .map_err(InitError::AptCacheDirectories)
 }

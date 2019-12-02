@@ -4,12 +4,11 @@ pub mod signals;
 mod dbus_helper;
 mod error;
 mod runtime;
-mod sighandler;
 mod status;
 
 pub use self::{
-    error::DaemonError, methods::DismissEvent, runtime::DaemonRuntime, signals::SignalEvent,
-    status::DaemonStatus,
+    dbus_helper::DbusFactory, error::DaemonError, methods::DismissEvent, runtime::DaemonRuntime,
+    signals::SignalEvent, status::DaemonStatus,
 };
 
 use crate::{
@@ -22,10 +21,8 @@ use crate::{
         self, FetchEvent, RefreshOp, ReleaseError, ReleaseStatus,
         UpgradeMethod as ReleaseUpgradeMethod,
     },
-    DBUS_IFACE, DBUS_NAME, DBUS_PATH,
+    sighandler, DBUS_IFACE, DBUS_NAME, DBUS_PATH,
 };
-
-use self::dbus_helper::DbusFactory;
 
 use apt_cli_wrappers::apt_upgrade;
 use apt_fetcher::{
@@ -332,7 +329,6 @@ impl Daemon {
         fs::create_dir_all(crate::VAR_LIB_DIR)
             .map_err(|why| DaemonError::VarLibDirectory(crate::VAR_LIB_DIR, why))?;
 
-        sighandler::init();
         let factory = Factory::new_fn::<()>();
 
         let dbus_factory = DbusFactory::new(&factory);
