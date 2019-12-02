@@ -49,6 +49,9 @@ pub mod repair;
 /// Functions for modifying system repositories.
 pub mod repos;
 
+/// Signal-handling capabilities for the daemon.
+pub mod sighandler;
+
 /// Determine if the system is in legacy BIOS or EFI mode.
 pub mod system_environment;
 
