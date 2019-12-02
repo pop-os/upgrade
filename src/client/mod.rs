@@ -5,13 +5,13 @@ use crate::{
     DBUS_IFACE, DBUS_NAME, DBUS_PATH,
 };
 
-use num_traits::FromPrimitive;
-
 use dbus::{
     self, BusType, Connection, ConnectionItem, Message, MessageItem, MessageItemArray, Signature,
 };
 
+use num_traits::FromPrimitive;
 use std::collections::HashMap;
+use thiserror::Error;
 
 const TIMEOUT: i32 = 0x7fffffff;
 
@@ -99,17 +99,17 @@ pub struct Status {
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error(display = "failed to add match on client connection")]
-    AddMatch(#[error(cause)] dbus::Error),
-    #[error(display = "argument mismatch in {} method", _0)]
-    ArgumentMismatch(&'static str, #[error(cause)] dbus::arg::TypeMismatchError),
-    #[error(display = "calling {} method failed", _0)]
-    Call(&'static str, #[error(cause)] dbus::Error),
-    #[error(display = "unable to establish dbus connection")]
-    Connection(#[error(cause)] dbus::Error),
-    #[error(display = "daemon status integer was outside the acceptable range of values")]
+    #[error("failed to add match on client connection")]
+    AddMatch(#[source] dbus::Error),
+    #[error("argument mismatch in {} method", _0)]
+    ArgumentMismatch(&'static str, #[source] dbus::arg::TypeMismatchError),
+    #[error("calling {} method failed", _0)]
+    Call(&'static str, #[source] dbus::Error),
+    #[error("unable to establish dbus connection")]
+    Connection(#[source] dbus::Error),
+    #[error("daemon status integer was outside the acceptable range of values")]
     DaemonStatusOutOfRange,
-    #[error(display = "failed to create {} method call", _0)]
+    #[error("failed to create {} method call", _0)]
     NewMethodCall(&'static str, String),
 }
 
@@ -145,6 +145,12 @@ impl Client {
 
             Ok(Client { bus })
         })
+    }
+
+    /// Cancel the active process which is in progress
+    pub fn cancel(&self) -> Result<(), Error> {
+        self.call_method(methods::CANCEL, |m| m)?;
+        Ok(())
     }
 
     /// Dismiss future desktop notifications for the currently-available upgrade.

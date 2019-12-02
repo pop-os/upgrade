@@ -15,15 +15,19 @@ apt-keyring = { git = "https://github.com/pop-os/apt-keyring" }
 apt-sources-lists = { git = "https://github.com/pop-os/apt-sources-lists" }
 async-fetcher = { git = "https://github.com/pop-os/async-fetcher", rev = "6b6073848ad10400efd512187e60c478d74437e8"  }
 atomic = "0.4"
+atty = "0.2"
 bitflags = "1"
+chrono = "0.4"
 clap = "2"
 crossbeam = "0.7"
 dbus = "0.6"
 disk-types = "0.1"
 distinst-chroot = { git = "https://github.com/pop-os/distinst/" }
 distinst-disks = { git = "https://github.com/pop-os/distinst/" }
+enclose = "1"
 envfile = "0.2"
 err-derive = "0.1"
+exec = "0.3"
 fern = "0.5"
 futures = "0.1"
 human-sort = "0.2"
@@ -31,10 +35,11 @@ libc = "0.2"
 log = "0.4"
 logind-dbus = "0.1"
 md-5 = "0.8"
+notify-rust = "3.6"
 num-derive = "0.3"
 num-traits = "0.2"
 os-release = "0.1"
-parallel-getter = "0.2"
+parallel-getter = { git = "https://github.com/pop-os/parallel-getter" }
 partition-identity = "0.2"
 proc-mounts = "0.2"
 procfs = "0.7"
@@ -48,14 +53,11 @@ sys-mount = "1"
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
 systemd-boot-conf = "0.1.0"
 tempfile = "3"
+thiserror = "1"
 tokio = "0.1"
 tokio-process = "0.2"
 ubuntu-version = "0.1"
 yansi = "0.5"
-notify-rust = "3.6"
-atty = "0.2"
-exec = "0.3"
-chrono = "0.4"
 
 [patch.crates-io]
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }

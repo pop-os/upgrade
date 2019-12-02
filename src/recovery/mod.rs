@@ -57,7 +57,12 @@ pub enum UpgradeMethod {
     FromRelease { version: Option<String>, arch: Option<String>, flags: ReleaseFlags },
 }
 
-pub fn recovery<F, E>(action: &UpgradeMethod, progress: F, event: E) -> RecResult<()>
+pub fn recovery<F, E>(
+    cancel: &Arc<dyn Fn() -> bool + Send + Sync>,
+    action: &UpgradeMethod,
+    progress: F,
+    event: E,
+) -> RecResult<()>
 where
     F: Fn(u64, u64) + 'static + Send + Sync,
     E: Fn(RecoveryEvent) + 'static,
@@ -68,6 +73,8 @@ where
 
     // Check the system and perform any repairs necessary for success.
     crate::repair::repair().map_err(RecoveryError::Repair)?;
+
+    cancellation_check(&cancel)?;
 
     if !recovery_exists()? {
         return Err(RecoveryError::RecoveryNotFound);
@@ -90,7 +97,9 @@ where
     // Borrowck disallows moving ownership due to using FnMut instead of FnOnce.
     let progress = Arc::new(progress);
 
-    if let Some((version, build)) = fetch_iso(verify, &action, &progress, &event, "/recovery")? {
+    if let Some((version, build)) =
+        fetch_iso(cancel, verify, &action, &progress, &event, "/recovery")?
+    {
         let data = format!("{} {}", version, build);
         fs::write(RECOVERY_VERSION, data.as_bytes()).map_err(RecoveryError::WriteVersion)?;
     }
@@ -112,6 +121,7 @@ pub fn recovery_exists() -> Result<bool, RecoveryError> {
 }
 
 fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
+    cancel: &Arc<dyn Fn() -> bool + Send + Sync>,
     verify: fn(&str, u16) -> bool,
     action: &UpgradeMethod,
     progress: &Arc<F>,
@@ -144,12 +154,17 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
             let (version, build) =
                 crate::release::check_current(version_).ok_or(RecoveryError::NoBuildAvailable)?;
 
+            cancellation_check(&cancel)?;
+
             if verify(&version, build) {
                 info!("recovery partition is already upgraded to {}b{}", version, build);
                 return Ok(None);
             }
 
-            let iso = from_release(&mut temp_iso_dir, progress, event, &version, arch, *flags)?;
+            cancellation_check(&cancel)?;
+
+            let iso =
+                from_release(cancel, &mut temp_iso_dir, progress, event, &version, arch, *flags)?;
             (build, version, iso)
         }
         UpgradeMethod::FromFile(ref _path) => {
@@ -157,6 +172,8 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
             unimplemented!();
         }
     };
+
+    cancellation_check(&cancel)?;
 
     (*event)(RecoveryEvent::Syncing);
     let tempdir = tempfile::tempdir().map_err(RecoveryError::TempDir)?;
@@ -192,6 +209,7 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
 
 /// Fetches the release ISO remotely from api.pop-os.org.
 fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
+    cancel: &Arc<dyn Fn() -> bool + Send + Sync>,
     temp: &mut Option<TempDir>,
     progress: &Arc<F>,
     event: &dyn Fn(RecoveryEvent),
@@ -205,7 +223,7 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
     };
 
     let release = Release::get_release(version, arch).map_err(RecoveryError::ApiError)?;
-    let iso_path = from_remote(temp, progress, event, &release.url, &release.sha_sum)
+    let iso_path = from_remote(cancel, temp, progress, event, &release.url, &release.sha_sum)
         .map_err(|why| RecoveryError::Download(Box::new(why)))?;
 
     Ok(iso_path)
@@ -215,6 +233,7 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
 ///
 /// Once downloaded, the ISO will be verfied against the given checksum.
 fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
+    cancel: &Arc<dyn Fn() -> bool + Send + Sync>,
     temp_dir: &mut Option<TempDir>,
     progress: &Arc<F>,
     event: &dyn Fn(RecoveryEvent),
@@ -231,6 +250,7 @@ fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
     let progress_ = progress.clone();
     let total = Arc::new(Atomic::new(0));
     let total_ = total.clone();
+    let cancel = cancel.clone();
     ParallelGetter::new(url, &mut file)
         .threads(8)
         .callback(
@@ -238,6 +258,7 @@ fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
             Box::new(move |p, t| {
                 total_.store(t / 1024, Ordering::SeqCst);
                 (*progress_)(p / 1024, t / 1024);
+                cancel()
             }),
         )
         .get()
@@ -255,4 +276,12 @@ fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
 
     *temp_dir = Some(temp);
     Ok(path)
+}
+
+fn cancellation_check(cancel: &Arc<dyn Fn() -> bool + Send + Sync>) -> RecResult<()> {
+    if cancel() {
+        Err(RecoveryError::Cancelled)
+    } else {
+        Ok(())
+    }
 }
