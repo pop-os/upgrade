@@ -247,19 +247,16 @@ fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
     let mut file =
         OpenOptions::new().create(true).write(true).read(true).truncate(true).open(&path)?;
 
-    let progress_ = progress.clone();
     let total = Arc::new(Atomic::new(0));
-    let total_ = total.clone();
-    let cancel = cancel.clone();
     ParallelGetter::new(url, &mut file)
         .threads(8)
         .callback(
             1000,
-            Box::new(move |p, t| {
-                total_.store(t / 1024, Ordering::SeqCst);
-                (*progress_)(p / 1024, t / 1024);
+            Box::new(enclose!((total, progress, cancel) move |p, t| {
+                total.store(t / 1024, Ordering::SeqCst);
+                (*progress)(p / 1024, t / 1024);
                 cancel()
-            }),
+            })),
         )
         .get()
         .map_err(|why| RecoveryError::Fetch { url: url.to_owned(), why })?;
