@@ -1,9 +1,12 @@
+use super::DialogTemplate;
 use gtk::prelude::*;
 
-#[derive(Shrinkwrap)]
+#[derive(AsRef, Deref)]
 pub struct RepositoryDialog {
-    #[shrinkwrap(main_field)]
-    dialog:  gtk::Dialog,
+    #[as_ref]
+    #[deref]
+    dialog: DialogTemplate,
+
     entries: gtk::ListBox,
 }
 
@@ -17,7 +20,7 @@ impl RepositoryDialog {
             };
         };
 
-        let dialog = super::dialog_template(
+        let dialog = DialogTemplate::new(
             "application-x-deb",
             "3rd party repositories",
             "Accept",

@@ -392,8 +392,6 @@ fn incompatible_repos(state: &mut State, widgets: &EventWidgets, repos: RepoComp
         (state.callback_event.borrow())(Event::NotUpgrading);
         reset(state, widgets)
     }
-
-    dialog.destroy();
 }
 
 /// Checks if the release has been dismissed.
