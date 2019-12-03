@@ -1,9 +1,31 @@
+mod refresh;
 mod repository;
 mod upgrade;
 
-pub use self::{repository::RepositoryDialog, upgrade::UpgradeDialog};
+pub use self::{refresh::RefreshDialog, repository::RepositoryDialog, upgrade::UpgradeDialog};
 
 use gtk::prelude::*;
+
+#[derive(AsRef, Deref)]
+#[as_ref]
+#[deref]
+pub struct DialogTemplate(gtk::Dialog);
+
+impl DialogTemplate {
+    pub fn new<F: FnOnce(&gtk::Box)>(
+        icon: &str,
+        title: &str,
+        accept: &str,
+        accept_style: &'static str,
+        func: F,
+    ) -> Self {
+        Self(dialog_template(icon, title, accept, accept_style, func))
+    }
+}
+
+impl Drop for DialogTemplate {
+    fn drop(&mut self) { self.destroy(); }
+}
 
 fn dialog_template<F: FnOnce(&gtk::Box)>(
     icon: &str,

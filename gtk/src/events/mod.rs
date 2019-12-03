@@ -7,7 +7,7 @@ use crate::{
     get_dismiss_row, get_upgrade_row, notify, reboot,
     state::State,
     widgets::{
-        dialogs::{RepositoryDialog, UpgradeDialog},
+        dialogs::{RefreshDialog, RepositoryDialog, UpgradeDialog},
         permissions::PermissionDenied,
         Dismisser, Section,
     },
@@ -42,6 +42,7 @@ pub enum UiEvent {
     IncompatibleRepos(RepoCompatError),
     Initiated(InitiatedEvent),
     Progress(ProgressEvent),
+    RefreshClicked,
     ReleaseUpgradeDialog,
     Shutdown,
     StatusChanged(DaemonStatus, DaemonStatus, Box<str>),
@@ -186,6 +187,14 @@ pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut 
 
             UiEvent::CancelledUpgrade => cancelled_upgrade(&mut state, &widgets),
 
+            UiEvent::RefreshClicked => {
+                if gtk::ResponseType::Accept == RefreshDialog::new().run() {
+                    let _ = state.sender.send(BackgroundEvent::RefreshOS);
+                } else {
+                    widgets.refresh.option.show_button();
+                }
+            }
+
             UiEvent::UpgradeClicked => upgrade_clicked(&mut state, &widgets),
 
             UiEvent::UpgradeNotificationClicked => (state.callback_ready.borrow())(),
@@ -233,9 +242,11 @@ fn cancelled_upgrade(state: &mut State, widgets: &EventWidgets) {
 
 /// Programs the refresh button
 fn connect_refresh(state: &State, widgets: &EventWidgets) {
-    let sender = state.sender.clone();
+    let sender = state.gui_sender.clone();
     let action = move || {
-        let _ = sender.send(BackgroundEvent::RefreshOS);
+        if let Some(sender) = sender.upgrade() {
+            let _ = sender.send(UiEvent::RefreshClicked);
+        }
     };
 
     widgets.refresh.option.button_signal(Some(("Refresh", action))).show();
