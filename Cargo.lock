@@ -2566,6 +2566,7 @@ dependencies = [
  "clap",
  "derive-new",
  "derive_more",
+ "enclose",
  "fern",
  "fomat-macros",
  "gio",

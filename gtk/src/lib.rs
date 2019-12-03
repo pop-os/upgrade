@@ -5,6 +5,8 @@ extern crate derive_more;
 #[macro_use]
 extern crate derive_new;
 #[macro_use]
+extern crate enclose;
+#[macro_use]
 extern crate fomat_macros;
 #[macro_use]
 extern crate log;
@@ -51,15 +53,11 @@ impl UpgradeWidget {
         let (gui_sender, gui_receiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         let gui_sender = Arc::new(gui_sender);
 
-        {
-            let gui_sender = gui_sender.clone();
-
-            thread::spawn(move || {
-                events::background::run(bg_receiver, move |event| {
-                    let _ = gui_sender.send(event);
-                });
+        thread::spawn(enclose!((gui_sender) move || {
+            events::background::run(bg_receiver, move |event| {
+                let _ = gui_sender.send(event);
             });
-        }
+        }));
 
         let upgrade = Section::new("<b>OS Upgrade</b>");
         let refresh = Section::new("<b>Refresh OS Install</b>");

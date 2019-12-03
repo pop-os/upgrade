@@ -242,12 +242,11 @@ fn cancelled_upgrade(state: &mut State, widgets: &EventWidgets) {
 
 /// Programs the refresh button
 fn connect_refresh(state: &State, widgets: &EventWidgets) {
-    let sender = state.gui_sender.clone();
-    let action = move || {
+    let action = enclose!((state.gui_sender => sender) move || {
         if let Some(sender) = sender.upgrade() {
             let _ = sender.send(UiEvent::RefreshClicked);
         }
-    };
+    });
 
     widgets.refresh.option.button_signal(Some(("Refresh", action))).show();
 }
@@ -329,15 +328,14 @@ fn download_action(sender: sync::Weak<glib::Sender<UiEvent>>) -> (&'static str, 
 fn download_complete(state: &mut State, widgets: &EventWidgets) {
     state.upgrade_downloaded = true;
 
-    let sender = state.gui_sender.clone();
     let description = format!("Pop!_OS is ready to upgrade to {}", state.upgrading_to);
-    thread::spawn(move || {
+    thread::spawn(enclose!((state.gui_sender => sender) move || {
         notify::notify("distributor-logo", "Upgrade Ready", &description, || {
             if let Some(sender) = sender.upgrade() {
                 let _ = sender.send(UiEvent::UpgradeNotificationClicked);
             }
         });
-    });
+    }));
 
     (state.callback_event.borrow())(Event::UpgradeReady);
 
