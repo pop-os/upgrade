@@ -410,10 +410,7 @@ fn is_dismissed(next: &str) -> bool {
 /// When the user selects to commence an upgrade, a dialog is shown to confirm.
 fn release_upgrade_dialog(state: &mut State, widgets: &EventWidgets) {
     let dialog = UpgradeDialog::new(&state.upgrading_from, &state.upgrading_to);
-
-    let answer = dialog.run();
-    dialog.destroy();
-    if gtk::ResponseType::Accept == answer {
+    if gtk::ResponseType::Accept == dialog.run() {
         let _ = state.sender.send(BackgroundEvent::Finalize);
     } else {
         // Send upgrading event to prevent closing

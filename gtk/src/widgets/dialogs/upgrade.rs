@@ -1,12 +1,14 @@
+use super::DialogTemplate;
 use gtk::prelude::*;
 use pop_upgrade::changelogs;
 
 const CHANGELOG_PADDING: i32 = 48;
 
-#[derive(Shrinkwrap)]
+#[derive(AsRef, Deref)]
 pub struct UpgradeDialog {
-    #[shrinkwrap(main_field)]
-    dialog: gtk::Dialog,
+    #[as_ref]
+    #[deref]
+    dialog: DialogTemplate,
 }
 
 impl UpgradeDialog {
@@ -44,7 +46,7 @@ impl UpgradeDialog {
             }
         }
 
-        let dialog = super::dialog_template(
+        let dialog = DialogTemplate::new(
             "distributor-logo",
             "Upgrade",
             "Reboot & Upgrade",
