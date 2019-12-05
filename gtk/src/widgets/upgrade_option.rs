@@ -3,6 +3,7 @@ use glib::SignalHandlerId;
 use gtk::prelude::*;
 use std::cell::RefCell;
 
+
 #[derive(Shrinkwrap)]
 pub struct UpgradeOption {
     #[shrinkwrap(main_field)]
@@ -10,10 +11,11 @@ pub struct UpgradeOption {
 
     pub button:   gtk::Button,
     pub label:    gtk::Label,
+    pub progress: gtk::ProgressBar,
     pub sublabel: gtk::Label,
 
     button_label: gtk::Label,
-    progress:     gtk::ProgressBar,
+    last_class:   Option<&'static str>,
 
     button_signal: RefCell<Option<SignalHandlerId>>,
 }
@@ -81,18 +83,27 @@ impl UpgradeOption {
         };
 
         Self {
+            button_label,
             button_signal: RefCell::new(None),
             button,
-            button_label,
             container,
             label,
+            last_class: None,
             progress,
             sublabel,
         }
     }
 
-    pub fn button_class(&self, class: &str) -> &Self {
-        self.button.get_style_context().add_class(class);
+    pub fn button_class(&mut self, class: &'static str) -> &Self {
+        let ctx = self.button.get_style_context();
+
+        if let Some(class) = self.last_class {
+            ctx.remove_class(class);
+        }
+
+        ctx.add_class(class);
+        self.last_class = Some(class);
+
         self
     }
 
