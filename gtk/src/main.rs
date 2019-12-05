@@ -22,7 +22,7 @@ fn main() {
 
     application.connect_startup(|app| {
         argument_parsing();
-        let widget = UpgradeWidget::new();
+        let widget = UpgradeWidget::default();
         widget.scan();
 
         let headerbar = cascade! {

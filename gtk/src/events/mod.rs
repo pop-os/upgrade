@@ -415,7 +415,7 @@ fn incompatible_repos(state: &mut State, widgets: &EventWidgets, repos: RepoComp
 /// Checks if the release has been dismissed.
 fn is_dismissed(next: &str) -> bool {
     if Path::new(DISMISSED).exists() {
-        if let Some(dismissed) = fs::read_to_string(DISMISSED).ok() {
+        if let Ok(dismissed) = fs::read_to_string(DISMISSED) {
             if dismissed.as_str() == next {
                 return true;
             }

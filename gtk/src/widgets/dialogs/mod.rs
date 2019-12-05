@@ -19,7 +19,7 @@ impl DialogTemplate {
         accept_style: &'static str,
         func: F,
     ) -> Self {
-        let cancel = gtk::Button::new_with_label("Cancel".into());
+        let cancel = gtk::Button::new_with_label("Cancel");
 
         let accept = cascade! {
             gtk::Button::new_with_label(accept);

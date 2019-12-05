@@ -1,4 +1,3 @@
-use glib::SignalHandlerId;
 use gtk::prelude::*;
 
 #[derive(Shrinkwrap)]
@@ -6,8 +5,7 @@ pub struct Dismisser {
     #[shrinkwrap(main_field)]
     container: gtk::Widget,
 
-    pub button:    gtk::Button,
-    button_signal: SignalHandlerId,
+    pub button: gtk::Button,
 }
 
 impl Dismisser {
@@ -41,14 +39,12 @@ impl Dismisser {
             ..attach(&button, 1, 0, 1, 2);
         };
 
-        Self {
-            button_signal: button.connect_clicked(move |button: &gtk::Button| {
-                button.set_sensitive(false);
-                dismiss_action();
-            }),
-            container: grid.upcast::<gtk::Widget>(),
-            button,
-        }
+        button.connect_clicked(move |button: &gtk::Button| {
+            button.set_sensitive(false);
+            dismiss_action();
+        });
+
+        Self { container: grid.upcast::<gtk::Widget>(), button }
     }
 
     pub fn set_dismissed(&self, dismissed: bool) { self.button.set_sensitive(!dismissed) }

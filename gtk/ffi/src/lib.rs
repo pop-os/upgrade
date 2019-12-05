@@ -19,7 +19,7 @@ pub extern "C" fn pop_upgrade_widget_new() -> *mut PopUpgradeWidget {
         gtk::set_initialized();
     }
 
-    Box::into_raw(Box::new(UpgradeWidget::new())) as *mut _
+    Box::into_raw(Box::new(UpgradeWidget::default())) as *mut _
 }
 
 #[no_mangle]

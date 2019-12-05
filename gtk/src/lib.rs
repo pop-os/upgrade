@@ -50,8 +50,8 @@ pub struct UpgradeWidget {
     container:      gtk::Container,
 }
 
-impl UpgradeWidget {
-    pub fn new() -> Self {
+impl Default for UpgradeWidget {
+    fn default() -> Self {
         let (bg_sender, bg_receiver) = mpsc::sync_channel(5);
         let (gui_sender, gui_receiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         let gui_sender = Arc::new(gui_sender);
@@ -131,7 +131,9 @@ impl UpgradeWidget {
             callback_ready,
         }
     }
+}
 
+impl UpgradeWidget {
     pub fn scan(&self) {
         self.hide();
         let _ = self.sender.send(BackgroundEvent::Scan);

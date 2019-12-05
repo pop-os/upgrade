@@ -33,7 +33,7 @@ impl UpgradeDialog {
         let mut iter = changelogs::since(since);
 
         match iter.next() {
-            Some((version, changelog)) => {
+            Some((_version, changelog)) => {
                 add_changelog(&changelog_list, changelog);
                 for (version, changelog) in iter {
                     changelog_list.add(&gtk::Separator::new(gtk::Orientation::Horizontal));
