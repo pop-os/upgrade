@@ -11,8 +11,8 @@ use pop_upgrade::{
 use std::{borrow::Cow, path::Path};
 
 pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
-    debug!("scanning");
     send(UiEvent::Initiated(InitiatedEvent::Scanning));
+
     let mut upgrade = None;
     let mut is_current = false;
     let mut is_lts = false;
@@ -29,7 +29,7 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
         Cow::Borrowed("Pop!_OS is currently downloading.")
     } else {
         let devel = pop_upgrade::development_releases_enabled();
-        let result = dbg!(client.release_check(devel));
+        let result = client.release_check(devel);
         match result {
             Ok(info) => {
                 is_lts = info.is_lts;

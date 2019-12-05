@@ -44,7 +44,7 @@ pub fn run(
                         if dismiss { DismissEvent::ByUser } else { DismissEvent::Unset };
 
                     let event = match client.dismiss_notification(dismiss_event) {
-                        Ok(dismissed) => UiEvent::Dismissed(dismissed),
+                        Ok(dismissed) => UiEvent::Upgrade(OsUpgradeEvent::Dismissed(dismissed)),
                         Err(why) => {
                             UiEvent::Error(UiError::Dismiss(dismiss, UnderlyingError::Client(why)))
                         }
@@ -80,7 +80,7 @@ pub fn run(
 
                 BackgroundEvent::Reset => {
                     send(match client.reset() {
-                        Ok(()) => UiEvent::CancelledUpgrade,
+                        Ok(()) => UiEvent::Upgrade(OsUpgradeEvent::Cancelled),
                         Err(why) => UiEvent::Error(UiError::Cancel(why)),
                     });
                 }
@@ -153,7 +153,7 @@ fn repo_modify(
         return;
     }
 
-    send(UiEvent::UpgradeClicked);
+    send(UiEvent::Upgrade(OsUpgradeEvent::Upgrade));
 }
 
 fn status_changed(send: &dyn Fn(UiEvent), new_status: Status, expected: DaemonStatus) {

@@ -8,11 +8,11 @@ pub struct UpgradeOption {
     #[shrinkwrap(main_field)]
     container: gtk::Grid,
 
-    pub button: gtk::Button,
+    pub button:   gtk::Button,
+    pub label:    gtk::Label,
+    pub sublabel: gtk::Label,
 
     button_label: gtk::Label,
-    label:        gtk::Label,
-    sublabel:     gtk::Label,
     progress:     gtk::ProgressBar,
 
     button_signal: RefCell<Option<SignalHandlerId>>,
@@ -71,7 +71,7 @@ impl UpgradeOption {
             ..set_margin_end(20);
             ..set_margin_top(9);
             ..set_margin_bottom(9);
-            ..set_column_spacing(12);
+            ..set_column_spacing(24);
             ..set_row_spacing(4);
             ..set_size_request(-1, 32);
             ..attach(&labels,   0, 0, 1, 1);
@@ -125,6 +125,11 @@ impl UpgradeOption {
             None => self.button.hide(),
         }
 
+        self
+    }
+
+    pub fn sensitive(&self, sensitive: bool) -> &Self {
+        self.button.set_sensitive(sensitive);
         self
     }
 
