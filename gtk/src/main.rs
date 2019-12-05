@@ -21,6 +21,7 @@ fn main() {
     });
 
     application.connect_startup(|app| {
+        argument_parsing();
         let widget = UpgradeWidget::new();
         widget.scan();
 
@@ -57,7 +58,6 @@ fn main() {
 /// Currently the primary purpose is to determine the logging level.
 fn argument_parsing() {
     use clap::{App, Arg};
-    use log::LevelFilter;
 
     let matches = App::new("com.system76.FirmwareManager")
         .arg(
