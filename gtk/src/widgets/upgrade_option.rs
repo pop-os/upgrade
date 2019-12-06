@@ -3,7 +3,6 @@ use glib::SignalHandlerId;
 use gtk::prelude::*;
 use std::cell::RefCell;
 
-
 #[derive(Shrinkwrap)]
 pub struct UpgradeOption {
     #[shrinkwrap(main_field)]

@@ -15,6 +15,7 @@ extern crate shrinkwraprs;
 #[macro_use]
 extern crate thiserror;
 
+mod battery;
 mod errors;
 mod events;
 mod gtk_utils;
