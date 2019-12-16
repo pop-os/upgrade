@@ -11,19 +11,46 @@ extern crate log;
 #[macro_use]
 extern crate num_derive;
 
+/// Changelogs for each Pop!_OS release
 pub mod changelogs;
+
+/// Validate the SHA256 checksum of a file
 pub mod checksum;
+
+/// Features specific to the client for the upgrade daemon
 pub mod client;
+
+/// Features specific to the upgrade daemon
 pub mod daemon;
-mod external;
+
+/// Functions for determining when the OS was installed
+pub mod install;
+
+/// Miscellaneous functions used throughout the library.
 pub mod misc;
+
+/// Functions for upgrading the recovery partition
 pub mod recovery;
+
+/// Functions for performing release upgrades
 pub mod release;
+
+/// Support for interaction with the Pop Release API
 pub mod release_api;
+
+/// Function for determinating if the OS requires the NVIDIA or Intel ISO
 pub mod release_architecture;
+
+/// Functions for repairing the OS
 pub mod repair;
+
+/// Functions for modifying system repositories.
 pub mod repos;
+
+/// Determine if the system is in legacy BIOS or EFI mode.
 pub mod system_environment;
+
+mod external;
 
 use std::path::Path;
 
