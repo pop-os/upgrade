@@ -18,6 +18,7 @@ use std::{
     io::{self, BufRead, Write},
     path::Path,
 };
+use ubuntu_version::{Codename, Version as UbuntuVersion};
 use yansi::Paint;
 
 const FETCH_RESULT_STR: &str = "Package fetch status";
@@ -76,7 +77,7 @@ impl Client {
                 let devel = pop_upgrade::development_releases_enabled();
                 let (_, _, _, is_lts) = self.release_check(devel)?;
                 if is_lts {
-                    self.dismiss_notification(true)?;
+                    self.dismiss_notification(DismissEvent::ByUser)?;
                 } else {
                     println!("Only LTS releases may dismiss notifications");
                 }
@@ -94,12 +95,8 @@ impl Client {
                         misc::format_build_number(available, &mut buffer)
                     );
                 } else if available >= 0 {
-                    if is_lts && Path::new(DISMISSED).exists() {
-                        if let Some(dismissed) = fs::read_to_string(DISMISSED).ok() {
-                            if dismissed.as_str() == next.as_ref() {
-                                return Ok(());
-                            }
-                        }
+                    if is_lts && (self.dismissed(&next) || self.dismiss_by_timestamp(&next)?) {
+                        return Ok(());
                     }
 
                     notify(&next, || {
@@ -217,6 +214,26 @@ impl Client {
         }
 
         Ok(())
+    }
+
+    /// Check if this release has already been dismissed
+    fn dismissed(&self, next: &str) -> bool {
+        Path::new(DISMISSED).exists() && {
+            fs::read_to_string(DISMISSED)
+                .map(|dismissed| dismissed.as_str() == next)
+                .unwrap_or(false)
+        }
+    }
+
+    /// Check if the release has been dismissed by timestamp, or can be.
+    fn dismiss_by_timestamp(&self, next: &str) -> Result<bool, client::Error> {
+        if !Path::new(INSTALL_DATE).exists() && installed_after_release(next) {
+            info!("dismissing notification for the latest release automatically");
+            let _ = self.dismiss_notification(DismissEvent::ByTimestamp)?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     fn release_check<'a>(
@@ -472,6 +489,33 @@ impl Client {
 
         Ok(*recall)
     }
+}
+
+/// If the next release's timestamp is less than the install time.
+fn installed_after_release(next: &str) -> bool {
+    match pop_upgrade::install::time() {
+        Ok(install_time) => match next.find('.') {
+            Some(pos) => {
+                let (major, mut minor) = next.split_at(pos);
+                minor = &minor[1..];
+
+                match (major.parse::<u8>(), minor.parse::<u8>()) {
+                    (Ok(major), Ok(minor)) => {
+                        let version = UbuntuVersion { major, minor, patch: 0 };
+                        return Codename::from(version).release_timestamp() < install_time as u64;
+                    }
+                    _ => error!(
+                        "major ({}) and minor({}) version failed to parse as u8",
+                        major, minor
+                    ),
+                }
+            }
+            None => error!("version {} is invalid", next),
+        },
+        Err(why) => error!("failed to get install time: {}", why),
+    }
+
+    false
 }
 
 fn write_apt_event(event: AptUpgradeEvent) {

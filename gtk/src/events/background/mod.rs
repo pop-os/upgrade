@@ -9,7 +9,7 @@ use self::scan::scan;
 use num_traits::cast::FromPrimitive;
 use pop_upgrade::{
     client::{Client, ReleaseInfo, Status},
-    daemon::DaemonStatus,
+    daemon::{DaemonStatus, DismissEvent},
     release::RefreshOp,
 };
 
@@ -40,7 +40,10 @@ pub fn run(
             trace!("received BackgroundEvent: {:?}", event);
             match event {
                 BackgroundEvent::DismissNotification(dismiss) => {
-                    let event = match client.dismiss_notification(dismiss) {
+                    let dismiss_event =
+                        if dismiss { DismissEvent::ByUser } else { DismissEvent::Unset };
+
+                    let event = match client.dismiss_notification(dismiss_event) {
                         Ok(dismissed) => UiEvent::Dismissed(dismissed),
                         Err(why) => {
                             UiEvent::Error(UiError::Dismiss(dismiss, UnderlyingError::Client(why)))

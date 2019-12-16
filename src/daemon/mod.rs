@@ -8,10 +8,10 @@ mod sighandler;
 mod status;
 
 pub use self::{
-    error::DaemonError, runtime::DaemonRuntime, signals::SignalEvent, status::DaemonStatus,
+    error::DaemonError, methods::DismissEvent, runtime::DaemonRuntime, signals::SignalEvent,
+    status::DaemonStatus,
 };
 
-use self::dbus_helper::DbusFactory;
 use crate::{
     misc,
     recovery::{
@@ -24,6 +24,9 @@ use crate::{
     },
     DBUS_IFACE, DBUS_NAME, DBUS_PATH,
 };
+
+use self::dbus_helper::DbusFactory;
+
 use apt_cli_wrappers::apt_upgrade;
 use apt_fetcher::{
     apt_uris::{apt_uris, AptUri},
@@ -51,6 +54,7 @@ use std::{
 use tokio::runtime::Runtime;
 
 pub const DISMISSED: &str = "/usr/lib/pop-upgrade/dismissed";
+pub const INSTALL_DATE: &str = "/usr/lib/pop-upgrade/install_date";
 
 #[derive(Debug)]
 pub enum Event {
@@ -560,22 +564,24 @@ impl Daemon {
     /// Dismiss future desktop notifications.
     ///
     /// Only applicable for LTS releases.
-    fn dismiss_notification(&self, dismiss: bool) -> Result<bool, String> {
-        let status = self.release_check(false)?;
-        if status.is_lts() && status.build.is_ok() {
-            let result = if dismiss {
-                fs::write(DISMISSED, status.next.as_bytes()).map_err(|why| {
-                    format!("failed to write '{}' to '{}': {}", status.next, DISMISSED, why)
-                })
-            } else {
-                fs::remove_file(DISMISSED)
-                    .map_err(|why| format!("failed to remove '{}': {}", DISMISSED, why))
-            };
+    fn dismiss_notification(&self, event: DismissEvent) -> Result<bool, String> {
+        if let DismissEvent::Unset = event {
+            dismiss_file_remove()?;
+            Ok(false)
+        } else {
+            let status = self.release_check(false)?;
+            if status.is_lts() && status.build.is_ok() {
+                dismiss_file_create(&status.next)?;
 
-            result?;
+                if let DismissEvent::ByTimestamp = event {
+                    crate::install::time()
+                        .map_err(|why| format!("install timestamp: {}", why))
+                        .and_then(dismissed_by_timestamp)?;
+                }
+            }
+
+            Ok(true)
         }
-
-        Ok(dismiss)
     }
 
     fn fetch_apt_uris(args: &[String]) -> Result<HashSet<AptUri>, String> {
@@ -779,4 +785,23 @@ pub fn result_signal<E: ::std::fmt::Display>(result: Result<&(), &E>) -> (u8, St
     let why: String = result.err().map(|why| format!("{}", why)).unwrap_or_default();
 
     (status, why)
+}
+
+// Creates the notification dismissal file.
+fn dismiss_file_create(next: &str) -> Result<(), String> {
+    fs::write(DISMISSED, next.as_bytes())
+        .map_err(|why| format!("failed to write '{}' to '{}': {}", next, DISMISSED, why))
+}
+
+/// Removes the notification dismissal file.
+fn dismiss_file_remove() -> Result<(), String> {
+    fs::remove_file(DISMISSED).map_err(|why| format!("failed to remove '{}': {}", DISMISSED, why))
+}
+
+/// Creates the file which is used by clients to know that a release was dismissed by timestamp.
+///
+/// This file contains the timestamp of the install date.
+fn dismissed_by_timestamp(timestamp: i64) -> Result<(), String> {
+    fs::write(INSTALL_DATE, timestamp.to_string().as_bytes())
+        .map_err(|why| format!("install timestamp write: {}", why))
 }
