@@ -1,17 +1,27 @@
-use dbus::{
-    self,
-    tree::{MTFn, Method},
-};
-use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::atomic::Ordering};
-
-use super::result_signal;
 use crate::{
     daemon::{dbus_helper::DbusFactory, Daemon, DaemonStatus},
     release::RefreshOp,
 };
 
+use dbus::{
+    self,
+    tree::{MTFn, Method},
+};
+use num_traits::FromPrimitive;
+use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::atomic::Ordering};
+
+use super::result_signal;
+
 // Methods supported by the daemon.
 pub const DISMISS_NOTIFICATION: &str = "DismissNotification";
+
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, FromPrimitive, PartialEq)]
+pub enum DismissEvent {
+    ByTimestamp = 1,
+    ByUser = 2,
+    Unset = 3,
+}
 
 pub fn dismiss_notification(
     daemon: Rc<RefCell<Daemon>>,
@@ -19,11 +29,15 @@ pub fn dismiss_notification(
 ) -> Method<MTFn<()>, ()> {
     dbus_factory
         .method::<_, String>(DISMISS_NOTIFICATION, move |message| {
-            let dismiss = message.read1().map_err(|why| format!("{}", why))?;
-            let dismissed = daemon.borrow().dismiss_notification(dismiss)?;
+            let value = message.read1().map_err(|why| format!("{}", why))?;
+
+            let event = DismissEvent::from_u8(value).ok_or("dismiss value is out of range")?;
+
+            let dismissed = daemon.borrow().dismiss_notification(event)?;
             Ok(vec![dismissed.into()])
         })
-        .inarg::<bool>("dismiss")
+        .inarg::<u8>("dismiss")
+        .inarg::<&str>("timestamp")
         .outarg::<bool>("dismissed")
         .consume()
 }
