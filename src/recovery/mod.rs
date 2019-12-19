@@ -261,6 +261,8 @@ fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
         .get()
         .map_err(|why| RecoveryError::Fetch { url: url.to_owned(), why })?;
 
+    cancellation_check(cancel)?;
+
     let total = total.load(Ordering::SeqCst);
     (*progress)(total, total);
     (*event)(RecoveryEvent::Verifying);
@@ -270,6 +272,8 @@ fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
 
     validate_checksum(&mut file, checksum)
         .map_err(|why| RecoveryError::Checksum { path: path.clone(), why })?;
+
+    cancellation_check(cancel)?;
 
     *temp_dir = Some(temp);
     Ok(path)
