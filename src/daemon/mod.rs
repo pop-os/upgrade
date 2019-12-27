@@ -134,8 +134,6 @@ impl Daemon {
 
         // Cancels a process which is in progress
         let cancel = Arc::new(AtomicBool::new(false));
-        let cancel_process: Arc<dyn Fn() -> bool + Send + Sync> =
-            Arc::new(enclose!((cancel => c) move || c.swap(false, Ordering::SeqCst)));
         let mut processing = false;
 
         info!("spawning background event thread");
@@ -226,7 +224,7 @@ impl Daemon {
                         processing = true;
                         info!("attempting recovery upgrade with {:?}", action);
                         let result = recovery::recovery(
-                            &cancel_process,
+                            &cancel,
                             &action,
                             enclose!((dbus_tx, prog_state) move |p, t| {
                                 prog_state.store((p, t), Ordering::SeqCst);

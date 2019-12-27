@@ -1,9 +1,7 @@
-use crate::{
-    checksum::ValidateError, release_api::ApiError, release_architecture::ReleaseArchError,
-    repair::RepairError,
-};
+use crate::{release_api::ApiError, release_architecture::ReleaseArchError, repair::RepairError};
 
-use std::{io, path::PathBuf};
+use async_fetcher_preview::ChecksummerError;
+use std::io;
 use thiserror::Error;
 use ubuntu_version::VersionError;
 
@@ -15,12 +13,14 @@ pub enum RecoveryError {
     ApiError(ApiError),
     #[error("process has been cancelled")]
     Cancelled,
-    #[error("checksum for {:?} failed: {}", path, why)]
-    Checksum { path: PathBuf, why: ValidateError },
+    #[error("Release API did not provide a valid SHA256 string")]
+    ChecksumString(#[from] hex::FromHexError),
+    #[error("mismatch in checksum of fetched ISO")]
+    ChecksumValidate(#[from] ChecksummerError),
     #[error("failed to download ISO: {}", _0)]
     Download(Box<RecoveryError>),
     #[error("fetching from {} failed: {}", url, why)]
-    Fetch { url: String, why: io::Error },
+    Fetch { url: String, why: async_fetcher_preview::Error },
     #[error("generic I/O error: {}", _0)]
     Io(io::Error),
     #[error("ISO does not exist at path")]

@@ -16,9 +16,6 @@ extern crate num_derive;
 /// Changelogs for each Pop!_OS release
 pub mod changelogs;
 
-/// Validate the SHA256 checksum of a file
-pub mod checksum;
-
 /// Features specific to the client for the upgrade daemon
 pub mod client;
 

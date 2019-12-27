@@ -1,19 +1,25 @@
 mod errors;
+mod fetch;
 mod version;
 
-use atomic::Atomic;
-use parallel_getter::ParallelGetter;
+use async_fetcher_preview::{
+    checksum::{Checksum, SumStr},
+    validate_checksum,
+};
+use futures03::executor;
 use std::{
-    fs::{self, OpenOptions},
-    io::{Seek, SeekFrom, Write},
+    convert::TryFrom,
+    fs,
     path::{Path, PathBuf},
-    sync::{atomic::Ordering, Arc},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 use sys_mount::{Mount, MountFlags, Unmount, UnmountFlags};
 use tempfile::{tempdir, TempDir};
 
 use crate::{
-    checksum::validate_checksum,
     external::{findmnt_uuid, rsync},
     release_api::Release,
     release_architecture::detect_arch,
@@ -58,7 +64,7 @@ pub enum UpgradeMethod {
 }
 
 pub fn recovery<F, E>(
-    cancel: &Arc<dyn Fn() -> bool + Send + Sync>,
+    cancel: &Arc<AtomicBool>,
     action: &UpgradeMethod,
     progress: F,
     event: E,
@@ -121,7 +127,7 @@ pub fn recovery_exists() -> Result<bool, RecoveryError> {
 }
 
 fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
-    cancel: &Arc<dyn Fn() -> bool + Send + Sync>,
+    cancel: &Arc<AtomicBool>,
     verify: fn(&str, u16) -> bool,
     action: &UpgradeMethod,
     progress: &Arc<F>,
@@ -209,7 +215,7 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
 
 /// Fetches the release ISO remotely from api.pop-os.org.
 fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
-    cancel: &Arc<dyn Fn() -> bool + Send + Sync>,
+    cancel: &Arc<AtomicBool>,
     temp: &mut Option<TempDir>,
     progress: &Arc<F>,
     event: &dyn Fn(RecoveryEvent),
@@ -223,8 +229,18 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
     };
 
     let release = Release::get_release(version, arch).map_err(RecoveryError::ApiError)?;
-    let iso_path = from_remote(cancel, temp, progress, event, &release.url, &release.sha_sum)
-        .map_err(|why| RecoveryError::Download(Box::new(why)))?;
+
+    let checksum = Checksum::try_from(SumStr::Sha256(&release.sha_sum))?;
+
+    let remote_fetch = from_remote(cancel, temp, progress, &release.url, release.size);
+
+    let iso_path = executor::block_on(async move {
+        let path = remote_fetch.await.map_err(|why| RecoveryError::Download(Box::new(why)))?;
+
+        (event)(RecoveryEvent::Verifying);
+        validate_checksum(&mut [0u8; 8 * 1024], &path, &checksum).await?;
+        Ok::<_, RecoveryError>(path)
+    })?;
 
     Ok(iso_path)
 }
@@ -232,55 +248,27 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
 /// Downloads the ISO from a remote location, to a temporary local directory.
 ///
 /// Once downloaded, the ISO will be verfied against the given checksum.
-fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
-    cancel: &Arc<dyn Fn() -> bool + Send + Sync>,
+async fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
+    cancel: &Arc<AtomicBool>,
     temp_dir: &mut Option<TempDir>,
     progress: &Arc<F>,
-    event: &dyn Fn(RecoveryEvent),
     url: &str,
-    checksum: &str,
+    iso_size: u64,
 ) -> RecResult<PathBuf> {
     info!("downloading ISO from remote at {}", url);
     let temp = tempdir().map_err(RecoveryError::TempDir)?;
     let path = temp.path().join("new.iso");
 
-    let mut file =
-        OpenOptions::new().create(true).write(true).read(true).truncate(true).open(&path)?;
+    let future = fetch::fetch(path.clone().into(), url.into(), iso_size, progress.clone(), cancel);
 
-    let total = Arc::new(Atomic::new(0));
-    ParallelGetter::new(url, &mut file)
-        .threads(8)
-        .callback(
-            1000,
-            Box::new(enclose!((total, progress, cancel) move |p, t| {
-                total.store(t / 1024, Ordering::SeqCst);
-                (*progress)(p / 1024, t / 1024);
-                cancel()
-            })),
-        )
-        .get()
-        .map_err(|why| RecoveryError::Fetch { url: url.to_owned(), why })?;
-
-    cancellation_check(cancel)?;
-
-    let total = total.load(Ordering::SeqCst);
-    (*progress)(total, total);
-    (*event)(RecoveryEvent::Verifying);
-
-    file.flush()?;
-    file.seek(SeekFrom::Start(0))?;
-
-    validate_checksum(&mut file, checksum)
-        .map_err(|why| RecoveryError::Checksum { path: path.clone(), why })?;
-
-    cancellation_check(cancel)?;
+    future.await.map_err(|why| RecoveryError::Fetch { url: url.into(), why })?;
 
     *temp_dir = Some(temp);
     Ok(path)
 }
 
-fn cancellation_check(cancel: &Arc<dyn Fn() -> bool + Send + Sync>) -> RecResult<()> {
-    if cancel() {
+fn cancellation_check(cancel: &Arc<AtomicBool>) -> RecResult<()> {
+    if cancel.load(Ordering::SeqCst) {
         Err(RecoveryError::Cancelled)
     } else {
         Ok(())

@@ -9,12 +9,13 @@ edition = "2018"
 members = [ "gtk", "gtk/ffi", "tools" ]
 
 [dependencies]
+anyhow = "1"
 apt-cli-wrappers = { git = "https://github.com/pop-os/apt-cli-wrappers" }
 apt-fetcher = { git = "https://github.com/pop-os/apt-fetcher" }
 apt-keyring = { git = "https://github.com/pop-os/apt-keyring" }
 apt-sources-lists = { git = "https://github.com/pop-os/apt-sources-lists" }
-async-fetcher = { git = "https://github.com/pop-os/async-fetcher", rev = "6b6073848ad10400efd512187e60c478d74437e8"  }
-atomic = "0.4"
+async-fetcher = { git = "https://github.com/pop-os/async-fetcher", rev = "6b6073848ad10400efd512187e60c478d74437e8" }
+async-fetcher-preview = { git = "https://github.com/pop-os/async-fetcher", package = "async-fetcher" }
 atty = "0.2"
 bitflags = "1"
 chrono = "0.4"
@@ -30,6 +31,8 @@ err-derive = "0.1"
 exec = "0.3"
 fern = "0.5"
 futures = "0.1"
+futures03 = { version = "0.3", package = "futures" }
+http-client = { git = "https://github.com/mmstick/http-client" }
 human-sort = "0.2"
 libc = "0.2"
 log = "0.4"
@@ -39,7 +42,6 @@ notify-rust = "3.6"
 num-derive = "0.3"
 num-traits = "0.2"
 os-release = "0.1"
-parallel-getter = { git = "https://github.com/pop-os/parallel-getter" }
 partition-identity = "0.2"
 proc-mounts = "0.2"
 procfs = "0.7"
@@ -49,6 +51,7 @@ serde_derive = "1"
 serde_json = "1"
 sha2 = "0.8"
 shrinkwraprs = "0.3"
+surf = { git = "https://github.com/mmstick/surf" }
 sys-mount = "1"
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
 systemd-boot-conf = "0.1.0"
@@ -58,6 +61,8 @@ tokio = "0.1"
 tokio-process = "0.2"
 ubuntu-version = "0.1"
 yansi = "0.5"
+hex = "0.4.0"
+atomic = "0.4.5"
 
 [patch.crates-io]
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
