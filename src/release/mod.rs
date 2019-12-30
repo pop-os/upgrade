@@ -83,7 +83,7 @@ pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
         RefreshOp::Status => get_recovery_value_set,
     };
 
-    action("REFRESH")
+    action("refresh")
 }
 
 #[repr(u8)]
@@ -488,9 +488,8 @@ fn systemd_upgrade_set(from: &str, to: &str) -> RelResult<()> {
 fn get_recovery_value_set(option: &str) -> RelResult<bool> {
     Ok(EnvFile::new(Path::new("/recovery/recovery.conf"))
         .map_err(ReleaseError::RecoveryConfOpen)?
-        .get(option)
-        .unwrap_or("0")
-        == "1")
+        .get("MODE")
+        .map_or(false, |mode| mode == option))
 }
 
 enum LoaderEntry {
@@ -502,26 +501,25 @@ enum LoaderEntry {
 /// boot option.
 ///
 /// It will be up to the recovery partition to revert this change once it has completed its job.
-fn set_recovery_as_default_boot_option(option: &str) -> RelResult<bool> {
+fn set_recovery_as_default_boot_option(mode: &str) -> RelResult<bool> {
     systemd_boot_loader_swap(LoaderEntry::Recovery, "recovery partition")?;
 
     EnvFile::new(Path::new("/recovery/recovery.conf"))
         .map_err(ReleaseError::RecoveryConfOpen)?
-        .update(option, "1")
+        .update("MODE", mode)
         .write()
         .map_err(ReleaseError::RecoveryUpdate)?;
 
     Ok(true)
 }
 
-fn unset_recovery_as_default_boot_option(option: &str) -> RelResult<bool> {
+fn unset_recovery_as_default_boot_option(_mode: &str) -> RelResult<bool> {
     systemd_boot_loader_swap(LoaderEntry::Current, "os partition")?;
 
     let mut envfile = EnvFile::new(Path::new("/recovery/recovery.conf"))
         .map_err(ReleaseError::RecoveryConfOpen)?;
 
-    // TODO: Add a convenience method to envfile.
-    envfile.store.remove(option);
+    envfile.store.remove("MODE");
 
     envfile.write().map_err(ReleaseError::RecoveryUpdate)?;
     Ok(false)
