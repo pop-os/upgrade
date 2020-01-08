@@ -3,7 +3,7 @@ use gtk::prelude::*;
 #[derive(Shrinkwrap)]
 pub struct RepositoryDialog {
     #[shrinkwrap(main_field)]
-    dialog: gtk::Dialog,
+    dialog:  gtk::Dialog,
     entries: gtk::ListBox,
 }
 

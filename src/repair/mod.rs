@@ -4,7 +4,7 @@ pub mod packaging;
 pub mod sources;
 
 use self::{fstab::FstabError, sources::SourcesError};
-use std::io;
+use std::{convert::TryFrom, io};
 use ubuntu_version::{Codename, Version, VersionError};
 
 #[derive(Debug, Error)]
@@ -21,11 +21,15 @@ pub enum RepairError {
     Sources(SourcesError),
     #[error(display = "unable to apply dkms gcc9 fix: {}", _0)]
     DkmsGcc9(io::Error),
+    #[error(display = "unknown Ubuntu release: {}", _0)]
+    UnknownRelease(Version),
 }
 
 pub fn repair() -> Result<(), RepairError> {
     info!("performing release repair");
-    let codename: Codename = Version::detect().map_err(RepairError::ReleaseVersion)?.into();
+    let codename = Version::detect().map_err(RepairError::ReleaseVersion).and_then(|version| {
+        Codename::try_from(version).map_err(|_| RepairError::UnknownRelease(version))
+    })?;
 
     fstab::repair().map_err(RepairError::Fstab)?;
     sources::repair(codename).map_err(RepairError::Sources)?;

@@ -4,6 +4,7 @@ use self::colors::*;
 use crate::notify::notify;
 
 use apt_cli_wrappers::AptUpgradeEvent;
+use chrono::{TimeZone, Utc};
 use clap::ArgMatches;
 use num_traits::FromPrimitive;
 use pop_upgrade::{
@@ -11,9 +12,13 @@ use pop_upgrade::{
     daemon::*,
     misc,
     recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags},
-    release::{RefreshOp, UpgradeEvent, UpgradeMethod},
+    release::{
+        eol::{EolDate, EolStatus},
+        RefreshOp, UpgradeEvent, UpgradeMethod,
+    },
 };
 use std::{
+    convert::TryFrom,
     fs,
     io::{self, BufRead, Write},
     path::Path,
@@ -53,7 +58,7 @@ impl Client {
                             RecoveryReleaseFlags::empty()
                         };
 
-                        let _ = self.recovery_upgrade_release(version, arch, flags)?;
+                        self.recovery_upgrade_release(version, arch, flags)?;
                     }
                     ("from-file", Some(matches)) => {
                         let path = matches.value_of("PATH").expect("missing reqired PATH argument");
@@ -99,7 +104,9 @@ impl Client {
                         return Ok(());
                     }
 
-                    notify(&next, || {
+                    let (summary, body) = notification_message(&current, &next);
+
+                    notify(&summary, &body, || {
                         let _ =
                             exec::Command::new("gnome-control-center").arg("info-overview").exec();
                     });
@@ -236,7 +243,7 @@ impl Client {
         }
     }
 
-    fn release_check<'a>(
+    fn release_check(
         &self,
         force_next: bool,
     ) -> Result<(Box<str>, Box<str>, i16, bool), client::Error> {
@@ -501,8 +508,12 @@ fn installed_after_release(next: &str) -> bool {
 
                 match (major.parse::<u8>(), minor.parse::<u8>()) {
                     (Ok(major), Ok(minor)) => {
-                        let version = UbuntuVersion { major, minor, patch: 0 };
-                        return Codename::from(version).release_timestamp() < install_time as u64;
+                        match Codename::try_from(UbuntuVersion { major, minor, patch: 0 }) {
+                            Ok(codename) => {
+                                return codename.release_timestamp() < install_time as u64
+                            }
+                            Err(()) => error!("version {} is invalid", next),
+                        }
                     }
                     _ => error!(
                         "major ({}) and minor({}) version failed to parse as u8",
@@ -516,6 +527,42 @@ fn installed_after_release(next: &str) -> bool {
     }
 
     false
+}
+
+fn notification_message(current: &str, next: &str) -> (String, String) {
+    match EolDate::fetch() {
+        Ok(eol) => {
+            match eol.status() {
+                EolStatus::Exceeded => {
+                    return (
+                        fomat!("Support for Pop!_OS " (current) " has ended"),
+                        fomat!(
+                            "Security and application updates are no longer provided "
+                            "for Pop!_OS " (current) ". Upgrade to Pop!_OS " (next)
+                            " to keep your computer secure."
+                        ),
+                    )
+                }
+                EolStatus::Imminent => {
+                    let (y, m, d) = eol.ymd;
+                    return (
+                        fomat!(
+                            "Support for Pop!_OS " (current) " ends "
+                            (Utc.ymd(y as i32, m, d).format("%B %d, %Y"))
+                        ),
+                        fomat!(
+                            "This computer will soon stop receiving updates. Upgrade to "
+                            "Pop!_OS " (next) " to keep your computer secure."
+                        ),
+                    )
+                }
+                EolStatus::Ok => (),
+            }
+        }
+        Err(why) => error!("failed to fetch EOL date: {}", why),
+    }
+
+    ("Upgrade Available".into(), fomat!("Pop!_OS " (next) " is available to download"))
 }
 
 fn write_apt_event(event: AptUpgradeEvent) {

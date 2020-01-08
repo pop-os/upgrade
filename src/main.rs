@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate err_derive;
 #[macro_use]
+extern crate fomat_macros;
+#[macro_use]
 extern crate log;
 #[macro_use]
 extern crate shrinkwraprs;

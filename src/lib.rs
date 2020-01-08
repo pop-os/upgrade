@@ -3,11 +3,15 @@
 #![allow(clippy::useless_attribute)]
 
 #[macro_use]
+extern crate anyhow;
+#[macro_use]
 extern crate bitflags;
 #[macro_use]
 extern crate enclose;
 #[macro_use]
 extern crate err_derive;
+#[macro_use]
+extern crate fomat_macros;
 #[macro_use]
 extern crate log;
 #[macro_use]
