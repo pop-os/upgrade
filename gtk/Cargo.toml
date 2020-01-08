@@ -7,9 +7,11 @@ edition = "2018"
 [dependencies]
 apt-cli-wrappers = { git = "https://github.com/pop-os/apt-cli-wrappers" }
 cascade = "0.1"
+chrono = "0.4"
 clap = "2"
 derive-new = "0.5"
 fern = "0.5"
+fomat-macros = "0.3"
 gio = "0.8"
 glib = "0.9"
 gtk = { version = "0.8", features = [ "v3_22" ] }
@@ -21,6 +23,7 @@ pango = "0.8"
 pop-upgrade = { path = "../" }
 shrinkwraprs = "0.3"
 thiserror = "1"
+ubuntu-version = "0.2"
 upower_dbus = "0.1"
 users = "0.9"
 yansi = "0.5"

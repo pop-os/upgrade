@@ -7,23 +7,23 @@ use std::sync::{self, mpsc::SyncSender};
 #[derive(new)]
 pub struct State {
     #[new(default)]
-    pub fetching_release: bool,
+    pub fetching_release:   bool,
     #[new(default)]
-    pub refresh_found: bool,
+    pub refresh_found:      bool,
     #[new(default)]
     pub upgrade_downloaded: bool,
     #[new(default)]
-    pub upgrade_found: bool,
+    pub upgrade_found:      bool,
 
     #[new(default)]
-    pub upgrade_label: Box<str>,
+    pub upgrade_label:  Box<str>,
     #[new(default)]
     pub upgrading_from: Box<str>,
     #[new(default)]
-    pub upgrading_to: Box<str>,
+    pub upgrading_to:   Box<str>,
 
     #[new(default)]
-    pub dismisser: Option<Dismisser>,
+    pub dismisser:       Option<Dismisser>,
     #[new(default)]
     pub upgrade_version: Option<ReleaseInfo>,
 

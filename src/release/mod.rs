@@ -1,3 +1,5 @@
+pub mod eol;
+
 mod errors;
 mod snapd;
 
@@ -9,6 +11,7 @@ use envfile::EnvFile;
 use futures::{stream, Future, Stream};
 use std::{
     collections::HashSet,
+    convert::TryFrom,
     fs::{self, File},
     os::unix::fs::symlink,
     path::Path,
@@ -254,12 +257,17 @@ impl<'a> DaemonRuntime<'a> {
         let _lock_files = hold_apt_locks()?;
         let current = current
             .parse::<Version>()
-            .map(Codename::from)
+            .ok()
+            .and_then(|x| Codename::try_from(x).ok())
             .map(<&'static str>::from)
             .unwrap_or(current);
 
-        let new =
-            new.parse::<Version>().map(Codename::from).map(<&'static str>::from).unwrap_or(new);
+        let new = new
+            .parse::<Version>()
+            .ok()
+            .and_then(|x| Codename::try_from(x).ok())
+            .map(<&'static str>::from)
+            .unwrap_or(new);
 
         let sources = SourcesLists::scan().unwrap();
 
@@ -308,6 +316,7 @@ impl<'a> DaemonRuntime<'a> {
 
     /// Perform the release upgrade by updating release files, fetching packages required for the
     /// new release, and then setting the recovery partition as the default boot entry.
+    #[allow(clippy::too_many_arguments)]
     pub fn upgrade(
         &mut self,
         action: UpgradeMethod,
@@ -513,10 +522,19 @@ fn rollback<E: ::std::fmt::Display>(upgrader: &mut Upgrader, why: &E) {
 
 /// Create the system upgrade files that systemd will check for at startup.
 fn systemd_upgrade_set(from: &str, to: &str) -> RelResult<()> {
-    let current =
-        from.parse::<Version>().map(Codename::from).map(<&'static str>::from).unwrap_or(from);
+    let current = from
+        .parse::<Version>()
+        .ok()
+        .and_then(|x| Codename::try_from(x).ok())
+        .map(<&'static str>::from)
+        .unwrap_or(from);
 
-    let new = to.parse::<Version>().map(Codename::from).map(<&'static str>::from).unwrap_or(to);
+    let new = to
+        .parse::<Version>()
+        .ok()
+        .and_then(|x| Codename::try_from(x).ok())
+        .map(<&'static str>::from)
+        .unwrap_or(to);
 
     fs::write(STARTUP_UPGRADE_FILE, &format!("{} {}", current, new))
         .and_then(|_| symlink("/var/cache/apt/archives", SYSTEM_UPDATE))

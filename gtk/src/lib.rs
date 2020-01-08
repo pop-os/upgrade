@@ -3,6 +3,8 @@ extern crate cascade;
 #[macro_use]
 extern crate derive_new;
 #[macro_use]
+extern crate fomat_macros;
+#[macro_use]
 extern crate log;
 #[macro_use]
 extern crate shrinkwraprs;
@@ -32,12 +34,12 @@ pub type ReadyCallback = Rc<RefCell<Box<dyn Fn()>>>;
 
 #[derive(Shrinkwrap)]
 pub struct UpgradeWidget {
-    sender: mpsc::SyncSender<BackgroundEvent>,
+    sender:         mpsc::SyncSender<BackgroundEvent>,
     callback_error: ErrorCallback,
     callback_event: EventCallback,
     callback_ready: ReadyCallback,
     #[shrinkwrap(main_field)]
-    container: gtk::Container,
+    container:      gtk::Container,
 }
 
 impl UpgradeWidget {

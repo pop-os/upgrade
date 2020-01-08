@@ -1,6 +1,7 @@
 pub mod background;
 
 pub use self::background::BackgroundEvent;
+
 use crate::{
     errors::UiError,
     get_dismiss_row, get_upgrade_row, notify, reboot,
@@ -11,12 +12,17 @@ use crate::{
         Dismisser, Section,
     },
 };
+
+use chrono::{TimeZone, Utc};
 use gtk::prelude::*;
 
 use pop_upgrade::{
     client::{ReleaseInfo, RepoCompatError},
     daemon::{DaemonStatus, DISMISSED},
-    release::UpgradeEvent,
+    release::{
+        eol::{EolDate, EolStatus},
+        UpgradeEvent,
+    },
 };
 
 use std::{
@@ -236,8 +242,33 @@ fn connect_refresh(state: &State, widgets: &EventWidgets) {
 
 /// Programs the upgrade button, and optionally enables the dismissal widget.
 fn connect_upgrade(state: &mut State, widgets: &EventWidgets, is_lts: bool, reboot_ready: bool) {
-    widgets.upgrade.option.label(&state.upgrade_label).sublabel(None).show_button().button_signal(
-        {
+    let notice = match EolDate::fetch() {
+        Ok(eol) => {
+            let (y, m, d) = eol.ymd;
+            match eol.status() {
+                EolStatus::Exceeded | EolStatus::Imminent => Some(fomat!(
+                    "Support for Pop!_OS " (eol.version) " ends "
+                    (Utc.ymd(y as i32, m, d).format("%B %d, %Y"))
+                    ". Upgrade for security and application updates."
+                )),
+                EolStatus::Ok => None,
+            }
+        }
+        Err(why) => {
+            error!("failed to fetch EOL date: {}", why);
+            None
+        }
+    };
+
+    let notice = notice.as_ref().map(String::as_str);
+
+    widgets
+        .upgrade
+        .option
+        .label(&state.upgrade_label)
+        .sublabel(notice)
+        .show_button()
+        .button_signal({
             if let Some(info) = state.upgrade_version.as_ref() {
                 state.upgrade_found = true;
                 state.upgrading_from = info.current.clone();
@@ -263,8 +294,7 @@ fn connect_upgrade(state: &mut State, widgets: &EventWidgets, is_lts: bool, rebo
             } else {
                 None
             }
-        },
-    );
+        });
 }
 
 /// Creates the download signal for the upgrade button.
