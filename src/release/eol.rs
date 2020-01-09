@@ -3,6 +3,7 @@ use chrono::{Date, NaiveDate, Utc};
 use std::convert::TryFrom;
 use ubuntu_version::{Codename, Version};
 
+#[derive(Debug, PartialEq)]
 pub enum EolStatus {
     Ok,
     Imminent,
@@ -12,6 +13,12 @@ pub enum EolStatus {
 pub struct EolDate {
     pub version: Version,
     pub ymd:     (u32, u32, u32),
+}
+
+impl From<Codename> for EolDate {
+    fn from(codename: Codename) -> Self {
+        Self { version: codename.into(), ymd: codename.eol_date() }
+    }
 }
 
 impl EolDate {
