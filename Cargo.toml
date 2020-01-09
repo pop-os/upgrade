@@ -58,6 +58,7 @@ tempfile = "3"
 thiserror = "1"
 tokio = "0.1"
 tokio-process = "0.2"
+twoway = "0.2"
 ubuntu-version = "0.2"
 yansi = "0.5"
 
