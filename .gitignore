@@ -1,7 +1,6 @@
 !debian/*.install
 !debian/*.postinst
 !debian/changelog
-!debian/compat
 !debian/control
 !debian/links
 !debian/rules
