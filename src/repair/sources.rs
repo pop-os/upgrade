@@ -1,5 +1,6 @@
 //! All code responsible for validating sources.
 
+use crate::release::eol::{EolDate, EolStatus};
 use apt_sources_lists::{SourceEntry, SourceError, SourcesLists};
 use distinst_chroot::Command;
 use std::{fs, io, path::Path};
@@ -76,11 +77,7 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
     Ok(())
 }
 
-fn is_eol(codename: Codename) -> bool {
-    let this_version = Version::from(codename);
-    let until_eol = if this_version.is_lts() { 120 } else { 9 };
-    this_version.months_since() > until_eol
-}
+fn is_eol(codename: Codename) -> bool { EolDate::from(codename).status() == EolStatus::Exceeded }
 
 fn ppa_add(ppa: &str) -> Result<(), SourcesError> {
     Command::new("add-apt-repository")
