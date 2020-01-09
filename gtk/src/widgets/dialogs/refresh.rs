@@ -39,13 +39,13 @@ fn battery_notice() -> gtk::Label {
 }
 
 fn refresh_description() -> gtk::Label {
-    const DESCRIPTION: &str = r#"Refreshing the OS applies the following changes:
+    const DESCRIPTION: &str = r#"When you refresh the OS:
 
+* All user accounts and files in the /home directory will be kept
+* Users and user groups will be retained
 * All applications installed by the user will be removed
-* All accounts and files within the `/home` directory are kept
-* All files outside of `/home`, in the OS partition, will be lost
-* Users, and groups associated with users, will be restored
-* All system-wide configuration changes are reset, with the exception of:
+* All files outside of the /home directory in the OS partition will be lost
+* All system-wide configuration changes will be lost, with the exception of:
     - The system timezone
     - The system language
     - The system keyboard layout
