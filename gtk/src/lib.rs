@@ -13,6 +13,7 @@ extern crate thiserror;
 
 mod errors;
 mod events;
+mod gtk_utils;
 mod notify;
 mod state;
 mod users;

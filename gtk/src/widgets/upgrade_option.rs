@@ -1,3 +1,4 @@
+use crate::gtk_utils::scale_label;
 use glib::SignalHandlerId;
 use gtk::prelude::*;
 use std::cell::RefCell;
@@ -34,12 +35,13 @@ impl UpgradeOption {
         };
 
         let sublabel = cascade! {
-            gtk::Label::new(None);
+            label: gtk::Label::new(None);
             ..set_line_wrap(true);
             ..set_xalign(0.0);
             ..get_style_context().add_class(&gtk::STYLE_CLASS_DIM_LABEL);
             ..set_no_show_all(true);
             ..hide();
+            | scale_label(&label, 0.9);
         };
 
         let labels = cascade! {
