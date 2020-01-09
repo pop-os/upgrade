@@ -10,21 +10,27 @@ pub struct UpgradeOption {
 
     pub button: gtk::Button,
 
-    label:    gtk::Label,
-    sublabel: gtk::Label,
-    progress: gtk::ProgressBar,
+    button_label: gtk::Label,
+    label:        gtk::Label,
+    sublabel:     gtk::Label,
+    progress:     gtk::ProgressBar,
 
     button_signal: RefCell<Option<SignalHandlerId>>,
 }
 
 impl UpgradeOption {
     pub fn new() -> Self {
+        let button_label = gtk::LabelBuilder::new().margin(4).build();
+
         let button = cascade! {
-            gtk::Button::new_with_label("");
-            ..set_hexpand(true);
-            ..set_halign(gtk::Align::End);
-            ..set_can_focus(true);
+            button: gtk::ButtonBuilder::new()
+                .can_focus(true)
+                .halign(gtk::Align::End)
+                .hexpand(true)
+                .valign(gtk::Align::Center)
+                .build();
             ..get_style_context().add_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION);
+            | button.add(&button_label);
         };
 
         let label = cascade! {
@@ -73,12 +79,20 @@ impl UpgradeOption {
             ..show_all();
         };
 
-        Self { button_signal: RefCell::new(None), button, container, label, progress, sublabel }
+        Self {
+            button_signal: RefCell::new(None),
+            button,
+            button_label,
+            container,
+            label,
+            progress,
+            sublabel,
+        }
     }
 
     /// Sets the button label
     pub fn button_label(&self, label: &str) -> &Self {
-        self.button.set_label(label);
+        self.button_label.set_text(label);
         self
     }
 
@@ -94,7 +108,7 @@ impl UpgradeOption {
 
         match action {
             Some((label, func)) => {
-                self.button.set_label(label);
+                self.button_label(label);
                 self.button.show();
                 let id = self.button.connect_clicked(move |button| {
                     button.hide();
