@@ -44,6 +44,7 @@ impl UpgradeOption {
             label: gtk::Label::new(None);
             ..set_line_wrap(true);
             ..set_xalign(0.0);
+            ..set_yalign(0.0);
             ..get_style_context().add_class(&gtk::STYLE_CLASS_DIM_LABEL);
             ..set_no_show_all(true);
             ..hide();
@@ -51,7 +52,7 @@ impl UpgradeOption {
         };
 
         let labels = cascade! {
-            gtk::Box::new(gtk::Orientation::Vertical, 6);
+            gtk::Box::new(gtk::Orientation::Vertical, 4);
             ..add(&label);
             ..add(&sublabel);
         };
@@ -175,10 +176,14 @@ impl UpgradeOption {
     pub fn sublabel(&self, label: Option<&str>) -> &Self {
         match label {
             Some(label) => {
+                self.label.set_yalign(1.0);
                 self.sublabel.set_label(label);
                 self.sublabel.show();
             }
-            None => self.sublabel.hide(),
+            None => {
+                self.label.set_yalign(0.5);
+                self.sublabel.hide();
+            }
         }
 
         self
