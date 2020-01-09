@@ -4,7 +4,7 @@ use crate::release::eol::{EolDate, EolStatus};
 use apt_sources_lists::{SourceEntry, SourceError, SourcesLists};
 use distinst_chroot::Command;
 use std::{fs, io, path::Path};
-use ubuntu_version::{Codename, Version};
+use ubuntu_version::Codename;
 
 #[derive(Debug, Error)]
 pub enum SourcesError {
@@ -27,8 +27,6 @@ const MAIN_SOURCES: &str = "/etc/apt/sources.list";
 const POP_PPAS: &[&str] = &["system76/pop"];
 
 pub fn repair(codename: Codename) -> Result<(), SourcesError> {
-    let eol = is_eol(codename);
-
     let current_release = <&'static str>::from(codename);
     if !Path::new(MAIN_SOURCES).exists() {
         info!("/etc/apt/sources.list did not exist: creating a new one");
@@ -38,12 +36,11 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
     info!("ensuring that the proprietary pop repo is added");
     let mut sources_list = SourcesLists::scan().map_err(SourcesError::ListRead)?;
 
-    if eol {
+    if is_eol(codename) {
         // When EOL, the Ubuntu archives no longer carry packages for that release.
         // Also, disable the proprietary repository before upgrading an EOL release.
         sources_list.entries_mut(|entry| {
-            if entry.url.contains("us.archive") {
-                entry.url = entry.url.replace("us.archive", "old-releases");
+            if replace_ubuntu_old_release(&mut entry.url) {
                 true
             } else if entry.url == "http://apt.pop-os.org/proprietary" {
                 entry.enabled = false;
@@ -126,4 +123,26 @@ fn create_new_sources_list(release: &str) -> io::Result<()> {
     // TODO: Ensure that the GPG keys are added for the Ubuntu archives.
 
     Ok(())
+}
+
+fn replace_ubuntu_old_release(url: &mut String) -> bool {
+    if let Some(pos) = twoway::find_str(&url, "archive.ubuntu") {
+        let stripped = &url[pos + 7..];
+        *url = ["http://old-releases", stripped].concat();
+        return true;
+    }
+
+    false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn old_releases() {
+        let mut url = String::from("http://us.archive.ubuntu.com/ubuntu/");
+        replace_ubuntu_old_release(&mut url);
+        assert_eq!(&url, "http://old-releases.ubuntu.com/ubuntu/");
+    }
 }
