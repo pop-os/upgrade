@@ -3,6 +3,7 @@ use super::*;
 use envfile::EnvFile;
 use std::path::Path;
 
+/// Checks if the `MODE` in `/recovery/recovery.conf` is set to the given option.
 pub fn mode_is(option: &str) -> RelResult<bool> {
     Ok(EnvFile::new(Path::new("/recovery/recovery.conf"))
         .map_err(ReleaseError::RecoveryConfOpen)?
@@ -22,6 +23,7 @@ pub fn mode_set(mode: &str) -> RelResult<()> {
         .map_err(ReleaseError::RecoveryUpdate)
 }
 
+/// Unsets the `MODE` variable defined in `/recovery/recovery.conf`.
 pub fn mode_unset() -> RelResult<()> {
     let mut envfile = EnvFile::new(Path::new("/recovery/recovery.conf"))
         .map_err(ReleaseError::RecoveryConfOpen)?;
@@ -31,7 +33,8 @@ pub fn mode_unset() -> RelResult<()> {
     envfile.write().map_err(ReleaseError::RecoveryUpdate)
 }
 
-pub fn prereq() -> RelResult<()> {
+/// Checks if necessary requirements to use the recovery partition are made.
+pub fn upgrade_prereq() -> RelResult<()> {
     if !Path::new(SYSTEMD_BOOT_LOADER).exists() {
         return Err(ReleaseError::SystemdBootLoaderNotFound);
     }

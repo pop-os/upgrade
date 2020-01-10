@@ -4,6 +4,9 @@ pub mod eol;
 mod errors;
 mod recovery;
 mod snapd;
+mod systemd;
+
+use self::systemd::LoaderEntry;
 
 pub use self::{
     check::{BuildStatus, ReleaseStatus},
@@ -14,7 +17,6 @@ use apt_fetcher::{
     apt_uris::{apt_uris, AptUri},
     SourcesLists, UpgradeRequest, Upgrader,
 };
-
 use futures::{stream, Future, Stream};
 use std::{
     collections::HashSet,
@@ -74,72 +76,23 @@ pub enum RefreshOp {
     Disable = 2,
 }
 
-#[derive(Copy, Clone, Debug)]
-enum LoaderEntry {
-    Current,
-    Recovery,
-}
-
 /// Configure the system to refresh the OS in the recovery partition.
 pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
-    recovery::prereq()?;
+    recovery::upgrade_prereq()?;
 
     match op {
         RefreshOp::Disable => {
-            systemd_boot_loader_swap(LoaderEntry::Current)?;
+            systemd::set_default_boot(LoaderEntry::Current)?;
             recovery::mode_unset()?;
             Ok(false)
         }
         RefreshOp::Enable => {
-            systemd_boot_loader_swap(LoaderEntry::Recovery)?;
+            systemd::set_default_boot(LoaderEntry::Recovery)?;
             recovery::mode_set("refresh")?;
             Ok(true)
         }
         RefreshOp::Status => recovery::mode_is("refresh"),
     }
-}
-
-fn systemd_boot_loader_swap(loader: LoaderEntry) -> RelResult<()> {
-    info!("gathering systemd-boot configuration information");
-
-    let mut systemd_boot_conf =
-        SystemdBootConf::new("/boot/efi").map_err(ReleaseError::SystemdBootConf)?;
-
-    let comparison: fn(filename: &str) -> bool = match loader {
-        LoaderEntry::Current => |e| e.to_lowercase().ends_with("current"),
-        LoaderEntry::Recovery => |e| e.to_lowercase().starts_with("recovery"),
-    };
-
-    {
-        let SystemdBootConf { ref entries, ref mut loader_conf, .. } = systemd_boot_conf;
-        let recovery_entry =
-            entries.iter().find(|e| comparison(&e.id)).ok_or(ReleaseError::MissingRecoveryEntry)?;
-
-        loader_conf.default = Some(recovery_entry.id.to_owned());
-    }
-
-    systemd_boot_conf.overwrite_loader_conf().map_err(ReleaseError::SystemdBootConfOverwrite)
-}
-
-/// Create the system upgrade files that systemd will check for at startup.
-fn systemd_upgrade_set(from: &str, to: &str) -> RelResult<()> {
-    let current = from
-        .parse::<Version>()
-        .ok()
-        .and_then(|x| Codename::try_from(x).ok())
-        .map(<&'static str>::from)
-        .unwrap_or(from);
-
-    let new = to
-        .parse::<Version>()
-        .ok()
-        .and_then(|x| Codename::try_from(x).ok())
-        .map(<&'static str>::from)
-        .unwrap_or(to);
-
-    fs::write(STARTUP_UPGRADE_FILE, &format!("{} {}", current, new))
-        .and_then(|_| symlink("/var/cache/apt/archives", SYSTEM_UPDATE))
-        .map_err(ReleaseError::StartupFileCreation)
 }
 
 #[repr(u8)]
@@ -338,8 +291,8 @@ impl<'a> DaemonRuntime<'a> {
 
         // Ensure that prerequest files and mounts are available.
         match action {
-            UpgradeMethod::Recovery => recovery::prereq()?,
-            UpgradeMethod::Offline => Self::systemd_upgrade_prereq_check()?,
+            UpgradeMethod::Recovery => recovery::upgrade_prereq()?,
+            UpgradeMethod::Offline => systemd::upgrade_prereq()?,
         }
 
         let string_buffer = &mut String::new();
@@ -423,27 +376,6 @@ impl<'a> DaemonRuntime<'a> {
         }
     }
 
-    /// Validate that the pre-required files for performing a system upgrade are in place.
-    fn systemd_upgrade_prereq_check() -> RelResult<()> {
-        const REQUIRED_UPGRADE_FILES: [&str; 3] = [
-            "/usr/lib/pop-upgrade/upgrade.sh",
-            "/usr/lib/systemd/system/pop-upgrade-init.service",
-            "/usr/lib/systemd/system/system-update.target.wants/pop-upgrade-init.service",
-        ];
-
-        let invalid = REQUIRED_UPGRADE_FILES
-            .iter()
-            .cloned()
-            .filter(|file| !Path::new(file).is_file())
-            .collect::<Vec<&'static str>>();
-
-        if !invalid.is_empty() {
-            return Err(ReleaseError::SystemdUpgradeFilesMissing(invalid));
-        }
-
-        Ok(())
-    }
-
     fn attempt_fetch(
         &mut self,
         logger: &dyn Fn(UpgradeEvent),
@@ -508,10 +440,10 @@ impl<'a> DaemonRuntime<'a> {
 /// Currently not a supported path
 pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResult<()> {
     match action {
-        UpgradeMethod::Offline => systemd_upgrade_set(from, to),
+        UpgradeMethod::Offline => systemd::upgrade_set(from, to),
         UpgradeMethod::Recovery => {
             recovery::mode_set("upgrade")?;
-            systemd_boot_loader_swap(LoaderEntry::Recovery)
+            systemd::set_default_boot(LoaderEntry::Recovery)
         }
     }
 }
