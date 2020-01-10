@@ -307,6 +307,10 @@ impl Daemon {
         fs::create_dir_all(crate::VAR_LIB_DIR)
             .map_err(|why| DaemonError::VarLibDirectory(crate::VAR_LIB_DIR, why))?;
 
+        if let Err(why) = release::systemd::restore_default() {
+            warn!("failure restoring previous boot entry: {}", why);
+        }
+
         let factory = Factory::new_fn::<()>();
 
         let dbus_factory = DbusFactory::new(&factory);

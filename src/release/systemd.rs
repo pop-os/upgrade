@@ -1,43 +1,82 @@
 use super::*;
+
+use anyhow::Context;
 use std::fs;
 use ubuntu_version::{Codename, Version};
 
-const PREVIOUS_DEFAULT: &str = "/var/lib/pop-upgrade/previous_default";
+pub const PREVIOUS_DEFAULT: &str = "/var/lib/pop-upgrade/previous_default";
 
 pub enum LoaderEntry {
     Current,
     Recovery,
 }
 
-/// Defines the specified entry as the default boot entry
-pub fn set_default_boot(loader: LoaderEntry) -> RelResult<()> {
+/// Restores the previous default boot entry
+pub fn restore_default() -> anyhow::Result<()> {
+    if !Path::new(PREVIOUS_DEFAULT).exists() {
+        return Ok(());
+    }
+
+    fs::read_to_string(PREVIOUS_DEFAULT)
+        .context("failed to read previous default boot entry")
+        .and_then(|entry| set_default_boot_id(&entry))
+        .and_then(|_| remove_previous())
+}
+
+/// Modified the default boot entry
+pub fn set_default_boot<F: Fn(&mut SystemdBootConf) -> anyhow::Result<()>>(
+    modify: F,
+) -> anyhow::Result<()> {
     info!("gathering systemd-boot configuration information");
 
-    let mut conf = SystemdBootConf::new("/boot/efi").map_err(ReleaseError::SystemdBootConf)?;
+    const DEFAULT_BOOT: &str = "Pop_OS-current";
 
-    let comparison: fn(filename: &str) -> bool = match loader {
-        LoaderEntry::Current => |e| e.to_lowercase().ends_with("current"),
-        LoaderEntry::Recovery => |e| e.to_lowercase().starts_with("recovery"),
-    };
+    let mut conf =
+        SystemdBootConf::new("/boot/efi").context("failed to load systemd-boot configuration")?;
 
-    {
+    let mut previous: &str = conf
+        .loader_conf
+        .default
+        .as_ref()
+        .map(Box::as_ref)
+        .unwrap_or_else(|| conf.current_entry().map_or(DEFAULT_BOOT, |e| e.id.as_ref()));
+
+    if previous.starts_with("Recovery") {
+        previous = DEFAULT_BOOT;
+    }
+
+    let _ = fs::write(PREVIOUS_DEFAULT, previous);
+
+    modify(&mut conf)?;
+
+    conf.overwrite_loader_conf().context("failed to overwrite systemd-boot configuration")
+}
+
+/// Defines the specified entry as the default boot entry
+pub fn set_default_boot_id(id: &str) -> anyhow::Result<()> {
+    set_default_boot(|conf| {
+        conf.loader_conf.default = Some(id.into());
+        Ok(())
+    })
+}
+
+/// Defines the specified entry as the default boot entry
+pub fn set_default_boot_variant(variant: LoaderEntry) -> anyhow::Result<()> {
+    set_default_boot(|conf| {
+        let comparison: fn(filename: &str) -> bool = match variant {
+            LoaderEntry::Current => |e| e.to_lowercase().ends_with("current"),
+            LoaderEntry::Recovery => |e| e.to_lowercase().starts_with("recovery"),
+        };
+
         let recovery_entry = conf
             .entries
             .iter()
             .find(|e| comparison(&e.id))
             .ok_or(ReleaseError::MissingRecoveryEntry)?;
 
-        let previous: &str =
-            conf.loader_conf.default.as_ref().map(|e| e.as_ref()).unwrap_or_else(|| {
-                conf.current_entry().map_or("Pop_OS-current", |e| e.id.as_ref())
-            });
-
-        let _ = fs::write(PREVIOUS_DEFAULT, previous);
-
         conf.loader_conf.default = Some(recovery_entry.id.clone());
-    }
-
-    conf.overwrite_loader_conf().map_err(ReleaseError::SystemdBootConfOverwrite)
+        Ok(())
+    })
 }
 
 /// Create the system upgrade files that systemd will check for at startup.
@@ -80,4 +119,8 @@ pub fn upgrade_prereq() -> RelResult<()> {
     }
 
     Ok(())
+}
+
+fn remove_previous() -> anyhow::Result<()> {
+    fs::remove_file(PREVIOUS_DEFAULT).with_context(|| fomat!("failed to remove "(PREVIOUS_DEFAULT)))
 }

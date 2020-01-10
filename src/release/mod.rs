@@ -1,10 +1,10 @@
 pub mod check;
 pub mod eol;
+pub mod systemd;
 
 mod errors;
 mod recovery;
 mod snapd;
-mod systemd;
 
 use self::systemd::LoaderEntry;
 
@@ -82,12 +82,14 @@ pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
 
     match op {
         RefreshOp::Disable => {
-            systemd::set_default_boot(LoaderEntry::Current)?;
+            systemd::set_default_boot_variant(LoaderEntry::Current)
+                .map_err(ReleaseError::SystemdBoot)?;
             recovery::mode_unset()?;
             Ok(false)
         }
         RefreshOp::Enable => {
-            systemd::set_default_boot(LoaderEntry::Recovery)?;
+            systemd::set_default_boot_variant(LoaderEntry::Recovery)
+                .map_err(ReleaseError::SystemdBoot)?;
             recovery::mode_set("refresh")?;
             Ok(true)
         }
@@ -443,7 +445,8 @@ pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResul
         UpgradeMethod::Offline => systemd::upgrade_set(from, to),
         UpgradeMethod::Recovery => {
             recovery::mode_set("upgrade")?;
-            systemd::set_default_boot(LoaderEntry::Recovery)
+            systemd::set_default_boot_variant(LoaderEntry::Recovery)
+                .map_err(ReleaseError::SystemdBoot)
         }
     }
 }
