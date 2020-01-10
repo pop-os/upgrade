@@ -1,4 +1,6 @@
 #[macro_use]
+extern crate anyhow;
+#[macro_use]
 extern crate err_derive;
 #[macro_use]
 extern crate fomat_macros;
@@ -63,9 +65,9 @@ pub mod error {
 }
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
-use std::{error::Error as _, process::exit};
+use std::process::exit;
 
-use self::error::{Error, InitError};
+use self::error::InitError;
 
 pub fn main() {
     let _ = setup_logging(::log::LevelFilter::Debug);
@@ -206,7 +208,7 @@ pub fn main() {
     }
 }
 
-fn main_(matches: &ArgMatches) -> Result<(), Error> {
+fn main_(matches: &ArgMatches) -> anyhow::Result<()> {
     init()?;
 
     match matches.subcommand() {
