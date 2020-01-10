@@ -3481,8 +3481,7 @@ dependencies = [
 [[package]]
 name = "systemd-boot-conf"
 version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "967f8204e6b71a75e985e22414d744cbba779977972d51666299a831192ddc90"
+source = "git+https://github.com/pop-os/systemd-boot-conf#08a649d995d215286340d8583c3a5c4432559673"
 dependencies = [
  "itertools 0.9.0",
  "once_cell",

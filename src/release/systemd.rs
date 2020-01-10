@@ -1,5 +1,8 @@
 use super::*;
+use std::fs;
 use ubuntu_version::{Codename, Version};
+
+const PREVIOUS_DEFAULT: &str = "/var/lib/pop-upgrade/previous_default";
 
 pub enum LoaderEntry {
     Current,
@@ -10,8 +13,7 @@ pub enum LoaderEntry {
 pub fn set_default_boot(loader: LoaderEntry) -> RelResult<()> {
     info!("gathering systemd-boot configuration information");
 
-    let mut systemd_boot_conf =
-        SystemdBootConf::new("/boot/efi").map_err(ReleaseError::SystemdBootConf)?;
+    let mut conf = SystemdBootConf::new("/boot/efi").map_err(ReleaseError::SystemdBootConf)?;
 
     let comparison: fn(filename: &str) -> bool = match loader {
         LoaderEntry::Current => |e| e.to_lowercase().ends_with("current"),
@@ -19,14 +21,23 @@ pub fn set_default_boot(loader: LoaderEntry) -> RelResult<()> {
     };
 
     {
-        let SystemdBootConf { ref entries, ref mut loader_conf, .. } = systemd_boot_conf;
-        let recovery_entry =
-            entries.iter().find(|e| comparison(&e.id)).ok_or(ReleaseError::MissingRecoveryEntry)?;
+        let recovery_entry = conf
+            .entries
+            .iter()
+            .find(|e| comparison(&e.id))
+            .ok_or(ReleaseError::MissingRecoveryEntry)?;
 
-        loader_conf.default = Some(recovery_entry.id.to_owned());
+        let previous: &str =
+            conf.loader_conf.default.as_ref().map(|e| e.as_ref()).unwrap_or_else(|| {
+                conf.current_entry().map_or("Pop_OS-current", |e| e.id.as_ref())
+            });
+
+        let _ = fs::write(PREVIOUS_DEFAULT, previous);
+
+        conf.loader_conf.default = Some(recovery_entry.id.clone());
     }
 
-    systemd_boot_conf.overwrite_loader_conf().map_err(ReleaseError::SystemdBootConfOverwrite)
+    conf.overwrite_loader_conf().map_err(ReleaseError::SystemdBootConfOverwrite)
 }
 
 /// Create the system upgrade files that systemd will check for at startup.
