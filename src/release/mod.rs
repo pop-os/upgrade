@@ -78,22 +78,22 @@ pub enum RefreshOp {
 
 /// Configure the system to refresh the OS in the recovery partition.
 pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
-    recovery::upgrade_prereq()?;
+    recovery::upgrade_prereq().map_err(ReleaseError::RecoveryConf)?;
 
     match op {
         RefreshOp::Disable => {
             systemd::set_default_boot_variant(LoaderEntry::Current)
                 .map_err(ReleaseError::SystemdBoot)?;
-            recovery::mode_unset()?;
+            recovery::mode_unset().map_err(ReleaseError::RecoveryConf)?;
             Ok(false)
         }
         RefreshOp::Enable => {
             systemd::set_default_boot_variant(LoaderEntry::Recovery)
                 .map_err(ReleaseError::SystemdBoot)?;
-            recovery::mode_set("refresh")?;
+            recovery::mode_set("refresh").map_err(ReleaseError::RecoveryConf)?;
             Ok(true)
         }
-        RefreshOp::Status => recovery::mode_is("refresh"),
+        RefreshOp::Status => recovery::mode_is("refresh").map_err(ReleaseError::RecoveryConf),
     }
 }
 
@@ -293,7 +293,9 @@ impl<'a> DaemonRuntime<'a> {
 
         // Ensure that prerequest files and mounts are available.
         match action {
-            UpgradeMethod::Recovery => recovery::upgrade_prereq()?,
+            UpgradeMethod::Recovery => {
+                recovery::upgrade_prereq().map_err(ReleaseError::RecoveryConf)?
+            }
             UpgradeMethod::Offline => systemd::upgrade_prereq()?,
         }
 
@@ -444,7 +446,7 @@ pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResul
     match action {
         UpgradeMethod::Offline => systemd::upgrade_set(from, to),
         UpgradeMethod::Recovery => {
-            recovery::mode_set("upgrade")?;
+            recovery::mode_set("upgrade").map_err(ReleaseError::RecoveryConf)?;
             systemd::set_default_boot_variant(LoaderEntry::Recovery)
                 .map_err(ReleaseError::SystemdBoot)
         }

@@ -36,12 +36,8 @@ pub enum ReleaseError {
     PreUpgrade(RepairError),
     #[error(display = "failed to read the /proc/partitions file: {}", _0)]
     ReadingPartitions(io::Error),
-    #[error(display = "failed to open the recovery configuration file: {}", _0)]
-    RecoveryConfOpen(io::Error),
-    #[error(display = "failed to update the recovery configuration file: {}", _0)]
-    RecoveryUpdate(io::Error),
-    #[error(display = "recovery parttiion was not found")]
-    RecoveryNotFound,
+    #[error(display = "error handling recovery configuration: {}", _0)]
+    RecoveryConf(anyhow::Error),
     #[error(display = "failed to fetch release architecture: {}", _0)]
     ReleaseArch(ReleaseArchError),
     #[error(display = "failed to create release fetch file: {}", _0)]
@@ -67,12 +63,6 @@ pub enum ReleaseError {
     InstallCore(#[error(source, no_from)] io::Error),
     #[error(display = "failed to create /pop-upgrade file: {}", _0)]
     StartupFileCreation(io::Error),
-    #[error(display = "attempted recovery-based upgrade method, but the systemd efi loader path \
-                       was not found")]
-    SystemdBootEfiPathNotFound,
-    #[error(display = "attempted recovery-based upgrade method, but the systemd boot loader was \
-                       not found")]
-    SystemdBootLoaderNotFound,
     #[error(display = "failed to get transitional snap packages: {}", _0)]
     TransitionalSnapFetch(io::Error),
     #[error(display = "failed to hold transitional snap package: {}", _0)]

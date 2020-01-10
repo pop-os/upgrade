@@ -1,53 +1,56 @@
 use super::*;
 
+use anyhow::Context;
 use envfile::EnvFile;
 use std::path::Path;
 
 /// Checks if the `MODE` in `/recovery/recovery.conf` is set to the given option.
-pub fn mode_is(option: &str) -> RelResult<bool> {
-    Ok(EnvFile::new(Path::new("/recovery/recovery.conf"))
-        .map_err(ReleaseError::RecoveryConfOpen)?
-        .get("MODE")
-        .map_or(false, |mode| mode == option))
+pub fn mode_is(option: &str) -> anyhow::Result<bool> {
+    open().map(|env| env.get("MODE").map_or(false, |mode| mode == option))
 }
 
-/// Fetch the systemd-boot configuration, and designate the recovery partition as the default
+/// Fetch the recovery configuration, and designate the recovery partition as the default
 /// boot option.
 ///
 /// It will be up to the recovery partition to revert this change once it has completed its job.
-pub fn mode_set(mode: &str) -> RelResult<()> {
-    EnvFile::new(Path::new("/recovery/recovery.conf"))
-        .map_err(ReleaseError::RecoveryConfOpen)?
-        .update("MODE", mode)
-        .write()
-        .map_err(ReleaseError::RecoveryUpdate)
+pub fn mode_set(mode: &str) -> anyhow::Result<()> {
+    open()?.update("MODE", mode).write().context("failed to update the recovery configuration file")
 }
 
 /// Unsets the `MODE` variable defined in `/recovery/recovery.conf`.
-pub fn mode_unset() -> RelResult<()> {
-    let mut envfile = EnvFile::new(Path::new("/recovery/recovery.conf"))
-        .map_err(ReleaseError::RecoveryConfOpen)?;
-
+pub fn mode_unset() -> anyhow::Result<()> {
+    let mut envfile = open()?;
     envfile.store.remove("MODE");
+    envfile.write().context("failed to update the recovery configuration file")
+}
 
-    envfile.write().map_err(ReleaseError::RecoveryUpdate)
+/// Opens the recovery configuration file
+pub fn open() -> anyhow::Result<EnvFile> {
+    EnvFile::new(Path::new("/recovery/recovery.conf"))
+        .context("failed to open the recovery configuration file")
 }
 
 /// Checks if necessary requirements to use the recovery partition are made.
-pub fn upgrade_prereq() -> RelResult<()> {
+pub fn upgrade_prereq() -> anyhow::Result<()> {
     if !Path::new(SYSTEMD_BOOT_LOADER).exists() {
-        return Err(ReleaseError::SystemdBootLoaderNotFound);
+        return Err(anyhow!(
+            "attempted recovery-based upgrade method, but the systemd boot loader was not found"
+        ));
     }
 
     if !Path::new(SYSTEMD_BOOT_LOADER_PATH).exists() {
-        return Err(ReleaseError::SystemdBootEfiPathNotFound);
+        return Err(anyhow!(
+            "attempted recovery-based upgrade method, but the systemd boot efi loader path was \
+             not found"
+        ));
     }
 
-    let partitions = fs::read_to_string("/proc/mounts").map_err(ReleaseError::ReadingPartitions)?;
+    let partitions =
+        fs::read_to_string("/proc/mounts").context("failed to fetch list of partitions")?;
 
     if partitions.contains("/recovery") {
         Ok(())
     } else {
-        Err(ReleaseError::RecoveryNotFound)
+        Err(anyhow!("recovery partition was not found"))
     }
 }
