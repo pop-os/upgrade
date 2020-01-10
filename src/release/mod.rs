@@ -105,15 +105,15 @@ fn systemd_boot_loader_swap(loader: LoaderEntry) -> RelResult<()> {
     let mut systemd_boot_conf =
         SystemdBootConf::new("/boot/efi").map_err(ReleaseError::SystemdBootConf)?;
 
+    let comparison: fn(filename: &str) -> bool = match loader {
+        LoaderEntry::Current => |e| e.to_lowercase().ends_with("current"),
+        LoaderEntry::Recovery => |e| e.to_lowercase().starts_with("recovery"),
+    };
+
     {
         let SystemdBootConf { ref entries, ref mut loader_conf, .. } = systemd_boot_conf;
-        let recovery_entry = entries
-            .iter()
-            .find(|e| match loader {
-                LoaderEntry::Current => e.id.to_lowercase().ends_with("current"),
-                LoaderEntry::Recovery => e.id.to_lowercase().starts_with("recovery"),
-            })
-            .ok_or(ReleaseError::MissingRecoveryEntry)?;
+        let recovery_entry =
+            entries.iter().find(|e| comparison(&e.id)).ok_or(ReleaseError::MissingRecoveryEntry)?;
 
         loader_conf.default = Some(recovery_entry.id.to_owned());
     }
