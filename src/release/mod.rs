@@ -82,12 +82,14 @@ pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
 
     match op {
         RefreshOp::Disable => {
+            info!("Disabling refresh OS");
             systemd::set_default_boot_variant(LoaderEntry::Current)
                 .map_err(ReleaseError::SystemdBoot)?;
             recovery::mode_unset().map_err(ReleaseError::RecoveryConf)?;
             Ok(false)
         }
         RefreshOp::Enable => {
+            info!("Enabling refresh OS");
             systemd::set_default_boot_variant(LoaderEntry::Recovery)
                 .map_err(ReleaseError::SystemdBoot)?;
             recovery::mode_set("refresh").map_err(ReleaseError::RecoveryConf)?;

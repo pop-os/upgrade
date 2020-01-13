@@ -162,8 +162,8 @@ pub fn main() {
                 .subcommand(
                     SubCommand::with_name("refresh")
                         .about("refresh the existing OS (requires recovery partition)")
-                        .arg(Arg::with_name("disable"))
-                        .arg(Arg::with_name("enable")),
+                        .subcommand(SubCommand::with_name("disable"))
+                        .subcommand(SubCommand::with_name("enable")),
                 )
                 .subcommand(
                     SubCommand::with_name("repair")

@@ -678,7 +678,7 @@ impl Daemon {
     }
 
     fn refresh_os(&mut self, flag: RefreshOp) -> Result<bool, String> {
-        info!("preparing to refresh OS");
+        info!("preparing to refresh OS: {:?}", flag);
         crate::release::refresh_os(flag).map_err(|why| format!("{}", why))
     }
 

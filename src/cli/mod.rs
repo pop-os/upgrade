@@ -176,10 +176,13 @@ impl Client {
             // Set the recovery partition as the next boot target, and configure it to
             // automatically switch to the refresh view.
             ("refresh", Some(matches)) => {
-                let action = match () {
-                    _ if matches.is_present("enable") => RefreshOp::Enable,
-                    _ if matches.is_present("disable") => RefreshOp::Disable,
-                    _ => RefreshOp::Status,
+                let action = match matches.subcommand() {
+                    ("enable", _) => RefreshOp::Enable,
+                    ("disable", _) => RefreshOp::Disable,
+                    _ => {
+                        self.refresh_os(RefreshOp::Status)?;
+                        return Ok(());
+                    }
                 };
 
                 self.refresh_os(action)?;
