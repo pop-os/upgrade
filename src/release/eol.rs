@@ -33,14 +33,16 @@ impl EolDate {
         Ok(Self { version, ymd: codename.eol_date() })
     }
 
-    pub fn status(&self) -> EolStatus {
+    #[inline]
+    pub fn status(&self) -> EolStatus { self.status_from(Utc::now().date()) }
+
+    pub fn status_from(&self, date: Date<Utc>) -> EolStatus {
         let (year, month, day) = self.ymd;
         let eol = ymd_to_utc(year as i32, month, day);
-        let current = Utc::now().date();
 
-        if current >= eol {
+        if date >= eol {
             EolStatus::Exceeded
-        } else if imminent(current, eol) {
+        } else if imminent(date, eol) {
             EolStatus::Imminent
         } else {
             EolStatus::Ok
@@ -56,4 +58,32 @@ fn imminent(current: Date<Utc>, eol: Date<Utc>) -> bool {
 
 fn ymd_to_utc(y: i32, m: u32, d: u32) -> Date<Utc> {
     Date::from_utc(NaiveDate::from_ymd(y, m, d), Utc)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ubuntu_version::Codename;
+
+    #[test]
+    fn eol_exceeded() {
+        let disco = EolDate::from(Codename::Disco);
+        assert_eq!(disco.status_from(ymd_to_utc(2020, 1, 18)), EolStatus::Exceeded);
+        assert_eq!(disco.status_from(ymd_to_utc(2020, 2, 1)), EolStatus::Exceeded);
+        assert_eq!(disco.status_from(ymd_to_utc(2021, 1, 1)), EolStatus::Exceeded);
+    }
+
+    #[test]
+    fn eol_imminent() {
+        let disco = EolDate::from(Codename::Disco);
+        assert_eq!(disco.status_from(ymd_to_utc(2019, 12, 30)), EolStatus::Imminent);
+        assert_eq!(disco.status_from(ymd_to_utc(2020, 1, 17)), EolStatus::Imminent);
+    }
+
+    #[test]
+    fn eol_ok() {
+        let disco = EolDate::from(Codename::Disco);
+        assert_eq!(disco.status_from(ymd_to_utc(2019, 10, 30)), EolStatus::Ok);
+        assert_eq!(disco.status_from(ymd_to_utc(2019, 12, 10)), EolStatus::Ok);
+    }
 }
