@@ -531,34 +531,31 @@ fn installed_after_release(next: &str) -> bool {
 
 fn notification_message(current: &str, next: &str) -> (String, String) {
     match EolDate::fetch() {
-        Ok(eol) => {
-            match eol.status() {
-                EolStatus::Exceeded => {
-                    return (
-                        fomat!("Support for Pop!_OS " (current) " has ended"),
-                        fomat!(
-                            "Security and application updates are no longer provided "
-                            "for Pop!_OS " (current) ". Upgrade to Pop!_OS " (next)
-                            " to keep your computer secure."
-                        ),
-                    )
-                }
-                EolStatus::Imminent => {
-                    let (y, m, d) = eol.ymd;
-                    return (
-                        fomat!(
-                            "Support for Pop!_OS " (current) " ends "
-                            (Utc.ymd(y as i32, m, d).format("%B %d, %Y"))
-                        ),
-                        fomat!(
-                            "This computer will soon stop receiving updates. Upgrade to "
-                            "Pop!_OS " (next) " to keep your computer secure."
-                        ),
-                    )
-                }
-                EolStatus::Ok => (),
+        Ok(eol) => match eol.status() {
+            EolStatus::Exceeded => {
+                return (
+                    fomat!("Support for Pop!_OS " (current) " has ended"),
+                    fomat!(
+                        "Security and application updates are no longer provided for Pop!_OS "
+                        (current) ". Upgrade to Pop!_OS " (next) " to keep your computer secure."
+                    ),
+                );
             }
-        }
+            EolStatus::Imminent => {
+                let (y, m, d) = eol.ymd;
+                return (
+                    fomat!(
+                        "Support for Pop!_OS " (current) " ends "
+                        (Utc.ymd(y as i32, m, d).format("%B %-d, %Y"))
+                    ),
+                    fomat!(
+                        "This computer will soon stop receiving updates"
+                        ". Upgrade to Pop!_OS " (next) " to keep your computer secure."
+                    ),
+                );
+            }
+            EolStatus::Ok => (),
+        },
         Err(why) => error!("failed to fetch EOL date: {}", why),
     }
 

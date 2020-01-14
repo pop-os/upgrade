@@ -246,10 +246,15 @@ fn connect_upgrade(state: &mut State, widgets: &EventWidgets, is_lts: bool, rebo
         Ok(eol) => {
             let (y, m, d) = eol.ymd;
             match eol.status() {
-                EolStatus::Exceeded | EolStatus::Imminent => Some(fomat!(
+                EolStatus::Exceeded => Some(fomat!(
+                    "Support for Pop!_OS " (eol.version) " has ended. "
+                    "Security and application updates are no longer provided for Pop!_OS " (eol.version) ". "
+                    "Upgrade to Pop!_OS " (eol.version.next_release()) " to keep your computer secure."
+                )),
+                EolStatus::Imminent => Some(fomat!(
                     "Support for Pop!_OS " (eol.version) " ends "
-                    (Utc.ymd(y as i32, m, d).format("%B %d, %Y"))
-                    ". Upgrade for security and application updates."
+                    (Utc.ymd(y as i32, m, d).format("%B %-d, %Y")) ". "
+                    "Upgrade for security and application updates."
                 )),
                 EolStatus::Ok => None,
             }
