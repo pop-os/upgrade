@@ -3,6 +3,7 @@
 use crate::release::eol::{EolDate, EolStatus};
 use apt_sources_lists::{SourceEntry, SourceError, SourcesLists};
 use distinst_chroot::Command;
+use reqwest::Client;
 use std::{fs, io, path::Path};
 use ubuntu_version::Codename;
 
@@ -40,7 +41,14 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
         // When EOL, the Ubuntu archives no longer carry packages for that release.
         // Also, disable the proprietary repository before upgrading an EOL release.
         sources_list.entries_mut(|entry| {
-            if replace_ubuntu_old_release(&mut entry.url) {
+            let url = entry.url();
+            if let Some(pos) = find_ubuntu_archive(url) {
+                let old_release = modify_to_old_release_archive(url, pos);
+
+                if release_exists(&entry, &old_release) {
+                    entry.url = old_release;
+                }
+
                 true
             } else if entry.url == "http://apt.pop-os.org/proprietary" {
                 entry.enabled = false;
@@ -125,14 +133,16 @@ fn create_new_sources_list(release: &str) -> io::Result<()> {
     Ok(())
 }
 
-fn replace_ubuntu_old_release(url: &mut String) -> bool {
-    if let Some(pos) = twoway::find_str(&url, "archive.ubuntu") {
-        let stripped = &url[pos + 7..];
-        *url = ["http://old-releases", stripped].concat();
-        return true;
-    }
+fn find_ubuntu_archive(url: &str) -> Option<usize> { twoway::find_str(&url, "archive.ubuntu") }
 
-    false
+fn modify_to_old_release_archive(url: &str, pos: usize) -> String {
+    let stripped = &url[pos + 7..];
+    ["http://old-releases", stripped].concat()
+}
+
+fn release_exists(entry: &SourceEntry, new_url: &str) -> bool {
+    let release_file = [new_url, "/dists/", &entry.suite, "/Release"].concat();
+    Client::new().head(&release_file).send().ok().map_or(false, |resp| resp.status().is_success())
 }
 
 #[cfg(test)]
@@ -142,7 +152,8 @@ mod tests {
     #[test]
     fn old_releases() {
         let mut url = String::from("http://us.archive.ubuntu.com/ubuntu/");
-        replace_ubuntu_old_release(&mut url);
+        let pos = find_ubuntu_archive(&url).unwrap();
+        url = modify_to_old_release_archive(&url, pos);
         assert_eq!(&url, "http://old-releases.ubuntu.com/ubuntu/");
     }
 }
