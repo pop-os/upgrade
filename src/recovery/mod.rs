@@ -100,7 +100,7 @@ where
     if let Some((version, build)) =
         fetch_iso(cancel, verify, &action, &progress, &event, "/recovery")?
     {
-        let data = format!("{} {}", version, build);
+        let data = fomat!((version) " " (build));
         fs::write(RECOVERY_VERSION, data.as_bytes()).map_err(RecoveryError::WriteVersion)?;
     }
 

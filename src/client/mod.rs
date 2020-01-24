@@ -75,7 +75,7 @@ pub struct Fetched {
 #[derive(Clone, Debug)]
 pub struct RecoveryVersion {
     pub version: Box<str>,
-    pub build:   u16,
+    pub build:   i16,
 }
 
 /// Information about the current and next release.
@@ -235,7 +235,7 @@ impl Client {
     /// Fetches the version of the recovery partition currently-installed.
     pub fn recovery_version(&self) -> Result<RecoveryVersion, Error> {
         self.call_method(methods::RECOVERY_VERSION, |m| m)?
-            .read2::<&str, u16>()
+            .read2::<&str, i16>()
             .map_err(|why| Error::ArgumentMismatch(methods::RECOVERY_VERSION, why))
             .map(|(version, build)| RecoveryVersion { version: version.into(), build })
     }

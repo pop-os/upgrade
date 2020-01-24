@@ -14,8 +14,8 @@ pub use self::{
 use crate::{
     misc,
     recovery::{
-        self, RecoveryError, RecoveryVersion, ReleaseFlags as RecoveryReleaseFlags,
-        UpgradeMethod as RecoveryUpgradeMethod,
+        self, RecoveryError, RecoveryVersion, RecoveryVersionError,
+        ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
     },
     release::{
         self, FetchEvent, RefreshOp, ReleaseError, ReleaseStatus,
@@ -672,8 +672,17 @@ impl Daemon {
 
     fn recovery_version(&mut self) -> Result<RecoveryVersion, String> {
         info!("checking recovery version");
-        let version = crate::recovery::version().map_err(|why| format!("{}", why))?;
-        info!("{:?}", version);
+
+        let version = match crate::recovery::version() {
+            Ok(version) => version,
+            Err(RecoveryVersionError::Unknown) => {
+                RecoveryVersion { version: String::new(), build: -1 }
+            }
+            Err(why) => {
+                return Err(fomat!((why)))?;
+            }
+        };
+
         Ok(version)
     }
 

@@ -1,23 +1,26 @@
-use std::{fs, io, str::FromStr};
+use std::{fs, io, path::Path, str::FromStr};
+use thiserror::Error;
 
 pub const RECOVERY_VERSION: &str = "/recovery/version";
 
 #[derive(Debug, Error)]
 pub enum RecoveryVersionError {
-    #[error(display = "build version in recovery version file is not a number")]
+    #[error("build version in recovery version file is not a number")]
     BuildNaN,
-    #[error(display = "failed to read recovery version file: {}", _0)]
-    File(io::Error),
-    #[error(display = "no build number found in recovery version file")]
+    #[error("failed to read recovery version file")]
+    File(#[source] io::Error),
+    #[error("no build number found in recovery version file")]
     NoBuild,
-    #[error(display = "no version found in recovery version file")]
+    #[error("no version found in recovery version file")]
     NoVersion,
+    #[error("version of recovery ISO is unknown: please update it")]
+    Unknown,
 }
 
 #[derive(Debug, Clone)]
 pub struct RecoveryVersion {
     pub version: String,
-    pub build:   u16,
+    pub build:   i16,
 }
 
 impl FromStr for RecoveryVersion {
@@ -29,7 +32,7 @@ impl FromStr for RecoveryVersion {
         let build = iter
             .next()
             .ok_or(RecoveryVersionError::NoBuild)?
-            .parse::<u16>()
+            .parse::<i16>()
             .map_err(|_| RecoveryVersionError::BuildNaN)?;
 
         Ok(RecoveryVersion { version: version.to_owned(), build })
@@ -37,7 +40,11 @@ impl FromStr for RecoveryVersion {
 }
 
 pub fn version() -> Result<RecoveryVersion, RecoveryVersionError> {
-    recovery_file().map_err(RecoveryVersionError::File)?.parse::<RecoveryVersion>()
+    if Path::new(RECOVERY_VERSION).exists() {
+        recovery_file().map_err(RecoveryVersionError::File)?.parse::<RecoveryVersion>()
+    } else {
+        Err(RecoveryVersionError::Unknown)
+    }
 }
 
 pub fn recovery_file() -> io::Result<String> { fs::read_to_string(RECOVERY_VERSION) }

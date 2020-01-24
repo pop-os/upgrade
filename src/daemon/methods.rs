@@ -194,7 +194,7 @@ pub fn recovery_version(
             .map(|version| vec![version.version.into(), version.build.into()])
     });
 
-    method.outarg::<&str>("version").outarg::<u16>("build").consume()
+    method.outarg::<&str>("version").outarg::<i16>("build").consume()
 }
 
 pub const REFRESH_OS: &str = "RefreshOS";
