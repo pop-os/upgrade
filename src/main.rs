@@ -123,16 +123,11 @@ pub fn main() {
                                         )
                                         .long("next"),
                                 ),
-                        )
-                        // .subcommand(
-                        //     SubCommand::with_name("from-file")
-                        //         .about("update the recovery partition using an ISO on the system")
-                        //         .arg(
-                        //             Arg::with_name("PATH")
-                        //                 .help("location to fetch the from file")
-                        //                 .required(true),
-                        //         ),
-                        // ),
+                        ),
+                )
+                .subcommand(
+                    SubCommand::with_name("check")
+                        .about("check the status of the recovery partition"),
                 ),
         )
         // Distribution release tools

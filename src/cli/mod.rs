@@ -75,6 +75,13 @@ impl Client {
 
                 self.event_listen_recovery_upgrade()?;
             }
+            ("check", _) => {
+                let version = self.recovery_version()?;
+                pintln!(
+                    "version: " (version.version) "\n"
+                    "build: " (version.build)
+                );
+            }
             _ => unreachable!(),
         }
 
