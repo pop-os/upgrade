@@ -681,7 +681,8 @@ impl Daemon {
     fn release_check(&self, development: bool) -> Result<ReleaseStatus, String> {
         info!("performing a release check");
 
-        let status = release::check(development).map_err(|why| format!("{}", why))?;
+        let status = release::check::next(development).map_err(|why| format!("{}", why))?;
+
         let mut buffer = String::new();
 
         info!(

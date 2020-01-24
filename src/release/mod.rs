@@ -1,11 +1,11 @@
+pub mod check;
 pub mod eol;
 
-mod check;
 mod errors;
 mod snapd;
 
 pub use self::{
-    check::*,
+    check::{BuildStatus, ReleaseStatus},
     errors::{RelResult, ReleaseError},
 };
 
