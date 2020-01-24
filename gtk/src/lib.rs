@@ -34,8 +34,8 @@ use std::{
     thread,
 };
 
-// const RECOVERY_PARTITION: usize = 0;
-const REFRESH_OS: usize = 0;
+const RECOVERY_PARTITION: usize = 0;
+const REFRESH_OS: usize = 1;
 
 pub type ErrorCallback = Rc<RefCell<Box<dyn Fn(&str)>>>;
 pub type EventCallback = Rc<RefCell<Box<dyn Fn(Event)>>>;
@@ -75,12 +75,12 @@ impl Default for UpgradeWidget {
         });
 
         recovery
-            // .add_option(&option_sg, &button_sg, &sublab_sg, |option| {
-            //     option
-            //         .button_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION)
-            //         .label("Recovery Partition")
-            //         .sublabel(Some("You have the most current version of the recovery version"));
-            // })
+            .add_option(&option_sg, &button_sg, &sublab_sg, |option| {
+                option
+                    .button_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION)
+                    .label("Recovery Partition")
+                    .sublabel(Some("Checking for updates ..."));
+            })
             .add_option(&option_sg, &button_sg, &sublab_sg, |option| {
                 option
                     .button_label("Refresh")

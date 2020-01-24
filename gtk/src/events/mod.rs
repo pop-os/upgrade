@@ -1,6 +1,6 @@
 pub mod background;
 
-pub use self::background::BackgroundEvent;
+pub use self::background::{scan::ScanEvent, BackgroundEvent};
 
 use crate::{
     errors::UiError,
@@ -9,16 +9,16 @@ use crate::{
     widgets::{
         dialogs::{RefreshDialog, RepositoryDialog, UpgradeDialog},
         permissions::PermissionDenied,
-        Dismisser, Section, UpgradeOption,
+        Dismisser, Section,
     },
-    REFRESH_OS,
+    RECOVERY_PARTITION, REFRESH_OS,
 };
 
 use chrono::{TimeZone, Utc};
 use gtk::prelude::*;
 
 use pop_upgrade::{
-    client::{ReleaseInfo, RepoCompatError},
+    client::RepoCompatError,
     daemon::{DaemonStatus, DISMISSED},
     release::{
         eol::{EolDate, EolStatus},
@@ -82,20 +82,6 @@ pub enum CompletedEvent {
 }
 
 #[derive(Debug)]
-pub enum ScanEvent {
-    PermissionDenied,
-    Found {
-        is_current:    bool,
-        is_lts:        bool,
-        refresh:       bool,
-        status_failed: bool,
-        reboot_ready:  bool,
-        upgrade_text:  Box<str>,
-        upgrade:       Option<ReleaseInfo>,
-    },
-}
-
-#[derive(Debug)]
 pub enum ProgressEvent {
     Fetching(u64, u64),
     Recovery(u64, u64),
@@ -138,7 +124,13 @@ pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut 
                 }
 
                 ProgressEvent::Recovery(progress, total) => {
-                    widgets.upgrade.options[0].progress(progress, total).show_progress();
+                    widgets.recovery.options[RECOVERY_PARTITION]
+                        .label(&fomat!(
+                            "Downloading the recovery partition update ("
+                            (progress / 1024) " of " (total / 1024) " MiB)"
+                        ))
+                        .progress(progress, total)
+                        .show_progress();
                 }
 
                 ProgressEvent::Updates(percent) => {
@@ -163,12 +155,13 @@ pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut 
 
                 InitiatedEvent::Scanning => {
                     widgets.upgrade.options[0].reset_progress();
+                    widgets.recovery.options[RECOVERY_PARTITION].reset_progress();
                     widgets.container.hide();
                 }
 
                 InitiatedEvent::Recovery => {
-                    widgets.upgrade.options[0]
-                        .label("Upgrading recovery partition")
+                    widgets.recovery.options[RECOVERY_PARTITION]
+                        .label("Downloading the recovery partition update")
                         .progress_exact(0)
                         .show_progress();
                 }
@@ -215,7 +208,7 @@ pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut 
 
                 OsRecoveryEvent::Reset => unimplemented!(),
 
-                OsRecoveryEvent::Update => unimplemented!(),
+                OsRecoveryEvent::Update => recovery::clicked(&mut state, &widgets),
             },
 
             UiEvent::Completed(event) => match event {
@@ -224,7 +217,14 @@ pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut 
                 }
 
                 CompletedEvent::Recovery => {
-                    info!("successfully upgraded recovery partition");
+                    widgets.upgrade.options[0].sensitive(true);
+                    widgets.recovery.options[REFRESH_OS].sensitive(true);
+                    widgets.recovery.options[RECOVERY_PARTITION]
+                        .label("Recovery Partition")
+                        .sublabel(Some(
+                            "You have the most current version of the recovery partition",
+                        ))
+                        .hide_widgets();
                 }
 
                 CompletedEvent::Refresh => reboot(),
@@ -442,6 +442,11 @@ fn release_upgrade_dialog(state: &mut State, widgets: &EventWidgets) {
 fn reset(state: &mut State, widgets: &EventWidgets) {
     state.fetching_release = false;
 
+    if state.recovery_urgent {
+        widgets.recovery.options[RECOVERY_PARTITION].show_button();
+        widgets.recovery.show();
+    }
+
     if state.refresh_found {
         widgets.recovery.options[REFRESH_OS].show_button();
         widgets.recovery.show();
@@ -485,17 +490,24 @@ fn scan_event(state: &mut State, widgets: &EventWidgets, event: ScanEvent) {
     match event {
         ScanEvent::PermissionDenied => widgets.permission_denied(),
         ScanEvent::Found {
-            upgrade_text,
-            upgrade,
-            refresh,
+            mut current,
             is_current,
             is_lts,
-            status_failed,
             reboot_ready,
+            refresh,
+            status_failed,
+            upgrade_text,
+            upgrade,
+            urgent,
         } => {
             state.upgrade_label = upgrade_text;
             state.upgrade_version = upgrade;
             state.refresh_found = refresh;
+
+            if let Some(release) = current.take() {
+                state.recovery_urgent = dbg!(urgent);
+                state.current = release;
+            }
 
             if is_current {
                 widgets.upgrade.disable(0, "You are running the most current Pop!_OS version");
@@ -507,8 +519,8 @@ fn scan_event(state: &mut State, widgets: &EventWidgets, event: ScanEvent) {
 
             if refresh {
                 widgets.recovery.show();
-                // widgets.recovery.options[RECOVERY_PARTITION].button.hide();
                 connect_refresh(&state, widgets);
+                recovery::update_status(&state, widgets, status_failed);
             } else {
                 widgets.recovery.hide();
             }
@@ -539,9 +551,9 @@ fn upgrade_clicked(state: &mut State, widgets: &EventWidgets) {
     if let Some(info) = state.upgrade_version.clone() {
         (state.callback_event.borrow())(Event::Upgrading);
 
-        // widgets.upgrade.options[0].label("Preparing Upgrade").show_progress();
+        widgets.upgrade.options[0].label("Preparing Upgrade").show_progress();
 
-        // widgets.recovery.options[RECOVERY_PARTITION].sensitive(false);
+        widgets.recovery.options[RECOVERY_PARTITION].sensitive(false);
         widgets.recovery.options[REFRESH_OS].sensitive(false);
 
         if let Some(dismisser) = state.dismisser.take() {
@@ -549,5 +561,46 @@ fn upgrade_clicked(state: &mut State, widgets: &EventWidgets) {
         }
 
         let _ = state.sender.send(BackgroundEvent::DownloadUpgrade(info));
+    }
+}
+
+mod recovery {
+    use super::*;
+    use crate::state::State;
+
+    pub fn clicked(state: &mut State, widgets: &EventWidgets) {
+        widgets.upgrade.options[0].sensitive(false);
+        widgets.recovery.options[REFRESH_OS].sensitive(false);
+        let _ = state.sender.send(BackgroundEvent::UpdateRecovery(state.current.clone()));
+    }
+
+    pub fn update_status(state: &State, widgets: &EventWidgets, status_failed: bool) {
+        let recovery_option = &widgets.recovery.options[RECOVERY_PARTITION];
+
+        if state.recovery_urgent {
+            let signal = Some((
+                "Update",
+                Box::new(enclose!((state.gui_sender => sender) move || {
+                    if let Some(sender) = sender.upgrade() {
+                        let _ = sender.send(UiEvent::Recovery(OsRecoveryEvent::Update));
+                    }
+                })),
+            ));
+
+            recovery_option
+                .label("Recovery partition update is available")
+                .sublabel(None)
+                .button_signal(signal);
+        } else if status_failed {
+            recovery_option
+                .label("Recovery Partition")
+                .sublabel(Some("Failed to check for recovery updates"))
+                .hide_widgets();
+        } else {
+            recovery_option
+                .label("Recovery Partition")
+                .sublabel(Some("You have the most current version of the recovery version"))
+                .hide_widgets();
+        }
     }
 }

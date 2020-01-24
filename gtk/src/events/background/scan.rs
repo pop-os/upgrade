@@ -1,22 +1,42 @@
 use crate::{
-    events::{CompletedEvent, InitiatedEvent, ScanEvent, UiEvent},
+    events::{CompletedEvent, InitiatedEvent, UiEvent},
     users,
 };
 
 use pop_upgrade::{
-    client::Client,
+    client::{Client, ReleaseInfo},
     release::{self, STARTUP_UPGRADE_FILE},
 };
 
 use std::{borrow::Cow, path::Path};
 
+#[derive(Debug)]
+pub enum ScanEvent {
+    Found {
+        is_current:    bool,
+        is_lts:        bool,
+        refresh:       bool,
+        status_failed: bool,
+        reboot_ready:  bool,
+        urgent:        bool,
+
+        current:      Option<Box<str>>,
+        upgrade_text: Box<str>,
+
+        upgrade: Option<ReleaseInfo>,
+    },
+    PermissionDenied,
+}
+
 pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
     send(UiEvent::Initiated(InitiatedEvent::Scanning));
 
+    let mut current = None;
     let mut upgrade = None;
     let mut is_current = false;
     let mut is_lts = false;
     let mut status_failed = false;
+    let mut urgent = false;
 
     if !users::is_admin() {
         send(UiEvent::Completed(CompletedEvent::Scan(ScanEvent::PermissionDenied)));
@@ -32,6 +52,20 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
         let result = client.release_check(devel);
         match result {
             Ok(info) => {
+                current = dbg!(Some(info.current.clone()));
+                match client.recovery_version() {
+                    Ok(rinfo) => {
+                        urgent = info.urgent.map_or(false, |urgent| {
+                            rinfo.version != info.current
+                                || rinfo.build < 0
+                                || (rinfo.build as u16) < urgent
+                        });
+                    }
+                    Err(why) => {
+                        error!("failed to retrieve recovery version: {}", why);
+                    }
+                }
+
                 is_lts = info.is_lts;
                 if devel || info.build >= 0 {
                     info!("upgrade from {} to {} is available", info.current, info.next);
@@ -65,6 +99,7 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
     };
 
     send(UiEvent::Completed(CompletedEvent::Scan(ScanEvent::Found {
+        current,
         is_current,
         is_lts,
         reboot_ready,
@@ -72,5 +107,6 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
         status_failed,
         upgrade_text: Box::from(upgrade_text.as_ref()),
         upgrade,
+        urgent,
     })));
 }

@@ -9,12 +9,16 @@ pub struct State {
     #[new(default)]
     pub fetching_release:   bool,
     #[new(default)]
+    pub recovery_urgent:    bool,
+    #[new(default)]
     pub refresh_found:      bool,
     #[new(default)]
     pub upgrade_downloaded: bool,
     #[new(default)]
     pub upgrade_found:      bool,
 
+    #[new(default)]
+    pub current:        Box<str>,
     #[new(default)]
     pub upgrade_label:  Box<str>,
     #[new(default)]
