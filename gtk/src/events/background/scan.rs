@@ -46,7 +46,7 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
                     status_failed = true;
                     Cow::Borrowed(match info.build {
                         -1 => "Failed to retrieve build status due to an internal error.",
-                        -2 => "You are running the most current Pop!_OS version.",
+                        -2 | -4 => "You are running the most current Pop!_OS version.",
                         -3 => "Connection failed. You may be offline.",
                         _ => "Unknown status received.",
                     })

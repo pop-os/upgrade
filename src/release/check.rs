@@ -1,6 +1,7 @@
 use crate::release_api::{ApiError, Release};
-use ubuntu_version::{Codename, Version, VersionError};
+use ubuntu_version::{Version, VersionError};
 
+#[derive(Debug)]
 pub enum BuildStatus {
     Blacklisted,
     Build(u16),
@@ -40,158 +41,139 @@ impl From<Result<u16, ApiError>> for BuildStatus {
     }
 }
 
+impl PartialEq for BuildStatus {
+    fn eq(&self, other: &BuildStatus) -> bool {
+        match (self, other) {
+            (BuildStatus::Blacklisted, BuildStatus::Blacklisted)
+            | (BuildStatus::ConnectionIssue(_), BuildStatus::ConnectionIssue(_))
+            | (BuildStatus::InternalIssue(_), BuildStatus::InternalIssue(_))
+            | (BuildStatus::ServerStatus(_), BuildStatus::ServerStatus(_)) => true,
+            (BuildStatus::Build(a), BuildStatus::Build(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct ReleaseStatus {
-    pub current: Box<str>,
-    pub next:    Box<str>,
+    pub current: &'static str,
+    pub next:    &'static str,
     pub build:   BuildStatus,
-    is_lts:      bool,
+    pub is_lts:  bool,
 }
 
 impl ReleaseStatus {
     pub fn is_lts(&self) -> bool { self.is_lts }
 }
 
-pub fn check(development: bool) -> Result<ReleaseStatus, VersionError> {
-    find_next_release(development, Version::detect, Release::build_exists)
+pub fn next(development: bool) -> Result<ReleaseStatus, VersionError> {
+    Version::detect().map(|current| {
+        next_(current, development, |build| Release::build_exists(build, "intel").into())
+    })
 }
 
-pub fn check_current(version: Option<&str>) -> Option<(String, u16)> {
-    find_current_release(Version::detect, Release::build_exists, version)
-}
-
-fn format_version(version: Version) -> String { format!("{}.{:02}", version.major, version.minor) }
-
-fn find_current_release(
-    version_detect: fn() -> Result<Version, VersionError>,
-    release_exists: fn(&str, &str) -> Result<u16, ApiError>,
-    version: Option<&str>,
-) -> Option<(String, u16)> {
+pub fn current(version: Option<&str>) -> Option<(Box<str>, u16)> {
     if let Some(version) = version {
-        let build = release_exists(version, "intel").ok()?;
+        let build = Release::build_exists(version, "intel").ok()?;
         return Some((version.into(), build));
     }
 
-    let mut current = version_detect().ok()?;
-    let mut current_str = format_version(current);
-    let mut available = release_exists(&current_str, "intel").ok()?;
+    let current = Version::detect().ok()?;
+    let release_str = release_str(current.major, current.minor);
 
-    let mut next = current.next_release();
-    let mut next_str = format_version(next);
-
-    while let Ok(build) = release_exists(&next_str, "intel") {
-        available = build;
-        current = next;
-        current_str = next_str;
-        next = current.next_release();
-        next_str = format_version(next);
-    }
-
-    Some((current_str, available))
+    Some((release_str.into(), Release::build_exists(release_str, "intel").ok()?))
 }
 
-fn find_next_release(
-    development: bool,
-    version_detect: fn() -> Result<Version, VersionError>,
-    release_exists: fn(&str, &str) -> Result<u16, ApiError>,
-) -> Result<ReleaseStatus, VersionError> {
-    let current = version_detect()?;
-    let mut next = current.next_release();
-    let mut next_str = format_version(next);
-    let mut available = release_exists(&next_str, "intel");
-
-    if available.is_ok() {
-        let mut next_next = next.next_release();
-        let mut next_next_str = format_version(next_next);
-
-        let mut last_build_status = release_exists(&next_next_str, "intel");
-
-        loop {
-            if let Ok(build) = last_build_status {
-                available = Ok(build);
-                next = next_next;
-                next_str = next_next_str;
-                next_next = next.next_release();
-                next_next_str = format_version(next_next);
-            } else if development {
-                // If the next release is available, then the development
-                // release is the release after the last available release.
-                next = next.next_release();
-                next_str = format_version(next);
-                available = last_build_status;
-
-                break;
-            } else {
-                break;
-            }
-
-            last_build_status = release_exists(&next_next_str, "intel");
-        }
+pub fn release_str(major: u8, minor: u8) -> &'static str {
+    match (major, minor) {
+        (18, 4) => "18.04",
+        (19, 10) => "18.10",
+        (20, 4) => "20.04",
+        _ => panic!("this version of pop-upgrade is not supported on this release"),
     }
+}
 
-    Ok(ReleaseStatus {
-        current: format_version(current).into(),
-        next:    next_str.into(),
-        build:   available.into(),
-        is_lts:  current.is_lts(),
-    })
+fn next_(
+    current: Version,
+    development: bool,
+    release_check: impl Fn(&str) -> BuildStatus,
+) -> ReleaseStatus {
+    let next: &str;
+    match (current.major, current.minor) {
+        (18, 4) => {
+            next = if development { "20.04" } else { "19.10" };
+
+            ReleaseStatus { build: release_check(next), current: "18.04", is_lts: true, next }
+        }
+
+        (19, 10) => {
+            next = "20.04";
+
+            ReleaseStatus {
+                build: if development { release_check(next) } else { BuildStatus::Blacklisted },
+                current: "19.10",
+                is_lts: false,
+                next,
+            }
+        }
+
+        (20, 4) => ReleaseStatus {
+            build:   BuildStatus::Blacklisted,
+            current: "20.04",
+            is_lts:  true,
+            next:    "20.10",
+        },
+        _ => panic!("this version of pop-upgrade is not supported on this release"),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ubuntu_version::{Version, VersionError};
 
-    fn v1804() -> Result<Version, VersionError> { Ok(Version { major: 18, minor: 4, patch: 0 }) }
+    #[test]
+    fn test_next() {
+        let bionic = Version { major: 18, minor: 4, patch: 0 };
+        let eoan = Version { major: 19, minor: 10, patch: 0 };
 
-    fn v1810() -> Result<Version, VersionError> { Ok(Version { major: 18, minor: 10, patch: 0 }) }
-
-    fn v1904() -> Result<Version, VersionError> { Ok(Version { major: 19, minor: 4, patch: 0 }) }
-
-    fn releases_up_to_1904(release: &str, _kind: &str) -> Result<u16, ApiError> {
-        match release {
-            "18.04" | "18.10" | "19.04" => Ok(1),
-            _ => Err(ApiError::BuildNaN("".into())),
-        }
-    }
-
-    fn releases_up_to_1910(release: &str, kind: &str) -> Result<u16, ApiError> {
-        releases_up_to_1904(release, kind).or_else(|_| {
-            if release == "19.10" {
-                Ok(1)
-            } else {
-                Err(ApiError::BuildNaN("".into()))
+        assert_eq!(
+            next_(bionic, false, |_| BuildStatus::Build(1)),
+            ReleaseStatus {
+                current: "18.04",
+                next:    "19.10",
+                build:   BuildStatus::Build(1),
+                is_lts:  true,
             }
-        })
-    }
+        );
 
-    #[test]
-    fn release_check() {
-        let mut status = find_next_release(false, v1804, releases_up_to_1910).unwrap();
-        assert!("19.10" == dbg!(status.next.as_ref()) && status.build.is_ok());
+        assert_eq!(
+            next_(bionic, true, |_| BuildStatus::Build(1)),
+            ReleaseStatus {
+                current: "18.04",
+                next:    "20.04",
+                build:   BuildStatus::Build(1),
+                is_lts:  true,
+            }
+        );
 
-        status = find_next_release(false, v1810, releases_up_to_1910).unwrap();
-        assert!("19.10" == dbg!(status.next.as_ref()) && status.build.is_ok());
+        assert_eq!(
+            next_(eoan, false, |_| BuildStatus::Build(1)),
+            ReleaseStatus {
+                current: "19.10",
+                next:    "20.04",
+                build:   BuildStatus::Blacklisted,
+                is_lts:  false,
+            }
+        );
 
-        status = find_next_release(false, v1810, releases_up_to_1904).unwrap();
-        assert!("19.04" == dbg!(status.next.as_ref()) && status.build.is_ok());
-
-        status = find_next_release(false, v1904, releases_up_to_1904).unwrap();
-        assert!("19.10" == dbg!(status.next.as_ref()) && !status.build.is_ok());
-
-        status = find_next_release(true, v1804, releases_up_to_1910).unwrap();
-        assert!("20.04" == dbg!(status.next.as_ref()) && !status.build.is_ok());
-    }
-
-    #[test]
-    fn current_release_check() {
-        let (current, _build) = find_current_release(v1804, releases_up_to_1910, None).unwrap();
-        assert!("19.10" == current.as_str());
-
-        let (current, _build) = find_current_release(v1904, releases_up_to_1904, None).unwrap();
-        assert!("19.04" == current.as_str());
-
-        let (current, _build) =
-            find_current_release(v1904, releases_up_to_1904, Some("18.04")).unwrap();
-        assert!("18.04" == current.as_str());
+        assert_eq!(
+            next_(eoan, true, |_| BuildStatus::Build(1)),
+            ReleaseStatus {
+                current: "19.10",
+                next:    "20.04",
+                build:   BuildStatus::Build(1),
+                is_lts:  false,
+            }
+        );
     }
 }

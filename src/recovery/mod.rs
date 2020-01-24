@@ -127,7 +127,7 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     progress: &Arc<F>,
     event: &dyn Fn(RecoveryEvent),
     recovery_path: P,
-) -> RecResult<Option<(String, u16)>> {
+) -> RecResult<Option<(Box<str>, u16)>> {
     let recovery_path = recovery_path.as_ref();
     info!("fetching ISO to upgrade recovery partition at {}", recovery_path.display());
     (*event)(RecoveryEvent::Fetching);
@@ -152,7 +152,7 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
             let arch = arch.as_ref().map(String::as_str);
 
             let (version, build) =
-                crate::release::check_current(version_).ok_or(RecoveryError::NoBuildAvailable)?;
+                crate::release::check::current(version_).ok_or(RecoveryError::NoBuildAvailable)?;
 
             cancellation_check(&cancel)?;
 
