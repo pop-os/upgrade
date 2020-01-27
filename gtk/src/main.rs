@@ -8,6 +8,7 @@ use pop_upgrade_gtk::*;
 pub const APP_ID: &str = "com.system76.UpgradeManager";
 
 fn main() {
+    better_panic::install();
     glib::set_program_name(APP_ID.into());
 
     let application = Application::new(Some(APP_ID), ApplicationFlags::empty())
