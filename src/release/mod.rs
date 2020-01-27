@@ -427,8 +427,8 @@ impl<'a> DaemonRuntime<'a> {
     fn systemd_upgrade_prereq_check() -> RelResult<()> {
         const REQUIRED_UPGRADE_FILES: [&str; 3] = [
             "/usr/lib/pop-upgrade/upgrade.sh",
-            "/lib/systemd/system/pop-upgrade-init.service",
-            "/lib/systemd/system/system-update.target.wants/pop-upgrade-init.service",
+            "/usr/lib/systemd/system/pop-upgrade-init.service",
+            "/usr/lib/systemd/system/system-update.target.wants/pop-upgrade-init.service",
         ];
 
         let invalid = REQUIRED_UPGRADE_FILES

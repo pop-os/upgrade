@@ -1,1 +1,1 @@
-/lib/systemd/system/pop-upgrade-init.service /lib/systemd/system/system-update.target.wants/pop-upgrade-init.service
+/usr/lib/systemd/system/pop-upgrade-init.service /usr/lib/systemd/system/system-update.target.wants/pop-upgrade-init.service
