@@ -577,7 +577,7 @@ mod recovery {
     pub fn update_status(state: &State, widgets: &EventWidgets, status_failed: bool) {
         let recovery_option = &widgets.recovery.options[RECOVERY_PARTITION];
 
-        if state.recovery_urgent {
+        let allow_refresh = if state.recovery_urgent {
             let signal = Some((
                 "Update",
                 Box::new(enclose!((state.gui_sender => sender) move || {
@@ -591,16 +591,22 @@ mod recovery {
                 .label("Recovery partition update is available")
                 .sublabel(None)
                 .button_signal(signal);
+
+            false
         } else if status_failed {
             recovery_option
                 .label("Recovery Partition")
                 .sublabel(Some("Failed to check for recovery updates"))
                 .hide_widgets();
+            true
         } else {
             recovery_option
                 .label("Recovery Partition")
                 .sublabel(Some("You have the most current version of the recovery version"))
                 .hide_widgets();
-        }
+            true
+        };
+
+        widgets.recovery.options[REFRESH_OS].sensitive(allow_refresh);
     }
 }
