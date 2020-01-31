@@ -30,7 +30,6 @@ impl UpgradeOption {
                 .hexpand(true)
                 .valign(gtk::Align::Center)
                 .build();
-            ..get_style_context().add_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION);
             | button.add(&button_label);
         };
 
