@@ -513,6 +513,7 @@ fn scan_event(state: &mut State, widgets: &EventWidgets, event: ScanEvent) {
             status_failed,
             upgrade_text,
             upgrade,
+            upgrading_recovery,
             urgent,
         } => {
             state.upgrade_label = upgrade_text;
@@ -535,7 +536,7 @@ fn scan_event(state: &mut State, widgets: &EventWidgets, event: ScanEvent) {
             if refresh {
                 widgets.recovery.show();
                 connect_refresh(&state, widgets);
-                recovery::update_status(&state, widgets, status_failed);
+                recovery::update_status(&state, widgets, status_failed, upgrading_recovery);
             } else {
                 widgets.recovery.hide();
             }
@@ -589,7 +590,12 @@ mod recovery {
         let _ = state.sender.send(BackgroundEvent::UpdateRecovery(state.current.clone()));
     }
 
-    pub fn update_status(state: &State, widgets: &EventWidgets, status_failed: bool) {
+    pub fn update_status(
+        state: &State,
+        widgets: &EventWidgets,
+        status_failed: bool,
+        upgrading: bool,
+    ) {
         let recovery_option = &widgets.recovery.options[RECOVERY_PARTITION];
 
         let allow_refresh = if state.recovery_urgent {
@@ -608,6 +614,14 @@ mod recovery {
                 .button_signal(signal);
 
             false
+        } else if upgrading {
+            if let Some(sender) = state.gui_sender.upgrade() {
+                let _ = sender.send(UiEvent::Initiated(InitiatedEvent::Recovery));
+            }
+
+            widgets.upgrade.options[0].sensitive(false);
+            widgets.recovery.options[REFRESH_OS].sensitive(false);
+            true
         } else if status_failed {
             recovery_option
                 .label("Recovery Partition")

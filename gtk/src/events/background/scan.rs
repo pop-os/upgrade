@@ -4,7 +4,8 @@ use crate::{
 };
 
 use pop_upgrade::{
-    client::{Client, ReleaseInfo},
+    client::{Client, Error as ClientError, ReleaseInfo},
+    daemon::DaemonStatus,
     release::{self, STARTUP_UPGRADE_FILE},
 };
 
@@ -13,12 +14,13 @@ use std::{borrow::Cow, path::Path};
 #[derive(Debug)]
 pub enum ScanEvent {
     Found {
-        is_current:    bool,
-        is_lts:        bool,
-        refresh:       bool,
-        status_failed: bool,
-        reboot_ready:  bool,
-        urgent:        bool,
+        is_current:         bool,
+        is_lts:             bool,
+        refresh:            bool,
+        status_failed:      bool,
+        reboot_ready:       bool,
+        upgrading_recovery: bool,
+        urgent:             bool,
 
         current:      Option<Box<str>>,
         upgrade_text: Box<str>,
@@ -26,6 +28,10 @@ pub enum ScanEvent {
         upgrade: Option<ReleaseInfo>,
     },
     PermissionDenied,
+}
+
+fn daemon_status_is(client: &Client, expected: DaemonStatus) -> Result<bool, ClientError> {
+    client.status().map(|actual| expected as u8 == actual.status)
 }
 
 pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
@@ -44,6 +50,9 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
     }
 
     let reboot_ready = Path::new(STARTUP_UPGRADE_FILE).exists();
+
+    let upgrading_recovery =
+        daemon_status_is(client, DaemonStatus::RecoveryUpgrade).unwrap_or(false);
 
     let upgrade_text = if !reboot_ready && release::upgrade_in_progress() {
         Cow::Borrowed("Pop!_OS is currently downloading.")
@@ -107,6 +116,7 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
         status_failed,
         upgrade_text: Box::from(upgrade_text.as_ref()),
         upgrade,
+        upgrading_recovery,
         urgent,
     })));
 }
