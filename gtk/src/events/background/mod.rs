@@ -36,7 +36,7 @@ pub fn run(
     send: impl Fn(UiEvent) + Send + Sync + 'static,
 ) {
     let send: &dyn Fn(UiEvent) = &send;
-    if let Ok(ref client) = Client::new() {
+    if let Ok(ref mut client) = Client::new() {
         while let Ok(event) = receiver.recv() {
             trace!("received background event: {:?}", event);
             match event {

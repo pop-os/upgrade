@@ -8,7 +8,7 @@ use pop_upgrade::{
     release::UpgradeMethod,
 };
 
-pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) {
+pub fn download(client: &mut Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) {
     info!("downloading updates for {}", info.next);
     if !update(client, send) {
         return;
@@ -113,7 +113,7 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) {
     }
 }
 
-pub fn update(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
+pub fn update(client: &mut Client, send: &dyn Fn(UiEvent)) -> bool {
     info!("checking if updates are required");
     let updates = match client.fetch_updates(Vec::new(), false) {
         Ok(updates) => updates,

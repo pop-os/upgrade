@@ -6,14 +6,18 @@ use crate::{
 };
 
 use dbus::{
-    self, BusType, Connection, ConnectionItem, Message, MessageItem, MessageItemArray, Signature,
+    self,
+    arg::messageitem::{MessageItem, MessageItemArray, MessageItemDict},
+    blocking::{BlockingSender, Connection},
+    message::{MatchRule, Message},
+    strings::Signature,
 };
 
 use num_traits::FromPrimitive;
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 use thiserror::Error;
 
-const TIMEOUT: i32 = 0x7fff_ffff;
+const TIMEOUT: u64 = 0x7fff_ffff;
 
 // Information about the current fetch progress.
 #[derive(Clone, Debug)]
@@ -113,38 +117,158 @@ pub enum Error {
     #[error("failed to create {} method call", _0)]
     NewMethodCall(&'static str, String),
 }
+use std::sync::mpsc;
 
 pub struct Client {
-    pub bus: Connection,
+    pub bus:    Connection,
+    pub events: mpsc::Receiver<Result<Signal, Error>>,
 }
 
 impl Client {
     /// Attempts to create a new dbus connection to the upgrade daemon.
     pub fn new() -> Result<Self, Error> {
-        fn add_match(cbus: &Connection, member: &'static str) -> Result<(), Error> {
-            cbus.add_match(&format!("interface='{}',member='{}'", DBUS_IFACE, member))
-                .map_err(Error::AddMatch)?;
+        fn add_match<F: Fn(&Message) -> bool + Send + Sync + 'static>(
+            cbus: &Connection,
+            member: &'static str,
+            cb: F,
+        ) -> Result<(), Error> {
+            cbus.add_match(MatchRule::new_signal(DBUS_IFACE, member), move |_: (), _, message| {
+                cb(message)
+            })
+            .map_err(Error::AddMatch)?;
 
             Ok(())
         }
 
-        Connection::get_private(BusType::System).map_err(Error::Connection).and_then(|bus| {
+        Connection::new_system().map_err(Error::Connection).and_then(|bus| {
+            let (tx, rx) = mpsc::sync_channel(4);
+
             {
                 let bus = &bus;
-                add_match(bus, signals::NO_CONNECTION)?;
-                add_match(bus, signals::PACKAGE_FETCH_RESULT)?;
-                add_match(bus, signals::PACKAGE_FETCHED)?;
-                add_match(bus, signals::PACKAGE_FETCHING)?;
-                add_match(bus, signals::PACKAGE_UPGRADE)?;
-                add_match(bus, signals::RECOVERY_DOWNLOAD_PROGRESS)?;
-                add_match(bus, signals::RECOVERY_RESULT)?;
-                add_match(bus, signals::RECOVERY_EVENT)?;
-                add_match(bus, signals::RELEASE_RESULT)?;
-                add_match(bus, signals::RELEASE_EVENT)?;
-                add_match(bus, signals::REPO_COMPAT_ERROR)?;
+
+                add_match(bus, signals::NO_CONNECTION, enclose!((tx) move |_| {
+                    tx.send(Ok(Signal::NoConnection)).is_ok()
+                }))?;
+
+                add_match(bus, signals::PACKAGE_FETCH_RESULT, enclose!((tx) move |message| {
+                    let signal = message
+                        .read2::<u8, String>()
+                        .map(|(status, why)| Status { status, why: why.into() })
+                        .map(Signal::PackageFetchResult)
+                        .map_err(|why| {
+                            Error::ArgumentMismatch(signals::PACKAGE_FETCH_RESULT, why)
+                        });
+
+                    tx.send(signal).is_ok()
+                }))?;
+
+                add_match(bus, signals::PACKAGE_FETCHED, enclose!((tx) move |message| {
+                    let signal = message
+                        .read3::<String, u32, u32>()
+                        .map(|(package, completed, total)| FetchStatus {
+                            package: package.into(),
+                            completed,
+                            total,
+                        })
+                        .map(Signal::PackageFetched)
+                        .map_err(|why| Error::ArgumentMismatch(signals::PACKAGE_FETCHED, why));
+
+                    tx.send(signal).is_ok()
+                }))?;
+
+                add_match(bus, signals::PACKAGE_FETCHING, enclose!((tx) move |message| {
+                    let signal = message
+                        .read1::<String>()
+                        .map(|package| Signal::PackageFetching(Box::from(package)))
+                        .map_err(|why| Error::ArgumentMismatch(signals::PACKAGE_FETCHING, why));
+
+                    tx.send(signal).is_ok()
+                }))?;
+
+                add_match(bus, signals::PACKAGE_UPGRADE, enclose!((tx) move |message| {
+                    let signal = message
+                        .read1::<HashMap<String, String>>()
+                        .map_err(|why| Error::ArgumentMismatch(signals::PACKAGE_UPGRADE, why))
+                        .map(|upgrade| {
+                            upgrade
+                                .into_iter()
+                                .map(|(key, value)| (Box::from(key), Box::from(value)))
+                                .collect::<HashMap<Box<str>, Box<str>>>()
+                        })
+                        .map(Signal::PackageUpgrade);
+
+                    tx.send(signal).is_ok()
+                }))?;
+
+                add_match(bus, signals::RECOVERY_DOWNLOAD_PROGRESS, enclose!((tx) move |message| {
+                    let signal = message
+                        .read2::<u64, u64>()
+                        .map_err(|why| {
+                            Error::ArgumentMismatch(signals::RECOVERY_DOWNLOAD_PROGRESS, why)
+                        })
+                        .map(|(progress, total)| Progress { progress, total })
+                        .map(Signal::RecoveryDownloadProgress);
+
+                    tx.send(signal).is_ok()
+                }))?;
+
+                add_match(bus, signals::RECOVERY_RESULT, enclose!((tx) move |message| {
+                    let signal = message
+                        .read2::<u8, String>()
+                        .map_err(|why| Error::ArgumentMismatch(signals::RECOVERY_RESULT, why))
+                        .map(|(status, why)| Status { status, why: why.into() })
+                        .map(Signal::RecoveryResult);
+
+                    tx.send(signal).is_ok()
+                }))?;
+
+                add_match(bus, signals::RECOVERY_EVENT, enclose!((tx) move |message| {
+                    let signal = message
+                        .read1::<u8>()
+                        .map_err(|why| Error::ArgumentMismatch(signals::RECOVERY_EVENT, why))
+                        .map(|event| {
+                            RecoveryEvent::from_u8(event).expect("unexpected recovery event value")
+                        })
+                        .map(Signal::RecoveryEvent);
+
+                    tx.send(signal).is_ok()
+                }))?;
+
+                add_match(bus, signals::RELEASE_RESULT, enclose!((tx) move |message| {
+                    let signal = message
+                        .read2::<u8, String>()
+                        .map_err(|why| Error::ArgumentMismatch(signals::RELEASE_RESULT, why))
+                        .map(|(status, why)| Status { status, why: why.into() })
+                        .map(Signal::ReleaseResult);
+
+                    tx.send(signal).is_ok()
+                }))?;
+
+                add_match(bus, signals::RELEASE_EVENT, enclose!((tx) move |message| {
+                    let signal = message
+                        .read1::<u8>()
+                        .map_err(|why| Error::ArgumentMismatch(signals::RELEASE_EVENT, why))
+                        .map(|event| {
+                            UpgradeEvent::from_u8(event).expect("unexpected upgrade event value")
+                        })
+                        .map(Signal::ReleaseEvent);
+
+                    tx.send(signal).is_ok()
+                }))?;
+
+                add_match(bus, signals::REPO_COMPAT_ERROR, enclose!((tx) move |message| {
+                    let signal = message
+                        .read2::<Vec<String>, Vec<(String, String)>>()
+                        .map_err(|why| Error::ArgumentMismatch(signals::REPO_COMPAT_ERROR, why))
+                        .map(|(success, failure)| RepoCompatError { success, failure })
+                        .map(Signal::RepoCompatError);
+
+                    tx.send(signal).is_ok()
+                }))?;
+
             }
 
-            Ok(Client { bus })
+            Ok(Client { bus, events: rx })
         })
     }
 
@@ -311,121 +435,54 @@ impl Client {
         &self,
         repos: impl Iterator<Item = (S, bool)>,
     ) -> Result<(), Error> {
-        let repos = repos.map(|(url, keep)| {
-            MessageItem::DictEntry(Box::new(url.as_ref().into()), Box::new(keep.into()))
-        });
-
-        let array = MessageItem::Array(
-            MessageItemArray::new(
-                repos.collect::<Vec<_>>(),
-                Signature::from_slice(b"a{sb}\0").unwrap(),
+        let repos = MessageItem::Dict(
+            MessageItemDict::new(
+                repos.map(|(url, keep)| (url.as_ref().into(), keep.into())).collect(),
+                Signature::from_slice(b"s\0").unwrap(),
+                Signature::from_slice(b"b\0").unwrap(),
             )
             .unwrap(),
         );
 
-        self.call_method(methods::REPO_MODIFY, move |m| m.append1(&array))?;
+        self.call_method(methods::REPO_MODIFY, move |m| m.append1(&repos))?;
         Ok(())
     }
 
     /// An event loop for listening to signals from the daemon.
     pub fn event_listen(
-        &self,
+        &mut self,
         expected_status: PrimaryStatus,
         status_func: fn(&Client) -> Result<Status, Error>,
         mut log_cb: impl FnMut(Status),
         mut event: impl FnMut(&Self, Signal) -> Result<Continue, Error>,
     ) -> Result<(), Error> {
         let mut break_on_next = false;
-        for item in self.bus.iter(3000) {
+
+        loop {
+            self.bus.process(Duration::from_millis(3000)).map_err(Error::Connection)?;
+
             if sighandler::status().is_some() {
                 let _ = self.cancel();
             }
 
-            if let ConnectionItem::Nothing = item {
-                if !self.status_is(expected_status)? {
-                    if break_on_next {
-                        log_cb(status_func(self)?);
-
-                        break;
-                    }
-
-                    break_on_next = true;
-                }
-            } else if let Some(signal) = filter_signal(item) {
-                let signal = match &*signal.member().unwrap() {
-                    signals::NO_CONNECTION => Signal::NoConnection,
-                    signals::PACKAGE_FETCH_RESULT => signal
-                        .read2::<u8, String>()
-                        .map(|(status, why)| Status { status, why: why.into() })
-                        .map(Signal::PackageFetchResult)
-                        .map_err(|why| {
-                            Error::ArgumentMismatch(signals::PACKAGE_FETCH_RESULT, why)
-                        })?,
-                    signals::PACKAGE_FETCHED => signal
-                        .read3::<String, u32, u32>()
-                        .map(|(package, completed, total)| FetchStatus {
-                            package: package.into(),
-                            completed,
-                            total,
-                        })
-                        .map(Signal::PackageFetched)
-                        .map_err(|why| Error::ArgumentMismatch(signals::PACKAGE_FETCHED, why))?,
-                    signals::PACKAGE_FETCHING => signal
-                        .read1::<String>()
-                        .map(|package| Signal::PackageFetching(Box::from(package)))
-                        .map_err(|why| Error::ArgumentMismatch(signals::PACKAGE_FETCHING, why))?,
-                    signals::PACKAGE_UPGRADE => signal
-                        .read1::<HashMap<String, String>>()
-                        .map_err(|why| Error::ArgumentMismatch(signals::PACKAGE_UPGRADE, why))
-                        .map(|upgrade| {
-                            upgrade
-                                .into_iter()
-                                .map(|(key, value)| (Box::from(key), Box::from(value)))
-                                .collect::<HashMap<Box<str>, Box<str>>>()
-                        })
-                        .map(Signal::PackageUpgrade)?,
-                    signals::RECOVERY_DOWNLOAD_PROGRESS => signal
-                        .read2::<u64, u64>()
-                        .map_err(|why| {
-                            Error::ArgumentMismatch(signals::RECOVERY_DOWNLOAD_PROGRESS, why)
-                        })
-                        .map(|(progress, total)| Progress { progress, total })
-                        .map(Signal::RecoveryDownloadProgress)?,
-                    signals::RECOVERY_EVENT => signal
-                        .read1::<u8>()
-                        .map_err(|why| Error::ArgumentMismatch(signals::RECOVERY_EVENT, why))
-                        .map(|event| {
-                            RecoveryEvent::from_u8(event).expect("unexpected recovery event value")
-                        })
-                        .map(Signal::RecoveryEvent)?,
-                    signals::RECOVERY_RESULT => signal
-                        .read2::<u8, String>()
-                        .map_err(|why| Error::ArgumentMismatch(signals::RECOVERY_RESULT, why))
-                        .map(|(status, why)| Status { status, why: why.into() })
-                        .map(Signal::RecoveryResult)?,
-                    signals::RELEASE_EVENT => signal
-                        .read1::<u8>()
-                        .map_err(|why| Error::ArgumentMismatch(signals::RELEASE_EVENT, why))
-                        .map(|event| {
-                            UpgradeEvent::from_u8(event).expect("unexpected upgrade event value")
-                        })
-                        .map(Signal::ReleaseEvent)?,
-                    signals::RELEASE_RESULT => signal
-                        .read2::<u8, String>()
-                        .map_err(|why| Error::ArgumentMismatch(signals::RELEASE_RESULT, why))
-                        .map(|(status, why)| Status { status, why: why.into() })
-                        .map(Signal::ReleaseResult)?,
-                    signals::REPO_COMPAT_ERROR => signal
-                        .read2::<Vec<String>, Vec<(String, String)>>()
-                        .map_err(|why| Error::ArgumentMismatch(signals::REPO_COMPAT_ERROR, why))
-                        .map(|(success, failure)| RepoCompatError { success, failure })
-                        .map(Signal::RepoCompatError)?,
-                    _ => continue,
-                };
-
-                if !event(self, signal)?.0 {
+            if let Ok(result) = self.events.try_recv() {
+                if !event(self, result?)?.0 {
                     break;
                 }
+
+                while let Ok(result) = self.events.try_recv() {
+                    if !event(self, result?)?.0 {
+                        break;
+                    }
+                }
+            } else if !self.status_is(expected_status)? {
+                if break_on_next {
+                    log_cb(status_func(self)?);
+
+                    break;
+                }
+
+                break_on_next = true;
             }
         }
 
@@ -442,20 +499,14 @@ impl Client {
 
         m = append_args(m);
 
-        self.bus.send_with_reply_and_block(m, TIMEOUT).map_err(|why| Error::Call(method, why))
+        self.bus
+            .send_with_reply_and_block(m, Duration::from_millis(TIMEOUT))
+            .map_err(|why| Error::Call(method, why))
     }
 
     fn status_is(&self, expected: PrimaryStatus) -> Result<bool, Error> {
         let status = self.status()?;
         let status = PrimaryStatus::from_u8(status.status).ok_or(Error::DaemonStatusOutOfRange)?;
         Ok(status == expected)
-    }
-}
-
-fn filter_signal(ci: ConnectionItem) -> Option<Message> {
-    if let ConnectionItem::Signal(ci) = ci {
-        Some(ci)
-    } else {
-        None
     }
 }

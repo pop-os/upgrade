@@ -409,9 +409,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.51"
+version = "1.0.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c9384ca4b90c0ea47e19a5c996d6643a3e73dedf9b89c65efb67587e34da1bb"
+checksum = "c3d87b23d6a92cd03af510a5ade527033f6aa6fa92161e2d5863a907d4c5e31d"
 
 [[package]]
 name = "cdylib-link-lines"
@@ -735,6 +735,16 @@ name = "dbus"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48b5f0f36f1eebe901b0e6bee369a77ed3396334bf3f09abd46454a576f71819"
+dependencies = [
+ "libc",
+ "libdbus-sys",
+]
+
+[[package]]
+name = "dbus"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38f8875bb7afbc20dec12db09e18af3dcbd672b08592d2932950326a6437c616"
 dependencies = [
  "libc",
  "libdbus-sys",
@@ -1861,7 +1871,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da250ebd784c9cad97c3d33abc56886148846b52da7a30d2b86a9f14e65b9f6b"
 dependencies = [
  "cascade",
- "dbus",
+ "dbus 0.6.5",
 ]
 
 [[package]]
@@ -2131,7 +2141,7 @@ version = "3.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8da29142be3f71b2165a6b3991c26045b674edbf04cdfc42f323094fc3e4b5a"
 dependencies = [
- "dbus",
+ "dbus 0.6.5",
  "mac-notification-sys",
 ]
 
@@ -2510,10 +2520,12 @@ dependencies = [
  "atomic",
  "atty",
  "bitflags",
+ "cascade",
  "chrono",
  "clap",
  "crossbeam 0.7.3",
- "dbus",
+ "dbus 0.8.2",
+ "derive_more",
  "disk-types",
  "distinst-chroot",
  "distinst-disks",
@@ -2542,7 +2554,6 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2",
- "shrinkwraprs",
  "sys-mount",
  "sysfs-class",
  "systemd-boot-conf",
@@ -3122,9 +3133,9 @@ dependencies = [
 
 [[package]]
 name = "ryu"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "535622e6be132bccd223f4bb2b8ac8d53cda3c7a6394944d3b2b33fb974f9d76"
+checksum = "ed3d612bc64430efeb3f7ee6ef26d590dce0c43249217bddc62112540c7941e1"
 
 [[package]]
 name = "same-file"
@@ -3995,7 +4006,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8121b555fe6fd748fb4bb147f7b31b5ea17d006633183447e0d89e19d9aa9b7"
 dependencies = [
- "dbus",
+ "dbus 0.6.5",
  "failure",
  "failure_derive",
 ]

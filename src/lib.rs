@@ -7,6 +7,8 @@ extern crate anyhow;
 #[macro_use]
 extern crate bitflags;
 #[macro_use]
+extern crate cascade;
+#[macro_use]
 extern crate enclose;
 #[macro_use]
 extern crate err_derive;

@@ -1,7 +1,7 @@
 use dbus::{
-    arg::Arg,
+    arg::{messageitem::MessageItem, Arg},
+    message::Message,
     tree::{Factory, MTFn, Method, MethodErr, Signal},
-    Message, MessageItem,
 };
 
 pub struct DbusFactory<'a> {
@@ -20,7 +20,7 @@ impl<'a> DbusFactory<'a> {
             Ok(messages) => {
                 let mut mret = m.msg.method_return();
                 for message in messages {
-                    mret = mret.append(message);
+                    mret = mret.append1(message);
                 }
 
                 Ok(vec![mret])

@@ -33,8 +33,10 @@ use atomic::Atomic;
 use crossbeam::channel::{bounded, Receiver, Sender};
 use dbus::{
     self,
+    blocking::LocalConnection,
+    channel::Sender as _,
+    message::Message,
     tree::{Factory, Signal},
-    BusType, Connection, Message, NameFlag,
 };
 use logind_dbus::LoginManager;
 use num_traits::FromPrimitive;
@@ -92,7 +94,6 @@ pub struct Daemon {
     event_tx:        Sender<Event>,
     fg_rx:           Receiver<FgEvent>,
     dbus_rx:         Receiver<SignalEvent>,
-    connection:      Arc<Connection>,
     status:          Arc<Atomic<DaemonStatus>>,
     sub_status:      Arc<Atomic<u8>>,
     fetching_state:  Arc<Atomic<(u64, u64)>>,
@@ -103,14 +104,10 @@ pub struct Daemon {
 }
 
 impl Daemon {
-    pub fn new(_factory: &DbusFactory) -> Result<Self, DaemonError> {
-        let connection = Arc::new(
-            Connection::get_private(BusType::System).map_err(DaemonError::PrivateConnection)?,
-        );
+    pub fn new(_factory: &DbusFactory) -> Result<(LocalConnection, Self), DaemonError> {
+        let connection = LocalConnection::new_system().map_err(DaemonError::PrivateConnection)?;
 
-        connection
-            .register_name(DBUS_NAME, NameFlag::ReplaceExisting as u32)
-            .map_err(DaemonError::RegisterName)?;
+        connection.request_name(DBUS_NAME, true, true, false).map_err(DaemonError::RegisterName)?;
 
         // Only accept one event at a time.
         let (event_tx, event_rx) = bounded(4);
@@ -287,19 +284,21 @@ impl Daemon {
             }
         }));
 
-        Ok(Daemon {
-            cancel,
+        Ok((
             connection,
-            dbus_rx,
-            event_tx,
-            fetching_state: prog_state,
-            fg_rx,
-            last_known: Default::default(),
-            release_upgrade: None,
-            retain_repos,
-            status,
-            sub_status,
-        })
+            Daemon {
+                cancel,
+                dbus_rx,
+                event_tx,
+                fetching_state: prog_state,
+                fg_rx,
+                last_known: Default::default(),
+                release_upgrade: None,
+                retain_repos,
+                status,
+                sub_status,
+            },
+        ))
     }
 
     pub fn init() -> Result<(), DaemonError> {
@@ -314,7 +313,8 @@ impl Daemon {
         let factory = Factory::new_fn::<()>();
 
         let dbus_factory = DbusFactory::new(&factory);
-        let daemon = Rc::new(RefCell::new(Self::new(&dbus_factory)?));
+        let (mut connection, daemon) = Self::new(&dbus_factory)?;
+        let daemon = Rc::new(RefCell::new(daemon));
 
         let fetch_result = Arc::new(
             dbus_factory
@@ -414,25 +414,25 @@ impl Daemon {
             .add_s(repo_compat_error.clone())
             .add_s(upgrade_event.clone());
 
-        let (connection, fg_receiver, receiver) = {
+        let (fg_receiver, receiver) = {
             let daemon = daemon.borrow();
-            (daemon.connection.clone(), daemon.fg_rx.clone(), daemon.dbus_rx.clone())
+            (daemon.fg_rx.clone(), daemon.dbus_rx.clone())
         };
 
         let tree = factory
             .tree(())
             .add(factory.object_path(DBUS_PATH, ()).introspectable().add(interface));
 
-        tree.set_registered(&connection, true).map_err(DaemonError::TreeRegister)?;
-
-        connection.add_handler(tree);
+        tree.start_receive(&connection);
 
         info!("daemon registered -- listening for new events");
 
         release::cleanup();
 
         loop {
-            connection.incoming(1000).next();
+            connection
+                .process(std::time::Duration::from_millis(1000))
+                .map_err(DaemonError::Process)?;
 
             if let Some(status) = sighandler::status() {
                 info!("received a '{}' signal", status);
@@ -679,7 +679,7 @@ impl Daemon {
                 RecoveryVersion { version: String::new(), build: -1 }
             }
             Err(why) => {
-                return Err(fomat!((why)))?;
+                return Err(fomat!((why)));
             }
         };
 
@@ -757,7 +757,7 @@ impl Daemon {
         Ok(())
     }
 
-    fn send_signal_message(connection: &Connection, message: Message) {
+    fn send_signal_message(connection: &LocalConnection, message: Message) {
         if let Err(()) = connection.send(message) {
             error!("failed to send dbus signal message");
         }

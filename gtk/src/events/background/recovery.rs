@@ -11,7 +11,7 @@ use pop_upgrade::{
     recovery::ReleaseFlags,
 };
 
-pub fn upgrade(client: &Client, send: &dyn Fn(UiEvent), version: &str) -> bool {
+pub fn upgrade(client: &mut Client, send: &dyn Fn(UiEvent), version: &str) -> bool {
     send(UiEvent::Initiated(InitiatedEvent::Recovery));
 
     let arch = "nvidia";

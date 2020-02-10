@@ -39,14 +39,17 @@ const UPGRADE_RESULT_STR: &str = "Release upgrade status";
 const UPGRADE_RESULT_SUCCESS: &str = "systems are go for launch: reboot now";
 const UPGRADE_RESULT_ERROR: &str = "release upgrade aborted";
 
-#[derive(Shrinkwrap)]
+#[derive(AsRef, Deref, DerefMut)]
+#[as_ref]
+#[deref]
+#[deref_mut]
 pub struct Client(client::Client);
 
 impl Client {
     pub fn new() -> Result<Self, client::Error> { client::Client::new().map(Client) }
 
     /// Executes the recovery subcommand of the client.
-    pub fn recovery(&self, matches: &ArgMatches) -> anyhow::Result<()> {
+    pub fn recovery(&mut self, matches: &ArgMatches) -> anyhow::Result<()> {
         match matches.subcommand() {
             ("default-boot", _) => {
                 root_required()?;
@@ -88,7 +91,7 @@ impl Client {
         Ok(())
     }
 
-    pub fn release(&self, matches: &ArgMatches) -> anyhow::Result<()> {
+    pub fn release(&mut self, matches: &ArgMatches) -> anyhow::Result<()> {
         match matches.subcommand() {
             ("dismiss", _) => {
                 let devel = pop_upgrade::development_releases_enabled();
@@ -204,7 +207,7 @@ impl Client {
         Ok(())
     }
 
-    pub fn status(&self, _matches: &ArgMatches) -> anyhow::Result<()> {
+    pub fn status(&mut self, _matches: &ArgMatches) -> anyhow::Result<()> {
         let info = self.0.status()?;
 
         let (status, sub_status) = match DaemonStatus::from_u8(info.status) {
@@ -248,7 +251,7 @@ impl Client {
     }
 
     /// Check if the release has been dismissed by timestamp, or can be.
-    fn dismiss_by_timestamp(&self, next: &str) -> Result<bool, client::Error> {
+    fn dismiss_by_timestamp(&mut self, next: &str) -> Result<bool, client::Error> {
         if !Path::new(INSTALL_DATE).exists() && installed_after_release(next) {
             info!("dismissing notification for the latest release automatically");
             let _ = self.dismiss_notification(DismissEvent::ByTimestamp)?;
@@ -259,7 +262,7 @@ impl Client {
     }
 
     fn release_check(
-        &self,
+        &mut self,
         force_next: bool,
     ) -> Result<(Box<str>, Box<str>, i16, bool), client::Error> {
         let info = self.0.release_check(force_next)?;
@@ -267,7 +270,7 @@ impl Client {
         Ok((info.current, info.next, info.build, info.is_lts))
     }
 
-    fn event_listen_fetch_updates(&self) -> Result<(), client::Error> {
+    fn event_listen_fetch_updates(&mut self) -> Result<(), client::Error> {
         self.event_listen(
             DaemonStatus::FetchingPackages,
             client::Client::fetch_updates_status,
@@ -320,7 +323,7 @@ impl Client {
         )
     }
 
-    fn event_listen_recovery_upgrade(&self) -> Result<(), client::Error> {
+    fn event_listen_recovery_upgrade(&mut self) -> Result<(), client::Error> {
         let mut reset = false;
 
         self.event_listen(
@@ -384,7 +387,7 @@ impl Client {
         )
     }
 
-    fn event_listen_release_upgrade(&self) -> Result<bool, client::Error> {
+    fn event_listen_release_upgrade(&mut self) -> Result<bool, client::Error> {
         let recall = &mut false;
 
         let result = self.event_listen(

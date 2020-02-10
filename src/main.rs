@@ -1,13 +1,13 @@
 #[macro_use]
 extern crate anyhow;
 #[macro_use]
+extern crate derive_more;
+#[macro_use]
 extern crate err_derive;
 #[macro_use]
 extern crate fomat_macros;
 #[macro_use]
 extern crate log;
-#[macro_use]
-extern crate shrinkwraprs;
 
 mod cli;
 mod logging;
@@ -210,7 +210,7 @@ fn main_(matches: &ArgMatches) -> anyhow::Result<()> {
         ("cancel", _) => Client::new()?.cancel()?,
         ("daemon", _) => Daemon::init()?,
         (other, Some(matches)) => {
-            let client = Client::new()?;
+            let mut client = Client::new()?;
             let func = match other {
                 "recovery" => Client::recovery,
                 "release" => Client::release,
@@ -218,7 +218,7 @@ fn main_(matches: &ArgMatches) -> anyhow::Result<()> {
                 _ => unreachable!(),
             };
 
-            func(&client, matches)?
+            func(&mut client, matches)?
         }
         _ => unreachable!("clap argument parsing failed"),
     }
