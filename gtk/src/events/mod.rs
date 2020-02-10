@@ -20,6 +20,7 @@ use gtk::prelude::*;
 use pop_upgrade::{
     client::RepoCompatError,
     daemon::{DaemonStatus, DISMISSED},
+    recovery::RecoveryEvent,
     release::{
         eol::{EolDate, EolStatus},
         UpgradeEvent,
@@ -60,6 +61,7 @@ pub enum OsUpgradeEvent {
 
 #[derive(Debug)]
 pub enum OsRecoveryEvent {
+    Event(RecoveryEvent),
     Refresh,
     Reset,
     Update,
@@ -198,6 +200,19 @@ pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut 
 
             // Events pertaining to the recovery section
             UiEvent::Recovery(event) => match event {
+                OsRecoveryEvent::Event(event) => match event {
+                    RecoveryEvent::Verifying => {
+                        widgets.recovery.options[RECOVERY_PARTITION]
+                            .label("Verifying the fetched recovery image")
+                            .hide_widgets();
+                    }
+                    RecoveryEvent::Syncing => {
+                        widgets.recovery.options[RECOVERY_PARTITION]
+                            .label("Syncing recovery image to disk");
+                    }
+                    _ => (),
+                },
+
                 OsRecoveryEvent::Refresh => {
                     if gtk::ResponseType::Accept == RefreshDialog::new().run() {
                         let _ = state.sender.send(BackgroundEvent::RefreshOS);

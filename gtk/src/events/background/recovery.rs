@@ -1,6 +1,6 @@
 use crate::{
     errors::UiError,
-    events::{CompletedEvent, InitiatedEvent, ProgressEvent, UiEvent},
+    events::{CompletedEvent, InitiatedEvent, OsRecoveryEvent, ProgressEvent, UiEvent},
 };
 
 use super::status_changed;
@@ -35,6 +35,9 @@ pub fn upgrade(client: &Client, send: &dyn Fn(UiEvent), version: &str) -> bool {
                         progress.progress,
                         progress.total,
                     )));
+                }
+                Signal::RecoveryEvent(event) => {
+                    send(UiEvent::Recovery(OsRecoveryEvent::Event(event)));
                 }
                 Signal::RecoveryResult(status) => {
                     if status.status != 0 {
