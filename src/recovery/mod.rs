@@ -1,3 +1,5 @@
+pub mod check;
+
 mod errors;
 mod version;
 
@@ -13,9 +15,9 @@ use sys_mount::{Mount, MountFlags, Unmount, UnmountFlags};
 use tempfile::{tempdir, TempDir};
 
 use crate::{
+    api::Release,
     checksum::validate_checksum,
     external::{findmnt_uuid, rsync},
-    release_api::Release,
     release_architecture::detect_arch,
     system_environment::SystemEnvironment,
 };
@@ -151,8 +153,9 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
             let version_ = version.as_ref().map(String::as_str);
             let arch = arch.as_ref().map(String::as_str);
 
+            let future = crate::release::check::current(version_);
             let (version, build) =
-                crate::release::check::current(version_).ok_or(RecoveryError::NoBuildAvailable)?;
+                futures::executor::block_on(future).ok_or(RecoveryError::NoBuildAvailable)?;
 
             cancellation_check(&cancel)?;
 
@@ -222,8 +225,12 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
         None => detect_arch()?,
     };
 
-    let release = Release::get_release(version, arch).map_err(RecoveryError::ApiError)?;
-    let iso_path = from_remote(cancel, temp, progress, event, &release.url, &release.sha_sum)
+    let build = futures::executor::block_on(Release::fetch(version, arch))
+        .map_err(RecoveryError::ApiError)?
+        .build
+        .ok_or(RecoveryError::NoBuildAvailable)?;
+
+    let iso_path = from_remote(cancel, temp, progress, event, &build.url, &build.sha)
         .map_err(|why| RecoveryError::Download(Box::new(why)))?;
 
     Ok(iso_path)

@@ -1,0 +1,13 @@
+#![enable(implicit_some)]
+(
+	build: (
+		url: "https://pop-iso.sfo2.cdn.digitaloceanspaces.com/18.04/amd64/nvidia/59/pop-os_18.04_amd64_nvidia_59.iso",
+		sha: "1345ad02dd22bb35fecf5eaa28d56d5d1a62d281f7261615bfd32c7ba977af7e",
+		size: 2561900544,
+		build: 59
+	),
+	urgent: (
+		date: "Fri, 31 Jan 2020 20:49:52 +0000",
+		build: 59,
+	)
+)

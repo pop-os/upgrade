@@ -62,18 +62,7 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
         match result {
             Ok(info) => {
                 current = dbg!(Some(info.current.clone()));
-                match client.recovery_version() {
-                    Ok(rinfo) => {
-                        urgent = info.urgent.map_or(false, |urgent| {
-                            rinfo.version != info.current
-                                || rinfo.build < 0
-                                || (rinfo.build as u16) < urgent
-                        });
-                    }
-                    Err(why) => {
-                        error!("failed to retrieve recovery version: {}", why);
-                    }
-                }
+                urgent = info.urgent != -1;
 
                 is_lts = info.is_lts;
                 if devel || info.build >= 0 {

@@ -1,5 +1,5 @@
 use crate::{
-    checksum::ValidateError, release_api::ApiError, release_architecture::ReleaseArchError,
+    api::ApiError, checksum::ValidateError, release_architecture::ReleaseArchError,
     repair::RepairError,
 };
 

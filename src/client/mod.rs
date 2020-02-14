@@ -90,8 +90,8 @@ pub struct RecoveryVersion {
 pub struct ReleaseInfo {
     pub current: Box<str>,
     pub next:    Box<str>,
+    pub urgent:  i64,
     pub build:   i16,
-    pub urgent:  Option<u16>,
     pub is_lts:  bool,
 }
 
@@ -376,13 +376,13 @@ impl Client {
     /// Used to determine if a release upgrade is available.
     pub fn release_check(&self, development: bool) -> Result<ReleaseInfo, Error> {
         self.call_method(methods::RELEASE_CHECK, |m| m.append1(development))?
-            .read5::<&str, &str, i16, i16, bool>()
+            .read5::<&str, &str, i64, i16, bool>()
             .map_err(|why| Error::ArgumentMismatch(methods::RELEASE_CHECK, why))
-            .map(|(current, next, build, urgent, is_lts)| ReleaseInfo {
+            .map(|(current, next, urgent, build, is_lts)| ReleaseInfo {
                 current: current.into(),
                 next: next.into(),
                 build,
-                urgent: if urgent > -1 { Some(urgent as u16) } else { None },
+                urgent,
                 is_lts,
             })
     }

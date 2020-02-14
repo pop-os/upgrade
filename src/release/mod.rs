@@ -17,7 +17,7 @@ use apt_fetcher::{
     apt_uris::{apt_uris, AptUri},
     SourcesLists, UpgradeRequest, Upgrader,
 };
-use futures::{stream, Future, Stream};
+use futures01::{stream, Future, Stream};
 use std::{
     collections::HashSet,
     convert::TryFrom,

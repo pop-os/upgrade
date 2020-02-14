@@ -7,8 +7,6 @@ extern crate anyhow;
 #[macro_use]
 extern crate bitflags;
 #[macro_use]
-extern crate cascade;
-#[macro_use]
 extern crate enclose;
 #[macro_use]
 extern crate err_derive;
@@ -18,6 +16,11 @@ extern crate fomat_macros;
 extern crate log;
 #[macro_use]
 extern crate num_derive;
+#[macro_use]
+extern crate serde;
+
+/// Pop Upgrade static API
+pub mod api;
 
 /// Changelogs for each Pop!_OS release
 pub mod changelogs;
@@ -42,9 +45,6 @@ pub mod recovery;
 
 /// Functions for performing release upgrades
 pub mod release;
-
-/// Support for interaction with the Pop Release API
-pub mod release_api;
 
 /// Function for determinating if the OS requires the NVIDIA or Intel ISO
 pub mod release_architecture;

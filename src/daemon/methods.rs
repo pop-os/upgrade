@@ -1,5 +1,6 @@
 use crate::{
     daemon::{dbus_helper::DbusFactory, Daemon, DaemonStatus},
+    recovery::check::RecoveryRelease,
     release::RefreshOp,
 };
 
@@ -222,24 +223,33 @@ pub fn release_check(
     daemon: Rc<RefCell<Daemon>>,
     dbus_factory: &DbusFactory,
 ) -> Method<MTFn<()>, ()> {
-    fn hardcoded_urgent_build(os: &str) -> i16 {
-        match os {
-            "18.04" => 58,
-            "19.10" => 11,
-            _ => -1,
-        }
-    }
-
     let method = dbus_factory.method(RELEASE_CHECK, move |message| {
         let development = message.read1().map_err(|why| format!("{}", why))?;
-        daemon.borrow_mut().release_check(development).map(|status| {
+        let daemon = daemon.borrow_mut();
+
+        let mut urgent = -1;
+
+        let arch = daemon.release_arch;
+
+        daemon.release_check(development).map(move |status| {
+            let urgent_future = RecoveryRelease::urgent_check(status.current, arch);
+            let urgent_result = futures::executor::block_on(urgent_future);
+
+            match urgent_result {
+                Ok(Some(res)) => urgent = res.date.timestamp(),
+                Ok(None) => (),
+                Err(why) => {
+                    error!("failed to fetch urgent release: {:?}", why);
+                }
+            }
+
             let is_lts = status.is_lts();
-            let urgent = hardcoded_urgent_build(&status.current);
+
             vec![
                 String::from(status.current).into(),
                 String::from(status.next).into(),
-                status.build.status_code().into(),
                 urgent.into(),
+                status.build.status_code().into(),
                 is_lts.into(),
             ]
         })
@@ -248,8 +258,8 @@ pub fn release_check(
     method
         .outarg::<&str>("current")
         .outarg::<&str>("next")
+        .outarg::<i64>("urgent")
         .outarg::<i16>("build")
-        .outarg::<i16>("urgent")
         .outarg::<bool>("is_lts")
         .consume()
 }

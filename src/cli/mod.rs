@@ -95,7 +95,7 @@ impl Client {
         match matches.subcommand() {
             ("dismiss", _) => {
                 let devel = pop_upgrade::development_releases_enabled();
-                let (_, _, _, is_lts) = self.release_check(devel)?;
+                let (_, _, _, _, is_lts) = self.release_check(devel)?;
                 if is_lts {
                     self.dismiss_notification(DismissEvent::ByUser)?;
                 } else {
@@ -103,18 +103,26 @@ impl Client {
                 }
             }
             ("check", _) => {
-                let mut buffer = String::new();
-                let (current, next, available, is_lts) = self.release_check(false)?;
+                let (current, next, urgent, build, is_lts) = self.release_check(false)?;
 
                 if atty::is(atty::Stream::Stdout) {
-                    println!(
-                        "      Current Release: {}\n         Next Release: {}\nNew Release \
-                         Available: {}",
-                        current,
-                        next,
-                        misc::format_build_number(available, &mut buffer)
+                    pintln!(
+                        "      Current Release: " (current) "\n"
+                        "         Next Release: " (next) "\n"
+                        "New Release Available: "
+                        if (build < 0) {
+                            "false\n"
+                        } else  {
+                            (build) "\n"
+                        }
+                        "  Urgent Recovery ISO: "
+                        if (urgent == -1) {
+                            "None"
+                        } else {
+                            (chrono::NaiveDateTime::from_timestamp(urgent, 0))
+                        }
                     );
-                } else if available >= 0 {
+                } else if build >= 0 {
                     if is_lts && (self.dismissed(&next) || self.dismiss_by_timestamp(&next)?) {
                         return Ok(());
                     }
@@ -151,7 +159,7 @@ impl Client {
 
                 let forcing =
                     matches.is_present("force-next") || pop_upgrade::development_releases_enabled();
-                let (current, next, available, _is_lts) = self.release_check(forcing)?;
+                let (current, next, _urgent, available, _is_lts) = self.release_check(forcing)?;
 
                 // Only upgrade if an upgrade is possible, or if being forced to upgrade.
                 if forcing || available >= 0 {
@@ -264,10 +272,10 @@ impl Client {
     fn release_check(
         &mut self,
         force_next: bool,
-    ) -> Result<(Box<str>, Box<str>, i16, bool), client::Error> {
+    ) -> Result<(Box<str>, Box<str>, i64, i16, bool), client::Error> {
         let info = self.0.release_check(force_next)?;
 
-        Ok((info.current, info.next, info.build, info.is_lts))
+        Ok((info.current, info.next, info.urgent, info.build, info.is_lts))
     }
 
     fn event_listen_fetch_updates(&mut self) -> Result<(), client::Error> {

@@ -1,0 +1,13 @@
+#![enable(implicit_some)]
+(
+	build: (
+		url: "https://pop-iso.sfo2.cdn.digitaloceanspaces.com/18.04/amd64/intel/59/pop-os_18.04_amd64_intel_59.iso",
+		sha: "0ae2c20327bc1059892c9efea71b21753782979431091fa3da60e4eaa036db1c",
+		size: 2256076800,
+		build: 59
+	),
+	urgent: (
+		date: "Fri, 31 Jan 2020 20:46:23 +0000",
+		build: 59,
+	)
+)

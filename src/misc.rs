@@ -1,3 +1,5 @@
+use anyhow::Context;
+use chrono::{DateTime, FixedOffset};
 use std::{fs::File, io, path::Path};
 
 pub fn create<P: AsRef<Path>>(path: P) -> io::Result<File> {
@@ -34,4 +36,9 @@ pub fn format_build_number(value: i16, buffer: &mut String) -> &str {
         *buffer = format!("{}", value);
         buffer.as_str()
     }
+}
+
+pub fn parse_rfc2822(time: &str) -> anyhow::Result<DateTime<FixedOffset>> {
+    DateTime::parse_from_rfc2822(time)
+        .with_context(|| fomat!("failed to parse RFC 2822 date (" (time) ")"))
 }

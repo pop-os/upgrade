@@ -1,13 +1,15 @@
-use crate::release_api::{ApiError, Release};
+use crate::api::{ApiError, Release};
+use http::StatusCode;
+use std::future::Future;
 use ubuntu_version::{Version, VersionError};
 
 #[derive(Debug)]
 pub enum BuildStatus {
     Blacklisted,
     Build(u16),
-    ConnectionIssue(reqwest::Error),
+    ConnectionIssue(isahc::Error),
     InternalIssue(ApiError),
-    ServerStatus(reqwest::Error),
+    ServerStatus(StatusCode),
 }
 
 impl BuildStatus {
@@ -34,7 +36,7 @@ impl From<Result<u16, ApiError>> for BuildStatus {
     fn from(result: Result<u16, ApiError>) -> Self {
         match result {
             Err(ApiError::Get(why)) => BuildStatus::ConnectionIssue(why),
-            Err(ApiError::Status(why)) => BuildStatus::ServerStatus(why),
+            Err(ApiError::Server(status)) => BuildStatus::ServerStatus(status),
             Err(otherwise) => BuildStatus::InternalIssue(otherwise),
             Ok(build) => BuildStatus::Build(build),
         }
@@ -66,22 +68,27 @@ impl ReleaseStatus {
     pub fn is_lts(&self) -> bool { self.is_lts }
 }
 
-pub fn next(development: bool) -> Result<ReleaseStatus, VersionError> {
-    Version::detect().map(|current| {
-        next_(current, development, |build| Release::build_exists(build, "intel").into())
-    })
+pub async fn next(development: bool) -> Result<ReleaseStatus, VersionError> {
+    let current = Version::detect()?;
+
+    let next = next_(current, development, |build| {
+        let build = Box::from(build);
+        async move { Release::build_exists(&*build, "intel").await.into() }
+    });
+
+    Ok(next.await)
 }
 
-pub fn current(version: Option<&str>) -> Option<(Box<str>, u16)> {
+pub async fn current(version: Option<&str>) -> Option<(Box<str>, u16)> {
     if let Some(version) = version {
-        let build = Release::build_exists(version, "intel").ok()?;
+        let build = Release::build_exists(version, "intel").await.ok()?;
         return Some((version.into(), build));
     }
 
     let current = Version::detect().ok()?;
     let release_str = release_str(current.major, current.minor);
 
-    Some((release_str.into(), Release::build_exists(release_str, "intel").ok()?))
+    Some((release_str.into(), Release::build_exists(release_str, "intel").await.ok()?))
 }
 
 pub fn release_str(major: u8, minor: u8) -> &'static str {
@@ -93,24 +100,28 @@ pub fn release_str(major: u8, minor: u8) -> &'static str {
     }
 }
 
-fn next_(
+async fn next_<F: Future<Output = BuildStatus>>(
     current: Version,
     development: bool,
-    release_check: impl Fn(&str) -> BuildStatus,
+    release_check: impl for<'a> Fn(&'a str) -> F,
 ) -> ReleaseStatus {
     let next: &str;
     match (current.major, current.minor) {
         (18, 4) => {
             next = if development { "20.04" } else { "19.10" };
 
-            ReleaseStatus { build: release_check(next), current: "18.04", is_lts: true, next }
+            ReleaseStatus { build: release_check(next).await, current: "18.04", is_lts: true, next }
         }
 
         (19, 10) => {
             next = "20.04";
 
             ReleaseStatus {
-                build: if development { release_check(next) } else { BuildStatus::Blacklisted },
+                build: if development {
+                    release_check(next).await
+                } else {
+                    BuildStatus::Blacklisted
+                },
                 current: "19.10",
                 is_lts: false,
                 next,
@@ -136,44 +147,46 @@ mod tests {
         let bionic = Version { major: 18, minor: 4, patch: 0 };
         let eoan = Version { major: 19, minor: 10, patch: 0 };
 
-        assert_eq!(
-            next_(bionic, false, |_| BuildStatus::Build(1)),
-            ReleaseStatus {
-                current: "18.04",
-                next:    "19.10",
-                build:   BuildStatus::Build(1),
-                is_lts:  true,
-            }
-        );
+        futures::executor::block_on(async move {
+            assert_eq!(
+                next_(bionic, false, |_| async { BuildStatus::Build(1) }).await,
+                ReleaseStatus {
+                    current: "18.04",
+                    next:    "19.10",
+                    build:   BuildStatus::Build(1),
+                    is_lts:  true,
+                }
+            );
 
-        assert_eq!(
-            next_(bionic, true, |_| BuildStatus::Build(1)),
-            ReleaseStatus {
-                current: "18.04",
-                next:    "20.04",
-                build:   BuildStatus::Build(1),
-                is_lts:  true,
-            }
-        );
+            assert_eq!(
+                next_(bionic, true, |_| async { BuildStatus::Build(1) }).await,
+                ReleaseStatus {
+                    current: "18.04",
+                    next:    "20.04",
+                    build:   BuildStatus::Build(1),
+                    is_lts:  true,
+                }
+            );
 
-        assert_eq!(
-            next_(eoan, false, |_| BuildStatus::Build(1)),
-            ReleaseStatus {
-                current: "19.10",
-                next:    "20.04",
-                build:   BuildStatus::Blacklisted,
-                is_lts:  false,
-            }
-        );
+            assert_eq!(
+                next_(eoan, false, |_| async { BuildStatus::Build(1) }).await,
+                ReleaseStatus {
+                    current: "19.10",
+                    next:    "20.04",
+                    build:   BuildStatus::Blacklisted,
+                    is_lts:  false,
+                }
+            );
 
-        assert_eq!(
-            next_(eoan, true, |_| BuildStatus::Build(1)),
-            ReleaseStatus {
-                current: "19.10",
-                next:    "20.04",
-                build:   BuildStatus::Build(1),
-                is_lts:  false,
-            }
-        );
+            assert_eq!(
+                next_(eoan, true, |_| async { BuildStatus::Build(1) }).await,
+                ReleaseStatus {
+                    current: "19.10",
+                    next:    "20.04",
+                    build:   BuildStatus::Build(1),
+                    is_lts:  false,
+                }
+            );
+        });
     }
 }

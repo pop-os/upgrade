@@ -94,6 +94,7 @@ pub struct Daemon {
     event_tx:        Sender<Event>,
     fg_rx:           Receiver<FgEvent>,
     dbus_rx:         Receiver<SignalEvent>,
+    release_arch:    &'static str,
     status:          Arc<Atomic<DaemonStatus>>,
     sub_status:      Arc<Atomic<u8>>,
     fetching_state:  Arc<Atomic<(u64, u64)>>,
@@ -108,6 +109,14 @@ impl Daemon {
         let connection = LocalConnection::new_system().map_err(DaemonError::PrivateConnection)?;
 
         connection.request_name(DBUS_NAME, true, true, false).map_err(DaemonError::RegisterName)?;
+
+        let release_arch = match crate::release_architecture::detect_arch() {
+            Ok(arch) => arch,
+            Err(why) => {
+                error!("failed to detect release architecture: {}", why);
+                "intel"
+            }
+        };
 
         // Only accept one event at a time.
         let (event_tx, event_rx) = bounded(4);
@@ -293,6 +302,7 @@ impl Daemon {
                 fetching_state: prog_state,
                 fg_rx,
                 last_known: Default::default(),
+                release_arch,
                 release_upgrade: None,
                 retain_repos,
                 status,
@@ -694,7 +704,8 @@ impl Daemon {
     fn release_check(&self, development: bool) -> Result<ReleaseStatus, String> {
         info!("performing a release check");
 
-        let status = release::check::next(development).map_err(|why| format!("{}", why))?;
+        let status = futures::executor::block_on(release::check::next(development))
+            .map_err(|why| format!("{}", why))?;
 
         let mut buffer = String::new();
 
