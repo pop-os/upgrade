@@ -81,6 +81,7 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
                         -1 => "Failed to retrieve build status due to an internal error.",
                         -2 | -4 => {
                             is_current = true;
+                            status_failed = false;
                             "You are running the most current Pop!_OS version."
                         }
                         -3 => "Connection failed. You may be offline.",
