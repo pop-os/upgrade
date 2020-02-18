@@ -2,7 +2,7 @@
 (
 	build: (
 		url: "https://pop-iso.sfo2.cdn.digitaloceanspaces.com/19.10/amd64/intel/12/pop-os_19.10_amd64_intel_12.iso",
-		sha: "4b76c0b25fbd14856062bdfa5ccdf360c6f87dbc6321e796ab95e0d6eac0b3c2",
+		sha: "2fa225f329e0d6206495bb127cab24d6fa43535b9a4994dcc1c3afcd015cbf75",
 		size: 2241560576,
 		build: 12
 	),
