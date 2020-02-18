@@ -66,6 +66,7 @@ tokio-process = "0.2"
 twoway = "0.2"
 ubuntu-version = "0.2"
 yansi = "0.5"
+walkdir = "2"
 
 [patch.crates-io]
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }

@@ -2711,6 +2711,7 @@ dependencies = [
  "tokio-process",
  "twoway",
  "ubuntu-version",
+ "walkdir",
  "yansi",
 ]
 

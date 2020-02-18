@@ -77,6 +77,8 @@ impl Release {
             }
         }
 
+        info!("fetching new release info");
+
         let text = Self::fetch_text(release, variant).await?;
 
         let release = ron::de::from_str::<RawRelease>(&text)
@@ -149,6 +151,7 @@ async fn requires_refresh(path: &str) -> bool {
             let current = SystemTime::now();
             if let Ok(since) = current.duration_since(modified) {
                 if since < Duration::from_secs(60 * 60 * 24) {
+                    info!("release info was updated less then 24 hours ago");
                     return false;
                 }
             }

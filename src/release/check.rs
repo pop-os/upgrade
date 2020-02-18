@@ -79,22 +79,27 @@ pub async fn next(development: bool) -> Result<ReleaseStatus, VersionError> {
     Ok(next.await)
 }
 
-pub async fn current(version: Option<&str>) -> Option<(Box<str>, u16)> {
+pub async fn current<'a>(
+    version: Option<&str>,
+    arch: Option<&'a str>,
+) -> Option<(Box<str>, &'a str, Release)> {
+    let arch = arch.or_else(|| crate::release_architecture::detect_arch().ok()).unwrap_or("intel");
+
     if let Some(version) = version {
-        let build = Release::build_exists(version, "intel").await.ok()?;
-        return Some((version.into(), build));
+        let build = Release::fetch(version, arch).await.ok()?;
+        return Some((version.into(), arch, build));
     }
 
     let current = Version::detect().ok()?;
     let release_str = release_str(current.major, current.minor);
 
-    Some((release_str.into(), Release::build_exists(release_str, "intel").await.ok()?))
+    Some((release_str.into(), arch, Release::fetch(release_str, arch).await.ok()?))
 }
 
 pub fn release_str(major: u8, minor: u8) -> &'static str {
     match (major, minor) {
         (18, 4) => "18.04",
-        (19, 10) => "18.10",
+        (19, 10) => "19.10",
         (20, 4) => "20.04",
         _ => panic!("this version of pop-upgrade is not supported on this release"),
     }

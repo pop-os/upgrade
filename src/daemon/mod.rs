@@ -481,7 +481,7 @@ impl Daemon {
                         | SignalEvent::RecoveryUpgradeResult(_)
                         | SignalEvent::ReleaseUpgradeEvent(_)
                         | SignalEvent::ReleaseUpgradeResult(_)
-                        | SignalEvent::Upgrade(_) => info!("{}", dbus_event),
+                        | SignalEvent::Upgrade(_) => info!("{:?}", dbus_event),
                         _ => (),
                     }
 
@@ -705,7 +705,7 @@ impl Daemon {
         info!("performing a release check");
 
         let status = futures::executor::block_on(release::check::next(development))
-            .map_err(|why| format!("{}", why))?;
+            .map_err(|why| format!("{:?}", why))?;
 
         let mut buffer = String::new();
 

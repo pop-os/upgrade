@@ -6,6 +6,7 @@ use anyhow::Context;
 use async_std::fs;
 use chrono::{DateTime, FixedOffset};
 use futures::try_join;
+use std::path::Path;
 
 const RECOVERY_RELEASE: &str = "/recovery/dists/stable/Release";
 
@@ -17,11 +18,16 @@ pub struct RecoveryRelease {
 }
 
 impl RecoveryRelease {
-    pub async fn fetch() -> anyhow::Result<Self> {
-        let release = fs::read_to_string(RECOVERY_RELEASE)
-            .await
-            .context("failed to fetch release file from recovery partition")?;
+    pub async fn fetch() -> anyhow::Result<Self> { Self::fetch_from_file(RECOVERY_RELEASE).await }
 
+    pub async fn fetch_from_file<P: AsRef<Path>>(file: P) -> anyhow::Result<Self> {
+        fs::read_to_string(file.as_ref())
+            .await
+            .context("failed to fetch release file from recovery partition")
+            .and_then(|text| Self::parse(&text))
+    }
+
+    pub fn parse(release: &str) -> anyhow::Result<Self> {
         let (mut date, mut version) = (None, None);
 
         for line in release.lines() {

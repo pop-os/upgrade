@@ -3,22 +3,23 @@ pub mod check;
 mod errors;
 mod version;
 
+use async_std::{
+    fs as afs,
+    path::{Path as APath, PathBuf as APathBuf},
+    prelude::*,
+};
 use atomic::Atomic;
 use parallel_getter::ParallelGetter;
 use std::{
     fs::{self, OpenOptions},
-    io::{Seek, SeekFrom, Write},
+    io::{self, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
     sync::{atomic::Ordering, Arc},
 };
 use sys_mount::{Mount, MountFlags, Unmount, UnmountFlags};
-use tempfile::{tempdir, TempDir};
 
 use crate::{
-    api::Release,
-    checksum::validate_checksum,
-    external::{findmnt_uuid, rsync},
-    release_architecture::detect_arch,
+    api::Release, checksum::validate_checksum, external::findmnt_uuid,
     system_environment::SystemEnvironment,
 };
 
@@ -82,31 +83,11 @@ where
         return Err(RecoveryError::RecoveryNotFound);
     }
 
-    fn verify(version: &str, build: u16) -> bool {
-        recovery_file()
-            .ok()
-            .and_then(move |string| {
-                let mut iter = string.split_whitespace();
-                let current_version = iter.next()?;
-                let current_build = iter.next()?.parse::<u16>().ok()?;
-
-                Some(version == current_version && build == current_build)
-            })
-            .unwrap_or(false)
-    }
-
     // The function must be Arc'd so that it can be borrowed.
     // Borrowck disallows moving ownership due to using FnMut instead of FnOnce.
     let progress = Arc::new(progress);
 
-    if let Some((version, build)) =
-        fetch_iso(cancel, verify, &action, &progress, &event, "/recovery")?
-    {
-        let data = fomat!((version) " " (build));
-        fs::write(RECOVERY_VERSION, data.as_bytes()).map_err(RecoveryError::WriteVersion)?;
-    }
-
-    Ok(())
+    fetch_iso(cancel, &action, &progress, &event, "/recovery")
 }
 
 pub fn recovery_exists() -> Result<bool, RecoveryError> {
@@ -124,12 +105,11 @@ pub fn recovery_exists() -> Result<bool, RecoveryError> {
 
 fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     cancel: &Arc<dyn Fn() -> bool + Send + Sync>,
-    verify: fn(&str, u16) -> bool,
     action: &UpgradeMethod,
     progress: &Arc<F>,
     event: &dyn Fn(RecoveryEvent),
     recovery_path: P,
-) -> RecResult<Option<(Box<str>, u16)>> {
+) -> RecResult<()> {
     let recovery_path = recovery_path.as_ref();
     info!("fetching ISO to upgrade recovery partition at {}", recovery_path.display());
     (*event)(RecoveryEvent::Fetching);
@@ -143,97 +123,97 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
         return Err(RecoveryError::EfiNotFound);
     }
 
-    let recovery_uuid = findmnt_uuid(recovery_path)?;
-    let casper = ["casper-", &recovery_uuid].concat();
-    let recovery = ["Recovery-", &recovery_uuid].concat();
+    futures::executor::block_on(async move {
+        let recovery_uuid = findmnt_uuid(recovery_path)?;
 
-    let mut temp_iso_dir = None;
-    let (build, version, iso) = match action {
-        UpgradeMethod::FromRelease { ref version, ref arch, flags } => {
-            let version_ = version.as_ref().map(String::as_str);
-            let arch = arch.as_ref().map(String::as_str);
+        let iso = match action {
+            UpgradeMethod::FromRelease { ref version, ref arch, flags } => {
+                let version_ = version.as_ref().map(String::as_str);
+                let arch_ = arch.as_ref().map(String::as_str);
 
-            let future = crate::release::check::current(version_);
-            let (version, build) =
-                futures::executor::block_on(future).ok_or(RecoveryError::NoBuildAvailable)?;
+                let (version, arch, release) = crate::release::check::current(version_, arch_)
+                    .await
+                    .ok_or(RecoveryError::NoBuildAvailable)?;
 
-            cancellation_check(&cancel)?;
+                let current = release.build.ok_or(RecoveryError::NoBuildAvailable)?;
 
-            if verify(&version, build) {
-                info!("recovery partition is already upgraded to {}b{}", version, build);
-                return Ok(None);
+                cancellation_check(&cancel)?;
+
+                let cache =
+                    Path::new(crate::CACHE_DIR).join([&*version, "-", arch, ".iso"].concat());
+
+                if cache.exists()
+                    && validate_checksum(&mut fs::File::open(&cache)?, &*current.sha).is_ok()
+                {
+                    info!("recovery partition has already been fetched");
+                } else {
+                    from_release(cancel, &*cache, progress, event, &*version, arch, *flags).await?;
+                }
+
+                cache
             }
+            UpgradeMethod::FromFile(ref _path) => {
+                // from_file(path)?
+                unimplemented!();
+            }
+        };
 
-            cancellation_check(&cancel)?;
+        cancellation_check(&cancel)?;
 
-            let iso =
-                from_release(cancel, &mut temp_iso_dir, progress, event, &version, arch, *flags)?;
-            (build, version, iso)
-        }
-        UpgradeMethod::FromFile(ref _path) => {
-            // from_file(path)?
-            unimplemented!();
-        }
-    };
+        (*event)(RecoveryEvent::Syncing);
 
-    cancellation_check(&cancel)?;
+        let tempdir = tempfile::tempdir().map_err(RecoveryError::TempDir)?;
+        let temppath = tempdir.path();
 
-    (*event)(RecoveryEvent::Syncing);
-    let tempdir = tempfile::tempdir().map_err(RecoveryError::TempDir)?;
-    let _iso_mount = Mount::new(iso, tempdir.path(), "iso9660", MountFlags::RDONLY, None)?
-        .into_unmount_drop(UnmountFlags::DETACH);
+        info!("mounting iso");
+        let _iso_mount = Mount::new(iso, temppath, "iso9660", MountFlags::RDONLY, None)?
+            .into_unmount_drop(UnmountFlags::DETACH);
 
-    let disk = tempdir.path().join(".disk");
-    let dists = tempdir.path().join("dists");
-    let pool = tempdir.path().join("pool");
-    let casper_p = tempdir.path().join("casper/");
-    let efi_recovery = efi_path.join(&recovery);
-    let efi_initrd = efi_recovery.join("initrd.gz");
-    let efi_vmlinuz = efi_recovery.join("vmlinuz.efi");
-    let casper_initrd = recovery_path.join([&casper, "/initrd.gz"].concat());
-    let casper_vmlinuz = recovery_path.join([&casper, "/vmlinuz.efi"].concat());
-    let recovery_str = recovery_path.to_str().unwrap();
+        let iso_casper = temppath.join("casper/");
+        let iso_disk = temppath.join(".disk");
+        let iso_dists = temppath.join("dists");
+        let iso_pool = temppath.join("pool/");
 
-    rsync(&[&disk, &dists, &pool], recovery_str, &["-KLavc", "--inplace", "--delete"])?;
+        let rec_casper = ["/recovery/casper-", &*recovery_uuid].concat();
+        let rec_disk = Path::new("/recovery/.disk");
+        let rec_dists = Path::new("/recovery/dists");
+        let rec_pool = Path::new("/recovery/pool");
 
-    rsync(
-        &[&casper_p],
-        &[recovery_str, "/", &casper].concat(),
-        &["-KLavc", "--inplace", "--delete"],
-    )?;
+        info!("removing prior recovery files");
+        remove_prior_recovery().await?;
 
-    crate::misc::cp(&casper_initrd, &efi_initrd)?;
-    crate::misc::cp(&casper_vmlinuz, &efi_vmlinuz)?;
+        let casper = sync(&iso_casper, Path::new(&rec_casper));
+        let disk = sync(&iso_disk, rec_disk);
+        let dists = sync(&iso_dists, rec_dists);
+        let pool = sync(&iso_pool, rec_pool);
 
-    (*event)(RecoveryEvent::Complete);
+        info!("copying files");
+        futures::try_join!(casper, disk, dists, pool)?;
 
-    Ok(Some((version, build)))
+        (*event)(RecoveryEvent::Complete);
+
+        Ok(())
+    })
 }
 
 /// Fetches the release ISO remotely from api.pop-os.org.
-fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
+async fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
     cancel: &Arc<dyn Fn() -> bool + Send + Sync>,
-    temp: &mut Option<TempDir>,
+    path: &Path,
     progress: &Arc<F>,
     event: &dyn Fn(RecoveryEvent),
     version: &str,
-    arch: Option<&str>,
+    arch: &str,
     _flags: ReleaseFlags,
-) -> RecResult<PathBuf> {
-    let arch = match arch {
-        Some(ref arch) => arch,
-        None => detect_arch()?,
-    };
-
-    let build = futures::executor::block_on(Release::fetch(version, arch))
+) -> RecResult<()> {
+    let build = Release::fetch(version, arch)
+        .await
         .map_err(RecoveryError::ApiError)?
         .build
         .ok_or(RecoveryError::NoBuildAvailable)?;
 
-    let iso_path = from_remote(cancel, temp, progress, event, &build.url, &build.sha)
-        .map_err(|why| RecoveryError::Download(Box::new(why)))?;
-
-    Ok(iso_path)
+    from_remote(cancel, path, progress, event, &build.url, &build.sha)
+        .map_err(|why| RecoveryError::Download(Box::new(why)))
 }
 
 /// Downloads the ISO from a remote location, to a temporary local directory.
@@ -241,15 +221,13 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
 /// Once downloaded, the ISO will be verfied against the given checksum.
 fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
     cancel: &Arc<dyn Fn() -> bool + Send + Sync>,
-    temp_dir: &mut Option<TempDir>,
+    path: &Path,
     progress: &Arc<F>,
     event: &dyn Fn(RecoveryEvent),
     url: &str,
     checksum: &str,
-) -> RecResult<PathBuf> {
+) -> RecResult<()> {
     info!("downloading ISO from remote at {}", url);
-    let temp = tempdir().map_err(RecoveryError::TempDir)?;
-    let path = temp.path().join("new.iso");
 
     let mut file =
         OpenOptions::new().create(true).write(true).read(true).truncate(true).open(&path)?;
@@ -278,12 +256,9 @@ fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
     file.seek(SeekFrom::Start(0))?;
 
     validate_checksum(&mut file, checksum)
-        .map_err(|why| RecoveryError::Checksum { path: path.clone(), why })?;
+        .map_err(|why| RecoveryError::Checksum { path: path.into(), why })?;
 
-    cancellation_check(cancel)?;
-
-    *temp_dir = Some(temp);
-    Ok(path)
+    cancellation_check(cancel)
 }
 
 fn cancellation_check(cancel: &Arc<dyn Fn() -> bool + Send + Sync>) -> RecResult<()> {
@@ -292,4 +267,77 @@ fn cancellation_check(cancel: &Arc<dyn Fn() -> bool + Send + Sync>) -> RecResult
     } else {
         Ok(())
     }
+}
+
+async fn remove_prior_recovery() -> io::Result<()> {
+    let mut stream = afs::read_dir("/recovery").await?;
+
+    while let Some(entry) = stream.next().await {
+        if let Ok(entry) = entry {
+            let path = entry.path();
+            if path.is_dir().await {
+                info!("removing directory: {:?}", path);
+                afs::remove_dir_all(path).await?;
+            } else if let Some(name) = path.file_name() {
+                if "recovery.conf"
+                    != name.to_str().expect("corrupted filename in recovery partition")
+                {
+                    info!("removing file: {:?}", path);
+                    afs::remove_file(path).await?;
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+use walkdir::WalkDir;
+
+async fn sync(source: &Path, dest: &Path) -> io::Result<()> {
+    let mut links = Vec::new();
+
+    walk_and_copy(&mut links, source, dest).await?;
+
+    while let Some((link, dpath)) = links.pop() {
+        walk_and_copy(&mut links, link.as_ref(), &dpath).await?;
+    }
+
+    Ok(())
+}
+
+async fn walk_and_copy(
+    links: &mut Vec<(APathBuf, PathBuf)>,
+    source: &Path,
+    dest: &Path,
+) -> io::Result<()> {
+    for entry in WalkDir::new(source) {
+        if let Ok(entry) = entry {
+            let spath = entry.path();
+            let dpath = dest.join(spath.strip_prefix(source).unwrap());
+
+            if let Ok(metadata) = afs::symlink_metadata(spath).await {
+                let ftype = metadata.file_type();
+
+                if ftype.is_symlink() {
+                    if let Ok(mut link) = afs::read_link(spath).await {
+                        if link.is_relative() {
+                            link = APath::new(&dest).join(&link);
+                        }
+
+                        links.push((link, dpath));
+                    }
+                } else if ftype.is_dir() {
+                    info!("creating directory: {:?}", dpath);
+                    afs::create_dir(dpath).await?;
+                } else if ftype.is_file() {
+                    info!("creating file: {:?}", dpath);
+                    // NOTE: hard links unsupported for FAT32
+                    afs::copy(spath, dpath).await?;
+                }
+            }
+        }
+    }
+
+    Ok(())
 }

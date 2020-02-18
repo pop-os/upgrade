@@ -71,6 +71,7 @@ pub static DBUS_IFACE: &str = "com.system76.PopUpgrade";
 
 pub const DEVELOPMENT_RELEASE_FILE: &str = "/etc/pop-upgrade/devel";
 
+pub const CACHE_DIR: &str = "/var/cache/pop-upgrade";
 pub const VAR_LIB_DIR: &str = "/var/lib/pop-upgrade";
 pub const TRANSITIONAL_SNAPS: &str = "/var/lib/pop-upgrade/transitional_snaps";
 
