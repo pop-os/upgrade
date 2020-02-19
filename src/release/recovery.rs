@@ -13,14 +13,19 @@ pub fn mode_is(option: &str) -> anyhow::Result<bool> {
 /// boot option.
 ///
 /// It will be up to the recovery partition to revert this change once it has completed its job.
-pub fn mode_set(mode: &str) -> anyhow::Result<()> {
-    open()?.update("MODE", mode).write().context("failed to update the recovery configuration file")
+pub fn mode_set(mode: &str, prev_boot: &str) -> anyhow::Result<()> {
+    open()?
+        .update("MODE", mode)
+        .update("PREV_BOOT", prev_boot)
+        .write()
+        .context("failed to update the recovery configuration file")
 }
 
 /// Unsets the `MODE` variable defined in `/recovery/recovery.conf`.
 pub fn mode_unset() -> anyhow::Result<()> {
     let mut envfile = open()?;
     envfile.store.remove("MODE");
+    envfile.store.remove("PREV_BOOT");
     envfile.write().context("failed to update the recovery configuration file")
 }
 

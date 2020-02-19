@@ -53,7 +53,7 @@ impl Client {
         match matches.subcommand() {
             ("default-boot", _) => {
                 root_required()?;
-                systemd::set_default_boot_variant(LoaderEntry::Recovery)?;
+                systemd::BootConf::load()?.set_default_boot_variant(LoaderEntry::Recovery)?;
             }
             ("upgrade", Some(matches)) => {
                 match matches.subcommand() {

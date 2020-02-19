@@ -80,19 +80,26 @@ pub enum RefreshOp {
 pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
     recovery::upgrade_prereq().map_err(ReleaseError::RecoveryConf)?;
 
+    let mut conf = systemd::BootConf::load().map_err(ReleaseError::RecoveryConf)?;
+
     match op {
         RefreshOp::Disable => {
             info!("Disabling refresh OS");
-            systemd::set_default_boot_variant(LoaderEntry::Current)
+
+            conf.set_default_boot_variant(LoaderEntry::Current)
                 .map_err(ReleaseError::SystemdBoot)?;
             recovery::mode_unset().map_err(ReleaseError::RecoveryConf)?;
+
             Ok(false)
         }
         RefreshOp::Enable => {
             info!("Enabling refresh OS");
-            systemd::set_default_boot_variant(LoaderEntry::Recovery)
+
+            recovery::mode_set("refresh", conf.default_boot())
+                .map_err(ReleaseError::RecoveryConf)?;
+            conf.set_default_boot_variant(LoaderEntry::Recovery)
                 .map_err(ReleaseError::SystemdBoot)?;
-            recovery::mode_set("refresh").map_err(ReleaseError::RecoveryConf)?;
+
             Ok(true)
         }
         RefreshOp::Status => recovery::mode_is("refresh").map_err(ReleaseError::RecoveryConf),
@@ -448,9 +455,12 @@ pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResul
     match action {
         UpgradeMethod::Offline => systemd::upgrade_set(from, to),
         UpgradeMethod::Recovery => {
-            recovery::mode_set("upgrade").map_err(ReleaseError::RecoveryConf)?;
-            systemd::set_default_boot_variant(LoaderEntry::Recovery)
-                .map_err(ReleaseError::SystemdBoot)
+            let mut conf = systemd::BootConf::load().map_err(ReleaseError::RecoveryConf)?;
+
+            recovery::mode_set("upgrade", conf.default_boot())
+                .map_err(ReleaseError::RecoveryConf)?;
+
+            conf.set_default_boot_variant(LoaderEntry::Recovery).map_err(ReleaseError::SystemdBoot)
         }
     }
 }
