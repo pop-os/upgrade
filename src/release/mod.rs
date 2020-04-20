@@ -539,12 +539,12 @@ fn systemd_boot_loader_swap(loader: LoaderEntry, description: &str) -> RelResult
         let recovery_entry = entries
             .iter()
             .find(|e| match loader {
-                LoaderEntry::Current => e.filename.to_lowercase().ends_with("current"),
-                LoaderEntry::Recovery => e.filename.to_lowercase().starts_with("recovery"),
+                LoaderEntry::Current => e.id.to_lowercase().ends_with("current"),
+                LoaderEntry::Recovery => e.id.to_lowercase().starts_with("recovery"),
             })
             .ok_or(ReleaseError::MissingRecoveryEntry)?;
 
-        loader_conf.default = Some(recovery_entry.filename.to_owned());
+        loader_conf.default = Some(recovery_entry.id.to_owned());
     }
 
     info!("found the {} -- setting it as the default boot entry", description);
