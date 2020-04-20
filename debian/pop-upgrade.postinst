@@ -1,6 +1,13 @@
 #!/bin/sh
 set -x
 systemctl --global enable pop-upgrade-notify.timer
+systemctl enable pop-upgrade
+
+# Restart the upgrade service if it is not currently upgrading
+if ! test -e /pop-upgrade && ! test -e /pop_preparing_release_upgrade
+then
+    systemctl restart pop-upgrade
+fi
 
 #DEBHELPER#
 
