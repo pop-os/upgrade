@@ -140,16 +140,10 @@ impl Client {
 
                 if atty::is(atty::Stream::Stdout) {
                     let mut buffer = String::new();
-                    println!(
-                        "{}: {}",
-                        color_primary("Current Release"),
-                        color_secondary(&current)
-                    );
-                    println!("{}: {}", color_primary("Upgrading to"), color_secondary(&next));
-                    println!(
-                        "{}: {}",
-                        color_primary("New version available"),
-                        color_secondary(misc::format_build_number(available, &mut buffer))
+                    pintln!(
+                        (color_primary("Current Release")) ": " (color_secondary(&current)) "\n"
+                        (color_primary("Upgrading to")) ": " (color_secondary(&next)) "\n"
+                        (color_primary("New version available")) ": " (color_secondary(misc::format_build_number(available, &mut buffer)))
                     );
                 }
 
