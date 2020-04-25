@@ -138,6 +138,21 @@ impl Client {
                     matches.is_present("force-next") || pop_upgrade::development_releases_enabled();
                 let (current, next, available, _is_lts) = self.release_check(forcing)?;
 
+                if atty::is(atty::Stream::Stdout) {
+                    let mut buffer = String::new();
+                    println!(
+                        "{}: {}",
+                        color_primary("Current Release"),
+                        color_secondary(&current)
+                    );
+                    println!("{}: {}", color_primary("Upgrading to"), color_secondary(&next));
+                    println!(
+                        "{}: {}",
+                        color_primary("New version available"),
+                        color_secondary(misc::format_build_number(available, &mut buffer))
+                    );
+                }
+
                 // Only upgrade if an upgrade is possible, or if being forced to upgrade.
                 if forcing || available >= 0 {
                     // Before doing a release upgrade with the recovery partition, ensure that
