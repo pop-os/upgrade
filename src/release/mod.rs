@@ -41,7 +41,7 @@ const REQUIRED_PPAS: &[&str] = &[
 ///
 /// - `gnome-software` conflicts with `pop-desktop` and its `sessioninstaller` dependency
 /// - `ureadahead` was deprecated and removed from the repositories
-const REMOVE_PACKAGES: &[&str] = &["gnome-software", "ureadahead"];
+const REMOVE_PACKAGES: &[&str] = &["gnome-software", "ureadahead", "backport-iwlwifi-dkms"];
 
 /// Packages which should be installed before upgrading.
 ///
