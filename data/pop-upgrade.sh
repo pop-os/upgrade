@@ -5,6 +5,8 @@ export DEBIAN_FRONTEND="noninteractive"
 # Prevent apt sources from being reverted once this script launches
 rm -rf /pop-upgrade /pop_preparing_release_upgrade
 
+PREINST=(zlib1g)
+
 message () {
     plymouth message --text="system-updates"
 
@@ -48,6 +50,14 @@ efi_rename () {
 
 upgrade () {
     percent=0
+
+    message -i "Installing Prerequisites"
+
+    env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
+        -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confold" \
+        install -y --allow-downgrades --show-progress \
+        --no-download --ignore-missing ${PREINST[@]}
 
     # Watch progress of an update, and report it to the splash screen
     env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
@@ -106,7 +116,7 @@ attempt_repair () {
 attempt_upgrade () {
     message -i "Installing Updates (0%)"
     touch "$1"
-    
+
     apt-mark hold pop-upgrade
     systemctl mask acpid pop-upgrade
 
