@@ -23,6 +23,8 @@ pub enum RepairError {
     DkmsGcc9(io::Error),
     #[error(display = "unknown Ubuntu release: {}", _0)]
     UnknownRelease(Version),
+    #[error(display = "failed to wipe pulseaudio settings for users: {}", _0)]
+    WipePulse(io::Error)
 }
 
 pub fn repair() -> Result<(), RepairError> {
@@ -39,5 +41,6 @@ pub fn repair() -> Result<(), RepairError> {
 }
 
 pub fn pre_upgrade() -> Result<(), RepairError> {
-    misc::dkms_gcc9_fix().map_err(RepairError::DkmsGcc9)
+    misc::dkms_gcc9_fix().map_err(RepairError::DkmsGcc9)?;
+    misc::wipe_pulse().map_err(RepairError::WipePulse)
 }
