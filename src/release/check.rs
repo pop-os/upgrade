@@ -101,7 +101,8 @@ fn next_(
     let next: &str;
     match (current.major, current.minor) {
         (18, 4) => {
-            next = if development { "20.04" } else { "19.10" };
+            // next = if development { "20.10" } else { "20.04" };
+            next = "20.04";
 
             ReleaseStatus { build: release_check(next), current: "18.04", is_lts: true, next }
         }
@@ -109,19 +110,25 @@ fn next_(
         (19, 10) => {
             next = "20.04";
 
+            ReleaseStatus { build: release_check(next), current: "19.10", is_lts: false, next }
+        }
+
+        (20, 4) => {
+            next = "20.10";
+
             ReleaseStatus {
                 build: if development { release_check(next) } else { BuildStatus::Blacklisted },
-                current: "19.10",
-                is_lts: false,
+                current: "20.04",
+                is_lts: true,
                 next,
             }
         }
 
-        (20, 4) => ReleaseStatus {
+        (20, 10) => ReleaseStatus {
             build:   BuildStatus::Blacklisted,
-            current: "20.04",
+            current: "20.10",
             is_lts:  true,
-            next:    "20.10",
+            next:    "21.04",
         },
         _ => panic!("this version of pop-upgrade is not supported on this release"),
     }
