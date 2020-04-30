@@ -269,6 +269,8 @@ impl Daemon {
                             },
                         );
 
+                        let _ = apt_cli_wrappers::apt_unhold("pop-upgrade");
+
                         if result.is_ok() {
                             let _ = fg_tx.send(FgEvent::SetUpgradeState(
                                 how,
