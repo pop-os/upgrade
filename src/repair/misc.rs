@@ -47,3 +47,15 @@ pub fn dkms_gcc9_fix() -> io::Result<()> {
 
     Ok(())
 }
+
+/// Remove the pulse directory from each user.
+pub fn wipe_pulse() -> io::Result<()> {
+    for user in pwd::Passwd::iter() {
+        let path = Path::new(&*user.dir).join(".config/pulse");
+        if path.exists() {
+            std::fs::remove_dir_all(&path)?;
+        }
+    }
+
+    Ok(())
+}

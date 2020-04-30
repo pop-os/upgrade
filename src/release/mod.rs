@@ -41,7 +41,7 @@ const REQUIRED_PPAS: &[&str] = &[
 ///
 /// - `gnome-software` conflicts with `pop-desktop` and its `sessioninstaller` dependency
 /// - `ureadahead` was deprecated and removed from the repositories
-const REMOVE_PACKAGES: &[&str] = &["gnome-software", "ureadahead"];
+const REMOVE_PACKAGES: &[&str] = &["gnome-software", "ureadahead", "backport-iwlwifi-dkms"];
 
 /// Packages which should be installed before upgrading.
 ///
@@ -286,6 +286,8 @@ impl<'a> DaemonRuntime<'a> {
             UpgradeMethod::Offline => Self::systemd_upgrade_prereq_check()?,
         }
 
+        let _ = apt_hold("pop-upgrade");
+
         let string_buffer = &mut String::new();
         let conflicting = installed(string_buffer, REMOVE_PACKAGES);
         apt_remove(conflicting, |ready| lock_or(ready, UpgradeEvent::RemovingConflicts))
@@ -323,6 +325,8 @@ impl<'a> DaemonRuntime<'a> {
 
         // Apply any fixes necessary before the upgrade.
         repair::pre_upgrade().map_err(ReleaseError::PreUpgrade)?;
+
+        let _ = apt_unhold("pop-upgrade");
 
         // Update the source lists to the new release,
         // then fetch the packages required for the upgrade.
