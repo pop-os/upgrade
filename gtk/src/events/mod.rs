@@ -337,6 +337,23 @@ fn download_complete(state: &mut State, widgets: &EventWidgets) {
         .label(&format!("Pop!_OS {} download complete", &*state.upgrading_to));
 }
 
+const GENERIC: &str = r#"Looks like we've encountered an issue! No worries, these are a list of files which may have been changed:
+
+* /etc/apt/sources.list
+* /etc/apt/sources.list.d/
+* /etc/fstab
+
+If you are a System76 customer, please run the System76 Driver tool to collect logs and contact support with the logs.
+
+If you are seeing package manager issues, please run the following commands:
+
+sudo apt clean
+sudo apt update -m
+sudo dpkg --configure -a
+sudo apt install -f
+sudo apt dist-upgrade
+sudo apt autoremove --purge"#;
+
 /// Formats error messages for display on the console, and in the UI.
 fn error(state: &mut State, widgets: &EventWidgets, why: UiError) {
     let error_message = &mut format!("{}", why);
@@ -345,7 +362,7 @@ fn error(state: &mut State, widgets: &EventWidgets, why: UiError) {
         error_message.push_str(format!("{}", source).as_str());
     });
 
-    (state.callback_error.borrow())(error_message.as_str());
+    (state.callback_error.borrow())([GENERIC, format!("\n\nOriginating error cause:\n\n{}", error_message).as_str()].concat().as_str());
 
     error!("{}", error_message);
 
