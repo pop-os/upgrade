@@ -124,6 +124,8 @@ pub fn repair() -> Result<(), FstabError> {
                 source: PathBuf::from(format!("{}", source)),
                 dest: PathBuf::from(target),
                 fstype,
+                // The findmnt command from util-linux errors if root is not set to 1
+                pass: 1,
                 ..Default::default()
             };
 
