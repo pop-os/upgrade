@@ -24,7 +24,6 @@ pub enum BackgroundEvent {
     IsActive(SyncSender<bool>),
     DismissNotification(bool),
     RefreshOS,
-    RepoModify(Vec<Box<str>>, Vec<bool>),
     Reset,
     Scan,
     Shutdown,
@@ -72,10 +71,6 @@ pub fn run(
 
                 BackgroundEvent::RefreshOS => {
                     refresh_os(client, send);
-                }
-
-                BackgroundEvent::RepoModify(failures, answers) => {
-                    repo_modify(client, send, failures, answers);
                 }
 
                 BackgroundEvent::Reset => {
@@ -139,21 +134,6 @@ fn refresh_os(client: &Client, send: &dyn Fn(UiEvent)) {
     }
 
     send(UiEvent::Completed(CompletedEvent::Refresh));
-}
-
-fn repo_modify(
-    client: &Client,
-    send: &dyn Fn(UiEvent),
-    failures: Vec<Box<str>>,
-    answers: Vec<bool>,
-) {
-    let input = failures.into_iter().zip(answers.into_iter());
-    if let Err(why) = client.repo_modify(input) {
-        send(UiEvent::Error(UiError::Repos(why.into())));
-        return;
-    }
-
-    send(UiEvent::UpgradeClicked);
 }
 
 fn status_changed(send: &dyn Fn(UiEvent), new_status: Status, expected: DaemonStatus) {

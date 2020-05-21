@@ -49,7 +49,6 @@ pub enum Signal {
     RecoveryResult(Status),
     ReleaseResult(Status),
     ReleaseEvent(UpgradeEvent),
-    RepoCompatError(RepoCompatError),
 }
 
 /// Designates if the signal event loop should continue listening for signals.
@@ -304,27 +303,6 @@ impl Client {
     /// Verifies if a recovery partition exists.
     pub fn recovery_exists(&self) -> bool { crate::recovery::recovery_exists().unwrap_or(false) }
 
-    /// Applies modifications to system repositories.
-    pub fn repo_modify<S: AsRef<str>>(
-        &self,
-        repos: impl Iterator<Item = (S, bool)>,
-    ) -> Result<(), Error> {
-        let repos = repos.map(|(url, keep)| {
-            MessageItem::DictEntry(Box::new(url.as_ref().into()), Box::new(keep.into()))
-        });
-
-        let array = MessageItem::Array(
-            MessageItemArray::new(
-                repos.collect::<Vec<_>>(),
-                Signature::from_slice(b"a{sb}\0").unwrap(),
-            )
-            .unwrap(),
-        );
-
-        self.call_method(methods::REPO_MODIFY, move |m| m.append1(&array))?;
-        Ok(())
-    }
-
     /// An event loop for listening to signals from the daemon.
     pub fn event_listen(
         &self,
@@ -413,11 +391,6 @@ impl Client {
                         .map_err(|why| Error::ArgumentMismatch(signals::RELEASE_RESULT, why))
                         .map(|(status, why)| Status { status, why: why.into() })
                         .map(Signal::ReleaseResult)?,
-                    signals::REPO_COMPAT_ERROR => signal
-                        .read2::<Vec<String>, Vec<(String, String)>>()
-                        .map_err(|why| Error::ArgumentMismatch(signals::REPO_COMPAT_ERROR, why))
-                        .map(|(success, failure)| RepoCompatError { success, failure })
-                        .map(Signal::RepoCompatError)?,
                     _ => continue,
                 };
 

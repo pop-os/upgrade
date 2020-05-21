@@ -307,22 +307,6 @@ pub fn release_repair(
     method.consume()
 }
 
-pub const REPO_MODIFY: &str = "RepoModify";
-
-pub fn repo_modify(
-    daemon: Rc<RefCell<Daemon>>,
-    dbus_factory: &DbusFactory,
-) -> Method<MTFn<()>, ()> {
-    let method = dbus_factory.method::<_, String>(REPO_MODIFY, move |message| {
-        info!("received {}", REPO_MODIFY);
-        let repos = message.read1::<HashMap<&str, bool>>().map_err(|why| format!("{}", why))?;
-        daemon.borrow_mut().repo_modify(&repos)?;
-        Ok(Vec::new())
-    });
-
-    method.inarg::<HashMap<&str, &str>>("repos").consume()
-}
-
 pub const RESET: &str = "Reset";
 
 pub fn reset(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method<MTFn<()>, ()> {

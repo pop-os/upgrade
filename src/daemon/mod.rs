@@ -25,10 +25,7 @@ use crate::{
 };
 
 use apt_cli_wrappers::apt_upgrade;
-use apt_fetcher::{
-    apt_uris::{apt_uris, AptUri},
-    DistUpgradeError,
-};
+use apt_fetcher::apt_uris::{apt_uris, AptUri};
 use atomic::Atomic;
 use crossbeam::channel::{bounded, Receiver, Sender};
 use dbus::{
@@ -41,13 +38,12 @@ use num_traits::FromPrimitive;
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    error::Error,
     fs,
     path::PathBuf,
     rc::Rc,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc,
     },
     thread,
 };
@@ -99,7 +95,6 @@ pub struct Daemon {
     cancel:          Arc<AtomicBool>,
     last_known:      LastKnown,
     release_upgrade: Option<ReleaseUpgradeState>,
-    retain_repos:    Arc<Mutex<HashSet<Box<str>>>>,
 }
 
 impl Daemon {
@@ -130,8 +125,6 @@ impl Daemon {
         // for the curernt progress of a task.
         let prog_state = Arc::new(Atomic::new((0u64, 0u64)));
 
-        let retain_repos = Arc::new(Mutex::new(HashSet::new()));
-
         // Cancels a process which is in progress
         let cancel = Arc::new(AtomicBool::new(false));
         let cancel_process: Arc<dyn Fn() -> bool + Send + Sync> =
@@ -139,7 +132,7 @@ impl Daemon {
         let mut processing = false;
 
         info!("spawning background event thread");
-        thread::spawn(enclose!((cancel, status, sub_status, prog_state, retain_repos) move || {
+        thread::spawn(enclose!((cancel, status, sub_status, prog_state) move || {
             let mut logind = match LoginManager::new() {
                 Ok(logind) => Some(logind),
                 Err(why) => {
@@ -254,14 +247,10 @@ impl Daemon {
                             sub_status.store(event as u8, Ordering::SeqCst);
                         });
 
-                        let retain_repos =
-                            retain_repos.lock().expect("retain-repos mutex poisoned");
-
                         let result = runtime.upgrade(
                             how,
                             &from,
                             &to,
-                            &retain_repos,
                             &progress,
                             fetch_closure.clone(),
                             &|event| {
@@ -278,8 +267,6 @@ impl Daemon {
                                 to.into(),
                             ));
                         }
-
-                        let _ = dbus_tx.send(SignalEvent::ReleaseUpgradeResult(result));
                     }
                 }
 
@@ -298,7 +285,6 @@ impl Daemon {
             fg_rx,
             last_known: Default::default(),
             release_upgrade: None,
-            retain_repos,
             status,
             sub_status,
         })
@@ -399,7 +385,6 @@ impl Daemon {
             .add_m(methods::release_upgrade(daemon.clone(), &dbus_factory))
             .add_m(methods::release_upgrade_finalize(daemon.clone(), &dbus_factory))
             .add_m(methods::release_upgrade_status(daemon.clone(), &dbus_factory))
-            .add_m(methods::repo_modify(daemon.clone(), &dbus_factory))
             .add_m(methods::reset(daemon.clone(), &dbus_factory))
             .add_m(methods::status(daemon.clone(), &dbus_factory))
             .add_s(fetch_result.clone())
@@ -409,7 +394,8 @@ impl Daemon {
             .add_s(recovery_download_progress.clone())
             .add_s(recovery_event.clone())
             .add_s(recovery_result.clone())
-            .add_s(repo_compat_error.clone())
+            .add_s(release_result)
+            .add_s(repo_compat_error)
             .add_s(upgrade_event.clone());
 
         let (connection, fg_receiver, receiver) = {
@@ -468,7 +454,6 @@ impl Daemon {
                         | SignalEvent::RecoveryUpgradeEvent(_)
                         | SignalEvent::RecoveryUpgradeResult(_)
                         | SignalEvent::ReleaseUpgradeEvent(_)
-                        | SignalEvent::ReleaseUpgradeResult(_)
                         | SignalEvent::Upgrade(_) => info!("{}", dbus_event),
                         _ => (),
                     }
@@ -506,52 +491,6 @@ impl Daemon {
                         }
                         SignalEvent::ReleaseUpgradeEvent(event) => {
                             Self::signal_message(&release_event).append1(event as u8)
-                        }
-                        SignalEvent::ReleaseUpgradeResult(result) => {
-                            if let Err(ReleaseError::Check(
-                                DistUpgradeError::SourcesUnavailable { ref success, ref failure },
-                            )) = result
-                            {
-                                let message = if failure
-                                    .iter()
-                                    .any(|(url, _)| release::is_required_ppa(&*url))
-                                {
-                                    Self::signal_message(&no_connection)
-                                } else {
-                                    let failure: Vec<(String, String)> = failure
-                                        .iter()
-                                        .map(|(url, why)| {
-                                            let mut root_cause = None;
-                                            if let Some(mut cause) = why.source() {
-                                                while let Some(inner_cause) = cause.source() {
-                                                    cause = inner_cause;
-                                                }
-
-                                                root_cause = Some(cause);
-                                            }
-
-                                            let cause = match root_cause {
-                                                Some(root_cause) => format!("{}", root_cause),
-                                                None => format!("{}", why),
-                                            };
-
-                                            (url.clone(), cause)
-                                        })
-                                        .collect();
-
-                                    Self::signal_message(&repo_compat_error)
-                                        .append2(success, failure)
-                                };
-
-                                Self::send_signal_message(&connection, message)
-                            }
-
-                            let (status, why) = result_signal(result.as_ref());
-                            let message =
-                                Self::signal_message(&release_result).append2(status, why);
-
-                            (*daemon.borrow_mut()).last_known.release_upgrade = result;
-                            message
                         }
                         SignalEvent::Upgrade(ref event) => Self::signal_message(&upgrade_event)
                             .append1(event.clone().into_dbus_map()),
@@ -726,12 +665,6 @@ impl Daemon {
         crate::repair::repair().map_err(|why| format!("{}", why))
     }
 
-    fn repo_modify(&mut self, repos: &HashMap<&str, bool>) -> Result<(), String> {
-        info!("modifying repos: {:#?}", repos);
-        let mut retain_repos = self.retain_repos.lock().expect("poisoned mutex");
-        crate::repos::modify_repos(&mut retain_repos, repos).map_err(|why| format!("{}", why))
-    }
-
     fn reset(&mut self) -> Result<(), String> {
         info!("resetting daemon");
 
@@ -739,7 +672,6 @@ impl Daemon {
         self.sub_status.store(0, Ordering::SeqCst);
         self.fetching_state.store((0, 0), Ordering::SeqCst);
         self.release_upgrade = None;
-        self.retain_repos.lock().expect("failed to lock retain_repos").clear();
 
         release::cleanup();
 

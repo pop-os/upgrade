@@ -17,7 +17,7 @@ use chrono::{TimeZone, Utc};
 use gtk::prelude::*;
 
 use pop_upgrade::{
-    client::{ReleaseInfo, RepoCompatError},
+    client::ReleaseInfo,
     daemon::{DaemonStatus, DISMISSED},
     release::{
         eol::{EolDate, EolStatus},
@@ -39,7 +39,6 @@ pub enum UiEvent {
     Completed(CompletedEvent),
     Dismissed(bool),
     Error(UiError),
-    IncompatibleRepos(RepoCompatError),
     Initiated(InitiatedEvent),
     Progress(ProgressEvent),
     ReleaseUpgradeDialog,
@@ -197,8 +196,6 @@ pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut 
                     dismisser.set_dismissed(dismissed);
                 }
             }
-
-            UiEvent::IncompatibleRepos(repos) => incompatible_repos(&mut state, &widgets, repos),
 
             UiEvent::StatusChanged(from, to, why) => {
                 warn!("status changed from {} to {}: {}", from, to, why);
@@ -362,7 +359,11 @@ fn error(state: &mut State, widgets: &EventWidgets, why: UiError) {
         error_message.push_str(format!("{}", source).as_str());
     });
 
-    (state.callback_error.borrow())([GENERIC, format!("\n\nOriginating error cause:\n\n{}", error_message).as_str()].concat().as_str());
+    (state.callback_error.borrow())(
+        [GENERIC, format!("\n\nOriginating error cause:\n\n{}", error_message).as_str()]
+            .concat()
+            .as_str(),
+    );
 
     error!("{}", error_message);
 
@@ -374,31 +375,6 @@ fn error(state: &mut State, widgets: &EventWidgets, why: UiError) {
         (state.callback_event.borrow())(Event::NotUpgrading);
         reset(state, widgets)
     }
-}
-
-/// Runs the incompatible repository dialog, with a list of repositories
-fn incompatible_repos(state: &mut State, widgets: &EventWidgets, repos: RepoCompatError) {
-    let failures = repos
-        .failure
-        .into_iter()
-        .map(|(repo, why)| {
-            warn!("cannot upgrade {}: {}", repo, why);
-            Box::from(repo)
-        })
-        .collect::<Vec<Box<str>>>();
-
-    let dialog = RepositoryDialog::new(failures.iter());
-
-    if gtk::ResponseType::Accept == dialog.run() {
-        let _ = state
-            .sender
-            .send(BackgroundEvent::RepoModify(failures, dialog.answers().collect::<Vec<bool>>()));
-    } else {
-        (state.callback_event.borrow())(Event::NotUpgrading);
-        reset(state, widgets)
-    }
-
-    dialog.destroy();
 }
 
 /// Checks if the release has been dismissed.
