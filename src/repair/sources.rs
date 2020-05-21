@@ -17,6 +17,8 @@ pub enum SourcesError {
     ListWrite(io::Error),
     #[error(display = "failed to add missing PPA from Launchpad: {}", _0)]
     PpaAdd(io::Error),
+    #[error(display = "failed to create PPA directory at {}: {}", PPA_SOURCES, _0)]
+    PpaDirCreate(io::Error),
 }
 
 impl From<SourceError> for SourcesError {
@@ -24,6 +26,7 @@ impl From<SourceError> for SourcesError {
 }
 
 const MAIN_SOURCES: &str = "/etc/apt/sources.list";
+const PPA_SOURCES: &str = "/etc/apt/sources.list.d";
 
 const POP_PPAS: &[&str] = &["system76/pop"];
 
@@ -32,6 +35,10 @@ pub fn repair(codename: Codename) -> Result<(), SourcesError> {
     if !Path::new(MAIN_SOURCES).exists() {
         info!("/etc/apt/sources.list did not exist: creating a new one");
         return create_new_sources_list(current_release).map_err(SourcesError::ListCreation);
+    }
+
+    if !Path::new(PPA_SOURCES).exists() {
+        fs::create_dir_all(PPA_SOURCES).map_err(SourcesError::PpaDirCreate)?;
     }
 
     info!("ensuring that the proprietary pop repo is added");
@@ -114,19 +121,33 @@ fn insert_entry<P: AsRef<Path>>(
     Ok(())
 }
 
-fn create_new_sources_list(release: &str) -> io::Result<()> {
-    fs::write(MAIN_SOURCES, format!(
-        "deb http://us.archive.ubuntu.com/ubuntu/ {0} restricted multiverse universe main\n\
-         deb-src http://us.archive.ubuntu.com/ubuntu/ {0} restricted multiverse universe main\n\
-         deb http://us.archive.ubuntu.com/ubuntu/ {0}-updates restricted multiverse universe main\n\
-         deb-src http://us.archive.ubuntu.com/ubuntu/ {0}-updates restricted multiverse universe main\n\
-         deb http://us.archive.ubuntu.com/ubuntu/ {0}-security restricted multiverse universe main\n\
-         deb-src http://us.archive.ubuntu.com/ubuntu/ {0}-security restricted multiverse universe main\n\
-         deb http://us.archive.ubuntu.com/ubuntu/ {0}-backports restricted multiverse universe main\n\
-         deb-src http://us.archive.ubuntu.com/ubuntu/ {0}-backports restricted multiverse universe main\n\
-         deb http://apt.pop-os.org/proprietary {0} main\n",
-         release
-    ))?;
+pub fn create_new_sources_list(release: &str) -> io::Result<()> {
+    fs::write(
+        MAIN_SOURCES,
+        format!(
+            r#"# Ubuntu Repositories
+
+deb mirror://mirrors.ubuntu.com/mirrors.txt {0} restricted multiverse universe main
+deb-src mirror://mirrors.ubuntu.com/mirrors.txt {0} restricted multiverse universe main
+
+deb mirror://mirrors.ubuntu.com/mirrors.txt {0}-updates restricted multiverse universe main
+deb-src mirror://mirrors.ubuntu.com/mirrors.txt {0}-updates restricted multiverse universe main
+
+deb mirror://mirrors.ubuntu.com/mirrors.txt {0}-security restricted multiverse universe main
+deb-src mirror://mirrors.ubuntu.com/mirrors.txt {0}-security restricted multiverse universe main
+
+deb mirror://mirrors.ubuntu.com/mirrors.txt {0}-backports restricted multiverse universe main
+deb-src mirror://mirrors.ubuntu.com/mirrors.txt {0}-backports restricted multiverse universe main
+
+# Pop!_OS Repositories
+
+deb http://ppa.launchpad.net/system76/pop/ubuntu {0} main
+
+deb http://apt.pop-os.org/proprietary {0} main
+"#,
+            release
+        ),
+    )?;
 
     // TODO: Ensure that the GPG keys are added for the Ubuntu archives.
 

@@ -88,10 +88,6 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) {
                         progress.total,
                     )));
                 }
-                Signal::RepoCompatError(repositories) => {
-                    *ignore_error = true;
-                    send(UiEvent::IncompatibleRepos(repositories));
-                }
                 _ => (),
             }
 

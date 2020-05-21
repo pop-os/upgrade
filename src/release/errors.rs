@@ -13,8 +13,8 @@ pub enum ReleaseError {
     AptList(AptUriError),
     #[error(display = "failed to purge packages: {}", _0)]
     AptPurge(io::Error),
-    #[error(display = "unable to upgrade to next release: {}", _0)]
-    Check(DistUpgradeError),
+    #[error(display = "unable to upgrade to next release: {:?}", _0)]
+    Check(anyhow::Error),
     #[error(display = "conflicting and/or deprecated packages could not be removed")]
     ConflictRemoval(#[error(source, no_from)] io::Error),
     #[error(display = "failed to update package lists for the current release: {}", _0)]
@@ -45,8 +45,6 @@ pub enum ReleaseError {
     RecoveryNotFound,
     #[error(display = "failed to fetch release architecture: {}", _0)]
     ReleaseArch(ReleaseArchError),
-    #[error(display = "failed to create release fetch file: {}", _0)]
-    ReleaseFetchFile(io::Error),
     #[error(display = "failed to update package lists for the new release: {}", _0)]
     ReleaseUpdate(io::Error),
     #[error(display = "failed to perform release upgrade: {}", _0)]

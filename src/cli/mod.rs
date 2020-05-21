@@ -384,7 +384,7 @@ impl Client {
                     &new_status.why,
                 )
             },
-            |client, signal| {
+            |_client, signal| {
                 match signal {
                     client::Signal::PackageFetchResult(status) => {
                         log_result(
@@ -449,39 +449,6 @@ impl Client {
                         } else {
                             return Ok(client::Continue(false));
                         }
-                    }
-                    client::Signal::RepoCompatError(err) => {
-                        let client::RepoCompatError { success, failure } = err;
-                        println!("{}:", color_error("Incompatible repositories detected"));
-
-                        for (url, why) in &failure {
-                            println!(
-                                "    {}: {}:\n        {}",
-                                color_error("Error"),
-                                color_tertiary(url),
-                                color_error_desc(why),
-                            );
-                        }
-
-                        for url in success {
-                            println!("    {}: {}", color_primary("Success"), color_tertiary(url));
-                        }
-
-                        println!("{}", color_primary("Requesting user input:"));
-
-                        let repos = failure.iter().map(|(url, _)| url).map(|url| {
-                            let prompt = format!(
-                                "    {}: ({})? y/N",
-                                color_secondary("Keep repository"),
-                                color_tertiary(url)
-                            );
-
-                            (url, prompt_message(&prompt, false))
-                        });
-
-                        client.repo_modify(repos)?;
-
-                        *recall = true;
                     }
                     _ => (),
                 }

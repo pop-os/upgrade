@@ -10,7 +10,7 @@ use ubuntu_version::{Codename, Version, VersionError};
 #[derive(Debug, Error)]
 pub enum RepairError {
     #[error(display = "packaging error: {}", _0)]
-    Packaging(packaging::Error),
+    Packaging(anyhow::Error),
     #[error(display = "error checking and fixing fstab: {}", _0)]
     Fstab(FstabError),
     #[error(display = "version is not an ubuntu codename: {}", _0)]
@@ -24,18 +24,18 @@ pub enum RepairError {
     #[error(display = "unknown Ubuntu release: {}", _0)]
     UnknownRelease(Version),
     #[error(display = "failed to wipe pulseaudio settings for users: {}", _0)]
-    WipePulse(io::Error)
+    WipePulse(io::Error),
 }
 
 pub fn repair() -> Result<(), RepairError> {
     info!("performing release repair");
-    let codename = Version::detect().map_err(RepairError::ReleaseVersion).and_then(|version| {
-        Codename::try_from(version).map_err(|_| RepairError::UnknownRelease(version))
-    })?;
+    let version = Version::detect().map_err(RepairError::ReleaseVersion)?;
+
+    let codename = Codename::try_from(version).map_err(|_| RepairError::UnknownRelease(version))?;
 
     fstab::repair().map_err(RepairError::Fstab)?;
     sources::repair(codename).map_err(RepairError::Sources)?;
-    packaging::repair().map_err(RepairError::Packaging)?;
+    packaging::repair(<&'static str>::from(codename)).map_err(RepairError::Packaging)?;
 
     Ok(())
 }

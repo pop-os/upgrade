@@ -1,5 +1,6 @@
 pub mod check;
 pub mod eol;
+pub mod repos;
 
 mod errors;
 mod snapd;
@@ -9,10 +10,9 @@ pub use self::{
     errors::{RelResult, ReleaseError},
 };
 
-use apt_fetcher::{
-    apt_uris::{apt_uris, AptUri},
-    SourcesLists, UpgradeRequest, Upgrader,
-};
+use anyhow::Context;
+use apt_fetcher::apt_uris::{apt_uris, AptUri};
+use apt_sources_lists::SourcesLists;
 use envfile::EnvFile;
 use futures::{stream, Future, Stream};
 use std::{
@@ -194,40 +194,53 @@ impl<'a> DaemonRuntime<'a> {
     /// On failure, the original release files will be restored.
     pub fn release_upgrade<'b>(
         &mut self,
-        retain: &'b HashSet<Box<str>>,
+        logger: &dyn Fn(UpgradeEvent),
         current: &str,
         new: &str,
-    ) -> Result<Upgrader<'b>, ReleaseError> {
-        let _lock_files = hold_apt_locks()?;
-        let current = current
-            .parse::<Version>()
-            .ok()
-            .and_then(|x| Codename::try_from(x).ok())
-            .map(<&'static str>::from)
-            .unwrap_or(current);
+    ) -> anyhow::Result<()> {
+        fn codename_from_version(version: &str) -> &str {
+            version
+                .parse::<Version>()
+                .ok()
+                .and_then(|x| Codename::try_from(x).ok())
+                .map(<&'static str>::from)
+                .unwrap_or(version)
+        }
 
-        let new = new
-            .parse::<Version>()
-            .ok()
-            .and_then(|x| Codename::try_from(x).ok())
-            .map(<&'static str>::from)
-            .unwrap_or(new);
-
-        let sources = SourcesLists::scan().unwrap();
+        let current = codename_from_version(current);
+        let new = codename_from_version(new);
 
         info!("checking if release can be upgraded from {} to {}", current, new);
-        let request = UpgradeRequest::new(self.client.clone(), sources, self.runtime);
-        let mut upgrade = request.send(retain, current, new).map_err(ReleaseError::Check)?;
+
+        info!("creating backup of source lists");
+        repos::backup().context("failed to create backup")?;
 
         // In case the system abruptly shuts down after this point, create a file to signal
         // that packages were being fetched for a new release.
         fs::write(RELEASE_FETCH_FILE, &format!("{} {}", current, new))
-            .map_err(ReleaseError::ReleaseFetchFile)?;
+            .context("failed to create release fetch file")?;
 
-        info!("upgrade is possible -- updating release files");
-        upgrade.overwrite_apt_sources().map_err(ReleaseError::Overwrite)?;
+        let lock_or = |ready, then: UpgradeEvent| {
+            (*logger)(if ready { then } else { UpgradeEvent::AptFilesLocked })
+        };
 
-        Ok(upgrade)
+        let update_sources = || {
+            repair::sources::create_new_sources_list(new)?;
+            apt_update(|ready| lock_or(ready, UpgradeEvent::UpdatingPackageLists))
+                .context("failed to update source lists")
+        };
+
+        if let Err(why) = update_sources() {
+            error!("failed to update sources: {}", why);
+
+            if let Err(why) = repos::restore() {
+                error!("failed to restore source lists: {:?}", why);
+            }
+
+            return Err(why).context("failed to update sources");
+        }
+
+        Ok(())
     }
 
     /// Upgrades packages for the current release.
@@ -266,7 +279,6 @@ impl<'a> DaemonRuntime<'a> {
         action: UpgradeMethod,
         from: &str,
         to: &str,
-        retain: &HashSet<Box<str>>,
         logger: &dyn Fn(UpgradeEvent),
         fetch: Arc<dyn Fn(FetchEvent) + Send + Sync>,
         upgrade: &dyn Fn(AptUpgradeEvent),
@@ -330,7 +342,7 @@ impl<'a> DaemonRuntime<'a> {
 
         // Update the source lists to the new release,
         // then fetch the packages required for the upgrade.
-        let _ = self.fetch_new_release_packages(logger, retain, fetch, from, to)?;
+        let _ = self.fetch_new_release_packages(logger, fetch, from, to)?;
 
         (*logger)(UpgradeEvent::Success);
         Ok(())
@@ -411,14 +423,14 @@ impl<'a> DaemonRuntime<'a> {
     fn fetch_new_release_packages<'b>(
         &mut self,
         logger: &dyn Fn(UpgradeEvent),
-        retain: &'b HashSet<Box<str>>,
         fetch: Arc<dyn Fn(FetchEvent) + Send + Sync>,
         current: &str,
         next: &str,
-    ) -> RelResult<Upgrader<'b>> {
+    ) -> RelResult<()> {
         (*logger)(UpgradeEvent::UpdatingSourceLists);
+
         // Updates the source lists, with a handle for reverting the change.
-        let mut upgrader = self.release_upgrade(retain, &current, &next)?;
+        self.release_upgrade(logger, &current, &next).map_err(ReleaseError::Check)?;
 
         // Use a closure to capture any early returns due to an error.
         let updated_list_ops = || {
@@ -443,9 +455,9 @@ impl<'a> DaemonRuntime<'a> {
 
         // On any error, roll back the source lists.
         match updated_list_ops() {
-            Ok(_) => Ok(upgrader),
+            Ok(_) => Ok(()),
             Err(why) => {
-                rollback(&mut upgrader, &why);
+                rollback(&why);
 
                 Err(why)
             }
@@ -460,10 +472,10 @@ pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResul
     }
 }
 
-fn rollback<E: ::std::fmt::Display>(upgrader: &mut Upgrader, why: &E) {
+fn rollback<E: ::std::fmt::Display>(why: &E) {
     error!("failed to fetch packages: {}", why);
     warn!("attempting to roll back apt release files");
-    if let Err(why) = upgrader.revert_apt_sources() {
+    if let Err(why) = repos::restore() {
         error!("failed to revert release name changes to source lists in /etc/apt/: {}", why);
     }
 }
@@ -564,17 +576,9 @@ pub enum FetchEvent {
 /// Check if certain files exist at the time of starting this daemon.
 pub fn cleanup() {
     for &file in [RELEASE_FETCH_FILE, STARTUP_UPGRADE_FILE].iter() {
-        if let Ok(data) = fs::read_to_string(file) {
-            info!("cleaning up after {} ({})", file, data);
-            let mut iter = data.split_whitespace();
-            if let (Some(current), Some(next)) = (iter.next(), iter.next()) {
-                info!("current: {}; next: {}", current, next);
-                if let Ok(mut lists) = SourcesLists::scan() {
-                    info!("found lists");
-                    lists.dist_replace(next, current);
-                    let _ = lists.write_sync();
-                }
-            }
+        if Path::new(file).exists() {
+            info!("cleaning up after failed upgrade");
+            let _ = crate::release::repos::restore();
 
             let _ = fs::remove_file(file);
             let _ = apt_update(|ready| {

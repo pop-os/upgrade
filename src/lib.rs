@@ -50,9 +50,6 @@ pub mod release_architecture;
 /// Functions for repairing the OS
 pub mod repair;
 
-/// Functions for modifying system repositories.
-pub mod repos;
-
 /// Signal-handling capabilities for the daemon.
 pub mod sighandler;
 

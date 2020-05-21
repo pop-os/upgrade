@@ -12,5 +12,3 @@ pub(crate) fn color_info<T: Display>(value: T) -> Paint<T> { Paint::green(value)
 pub(crate) fn color_primary<T: Display>(value: T) -> Paint<T> { Paint::cyan(value).bold() }
 
 pub(crate) fn color_secondary<T: Display>(value: T) -> Paint<T> { Paint::blue(value).bold() }
-
-pub(crate) fn color_tertiary<T: Display>(value: T) -> Paint<T> { Paint::magenta(value).bold() }
