@@ -57,6 +57,7 @@ pub mod sighandler;
 pub mod system_environment;
 
 mod external;
+mod fetch;
 
 use std::path::Path;
 
