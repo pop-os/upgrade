@@ -24,8 +24,8 @@ use crate::{
     sighandler, DBUS_IFACE, DBUS_NAME, DBUS_PATH,
 };
 
+use crate::fetch::apt_uris::{apt_uris, AptUri};
 use apt_cli_wrappers::apt_upgrade;
-use apt_fetcher::apt_uris::{apt_uris, AptUri};
 use atomic::Atomic;
 use crossbeam::channel::{bounded, Receiver, Sender};
 use dbus::{
@@ -47,7 +47,6 @@ use std::{
     },
     thread,
 };
-use tokio::runtime::Runtime;
 
 pub const DISMISSED: &str = "/usr/lib/pop-upgrade/dismissed";
 pub const INSTALL_DATE: &str = "/usr/lib/pop-upgrade/install_date";
@@ -141,9 +140,7 @@ impl Daemon {
                 }
             };
 
-            // Create the tokio runtime to share between requests.
-            let runtime = &mut Runtime::new().expect("failed to initialize tokio runtime");
-            let mut runtime = DaemonRuntime::new(runtime);
+            let mut runtime = DaemonRuntime::new();
 
             let fetch_closure = Arc::new(enclose!((prog_state, dbus_tx) move |event| {
                 match event {
@@ -192,7 +189,7 @@ impl Daemon {
                         let npackages = apt_uris.len() as u32;
                         prog_state.store((0, u64::from(npackages)), Ordering::SeqCst);
 
-                        let result = runtime.apt_fetch(apt_uris, fetch_closure.clone());
+                        let result = smol::run(runtime.apt_fetch(apt_uris, fetch_closure.clone()));
 
                         prog_state.store((0, 0), Ordering::SeqCst);
 

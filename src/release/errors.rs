@@ -1,6 +1,6 @@
-use crate::{release_architecture::ReleaseArchError, repair::RepairError};
-use apt_fetcher::{apt_uris::AptUriError, DistUpgradeError};
-use async_fetcher::FetchError;
+use crate::{
+    fetch::apt_uris::AptUriError, release_architecture::ReleaseArchError, repair::RepairError,
+};
 use std::io;
 use systemd_boot_conf::Error as SystemdBootConfError;
 use ubuntu_version::VersionError;
@@ -27,12 +27,10 @@ pub enum ReleaseError {
     HoldPopUpgrade(io::Error),
     #[error(display = "unable to hold apt/dpkg lock files: {}", _0)]
     Lock(io::Error),
-    #[error(display = "failure to overwrite release files: {}", _0)]
-    Overwrite(DistUpgradeError),
     #[error(display = "root is required for this action: rerun with `sudo`")]
     NotRoot,
-    #[error(display = "fetch of package '{}' at {} failed: {}", _0, _1, _2)]
-    PackageFetch(String, String, FetchError),
+    #[error(display = "fetch of package failed: {:?}", _0)]
+    PackageFetch(anyhow::Error),
     #[error(display = "failed to apply pre-upgrade fixes: {}", _0)]
     PreUpgrade(RepairError),
     #[error(display = "failed to read the /proc/partitions file: {}", _0)]

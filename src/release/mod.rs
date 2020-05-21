@@ -9,12 +9,17 @@ pub use self::{
     check::{BuildStatus, ReleaseStatus},
     errors::{RelResult, ReleaseError},
 };
+use crate::{
+    daemon::DaemonRuntime,
+    fetch::apt_uris::{apt_uris, AptUri},
+    repair,
+};
 
 use anyhow::Context;
-use apt_fetcher::apt_uris::{apt_uris, AptUri};
+
 use apt_sources_lists::SourcesLists;
 use envfile::EnvFile;
-use futures::{stream, Future, Stream};
+use futures::prelude::*;
 use std::{
     collections::HashSet,
     convert::TryFrom,
@@ -25,7 +30,6 @@ use std::{
 };
 use systemd_boot_conf::SystemdBootConf;
 
-use crate::{daemon::DaemonRuntime, repair};
 use apt_cli_wrappers::*;
 use ubuntu_version::{Codename, Version};
 
@@ -148,45 +152,59 @@ impl From<UpgradeEvent> for &'static str {
     }
 }
 
-impl<'a> DaemonRuntime<'a> {
+impl DaemonRuntime {
     /// Get a list of APT URIs to fetch for this operation, and then fetch them.
-    pub fn apt_fetch(
+    pub async fn apt_fetch(
         &mut self,
         uris: HashSet<AptUri>,
         func: Arc<dyn Fn(FetchEvent) + Send + Sync>,
     ) -> RelResult<()> {
         (*func)(FetchEvent::Init(uris.len()));
+
         let _lock_files = hold_apt_locks()?;
 
-        // Try to download packages until three attempts have failed.
-        let mut tries = 0;
+        const ARCHIVES: &str = "/var/cache/apt/archives/";
+        const PARTIAL: &str = "/var/cache/apt/archives/partial/";
 
-        loop {
-            let stream_of_downloads = stream::iter_ok(uris.clone());
-            let buffered_stream = stream_of_downloads
-                .map(enclose!((func, self.client => client) move |uri| {
-                    func(FetchEvent::Fetching(uri.clone()));
-                    uri.fetch(&client)
-                }))
-                .buffer_unordered(8)
-                .for_each(enclose!((func) move |uri| {
-                    func(FetchEvent::Fetched(uri));
-                    Ok(())
-                }))
-                .map_err(|(uri, why)| ReleaseError::PackageFetch(uri.name, uri.uri, why));
+        let mut package_stream = stream::iter(uris.into_iter())
+            .map(|uri| {
+                let func = func.clone();
+                let client = self.client.clone();
+                async move {
+                    let future = async move {
+                        func(FetchEvent::Fetching(uri.clone()));
 
-            match self.runtime.block_on(buffered_stream) {
-                Ok(_) => break Ok(()),
-                Err(why) => {
-                    tries += 1;
-                    if tries == 3 {
-                        break Err(why);
-                    }
+                        let final_path = &*Path::new(ARCHIVES).join(&uri.name);
+                        let partial_path = &*Path::new(PARTIAL).join(&uri.name);
 
-                    eprintln!("retrying apt fetching after error occurred: {}", why);
+                        client.fetch_to_path(&uri.uri, partial_path).await?;
+
+                        fs::rename(partial_path, final_path).with_context(|| {
+                            fomat!(
+                                "failed to rename "
+                                [partial_path]
+                                " to "
+                                [final_path]
+                            )
+                        })?;
+
+                        func(FetchEvent::Fetched(uri));
+
+                        Ok(())
+                    };
+
+                    future.await.map_err(|why| ReleaseError::PackageFetch(why))
                 }
+            })
+            .buffer_unordered(4);
+
+        while let Some(result) = package_stream.next().await {
+            if result.is_err() {
+                return result;
             }
         }
+
+        Ok(())
     }
 
     /// Check if release files can be upgraded, and then overwrite them with the new release.
@@ -325,7 +343,7 @@ impl<'a> DaemonRuntime<'a> {
             uris.insert(uri);
         }
 
-        self.apt_fetch(uris, fetch.clone())?;
+        smol::run(self.apt_fetch(uris, fetch.clone()))?;
 
         // Upgrade the current release to the latest packages.
         (*logger)(UpgradeEvent::UpgradingPackages);
@@ -412,7 +430,7 @@ impl<'a> DaemonRuntime<'a> {
         info!("fetching packages for the new release");
         (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
         let uris = apt_uris(&["full-upgrade"]).map_err(ReleaseError::AptList)?;
-        self.apt_fetch(uris, fetch)?;
+        smol::run(self.apt_fetch(uris, fetch))?;
 
         Ok(())
     }
