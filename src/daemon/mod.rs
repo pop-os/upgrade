@@ -62,7 +62,7 @@ pub enum Event {
 
 #[derive(Debug)]
 pub enum FgEvent {
-    SetUpgradeState(ReleaseUpgradeMethod, Box<str>, Box<str>),
+    SetUpgradeState(Result<(), ReleaseError>, ReleaseUpgradeMethod, Box<str>, Box<str>),
 }
 
 pub struct LastKnown {
@@ -257,13 +257,12 @@ impl Daemon {
 
                         let _ = apt_cli_wrappers::apt_unhold("pop-upgrade");
 
-                        if result.is_ok() {
-                            let _ = fg_tx.send(FgEvent::SetUpgradeState(
-                                how,
-                                from.into(),
-                                to.into(),
-                            ));
-                        }
+                        let _ = fg_tx.send(FgEvent::SetUpgradeState(
+                            result,
+                            how,
+                            from.into(),
+                            to.into(),
+                        ));
                     }
                 }
 
@@ -435,10 +434,14 @@ impl Daemon {
 
             while let Ok(fg_event) = fg_receiver.try_recv() {
                 match fg_event {
-                    FgEvent::SetUpgradeState(action, from, to) => {
-                        info!("setting release upgrade state");
-                        let state = ReleaseUpgradeState { action, from, to };
-                        daemon.borrow_mut().release_upgrade = Some(state);
+                    FgEvent::SetUpgradeState(result, action, from, to) => {
+                        if result.is_ok() {
+                            info!("setting release upgrade state");
+                            let state = ReleaseUpgradeState { action, from, to };
+                            daemon.borrow_mut().release_upgrade = Some(state);
+                        }
+
+                        daemon.borrow_mut().last_known.release_upgrade = result;
                     }
                 }
             }
