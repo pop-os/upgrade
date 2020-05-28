@@ -1,30 +1,57 @@
-use distinst_chroot::Command;
+use futures::io::{AsyncBufReadExt, BufReader};
+use pidfd::PidFd;
+use smol::Async;
 use std::{
     collections::HashSet,
     hash::{Hash, Hasher},
     io,
+    process::{Command, Stdio},
     str::FromStr,
 };
 
 /// Fetch a vector of APT URIs required for the given `apt-get` operation.
 pub fn apt_uris(args: &[&str]) -> Result<HashSet<AptUri>, AptUriError> {
     let mut cmd = Command::new("apt-get");
-
     cmd.env("DEBIAN_FRONTEND", "noninteractive");
 
-    let output =
-        cmd.args(&["--print-uris"]).args(args).run_with_stdout().map_err(AptUriError::Command)?;
+    let mut child = cmd
+        .args(&["--print-uris"])
+        .args(args)
+        .stdout(Stdio::piped())
+        .spawn()
+        .map_err(AptUriError::Command)?;
 
-    let mut packages = HashSet::new();
-    for line in output.lines() {
-        if !line.starts_with('\'') {
-            continue;
+    let stdout = child.stdout.take().expect("no stdout");
+    let stdout = Async::new(stdout).expect("failed to mark pipe as non-blocking");
+
+    let reader = async move {
+        let mut packages = HashSet::new();
+        let mut reader = BufReader::new(stdout);
+        let mut line = String::new();
+
+        while let Ok(read) = reader.read_line(&mut line).await {
+            if read == 0 {
+                break;
+            }
+
+            if !line.starts_with('\'') {
+                line.clear();
+                continue;
+            }
+
+            packages.insert(line.parse::<AptUri>()?);
+            line.clear();
         }
 
-        packages.insert(line.parse::<AptUri>()?);
-    }
+        Ok(packages)
+    };
 
-    Ok(packages)
+    let process = PidFd::from(child).into_future();
+
+    smol::run(async move {
+        let (_, packages) = futures::join!(process, reader);
+        packages
+    })
 }
 
 #[derive(Debug, Error)]
