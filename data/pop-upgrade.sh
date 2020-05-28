@@ -134,8 +134,18 @@ attempt_upgrade () {
 
         efi_rename
         message -i "Upgrade complete. Now rebooting"
+
+        sleep 6
+        plymouth message --text="system-updates-stop"
+        sync
     else
         message -f "Upgrade failed. Restarting the system to try again"
+        sleep 6
+        plymouth message --text="system-updates-stop"
+        sync
+        apt-mark unhold pop-upgrade
+        systemctl unmask acpid pop-upgrade
+        systemctl rescue
     fi
 
     apt-mark unhold pop-upgrade
@@ -146,8 +156,3 @@ ATTEMPTED=/upgrade-attempted
 
 test -e "$ATTEMPTED" && (message -i "System rebooted before upgrade was completed. Trying again"; sleep 6)
 attempt_upgrade "$ATTEMPTED"
-sleep 6
-
-plymouth message --text="system-updates-stop"
-sync
-systemctl reboot
