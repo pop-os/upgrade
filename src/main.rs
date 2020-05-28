@@ -174,7 +174,6 @@ pub fn main() {
                 .subcommand(
                     SubCommand::with_name("upgrade")
                         .about("update the system, and fetch the packages for the next release")
-                        .setting(AppSettings::SubcommandRequiredElseHelp)
                         .arg(
                             Arg::with_name("force-next")
                                 .help(
@@ -184,13 +183,7 @@ pub fn main() {
                                 .short("f")
                                 .long("force-next")
                                 .global(true),
-                        )
-                        .subcommand(SubCommand::with_name("systemd").about(
-                            "apply system upgrades offline with systemd's offline-update service",
-                        ))
-                        .subcommand(SubCommand::with_name("recovery").about(
-                            "utilize the recovery partition for performing an offline update",
-                        )),
+                        ),
                 ),
         )
         .subcommand(

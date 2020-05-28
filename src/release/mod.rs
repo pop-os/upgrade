@@ -94,14 +94,12 @@ pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
 #[derive(Clone, Copy, Debug, FromPrimitive, PartialEq)]
 pub enum UpgradeMethod {
     Offline = 1,
-    Recovery = 2,
 }
 
 impl From<UpgradeMethod> for &'static str {
     fn from(action: UpgradeMethod) -> Self {
         match action {
             UpgradeMethod::Offline => "offline upgrade",
-            UpgradeMethod::Recovery => "recovery partition",
         }
     }
 }
@@ -312,7 +310,6 @@ impl DaemonRuntime {
 
         // Ensure that prerequest files and mounts are available.
         match action {
-            UpgradeMethod::Recovery => recovery_prereq()?,
             UpgradeMethod::Offline => Self::systemd_upgrade_prereq_check()?,
         }
 
@@ -495,7 +492,6 @@ impl DaemonRuntime {
 pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResult<()> {
     match action {
         UpgradeMethod::Offline => systemd_upgrade_set(from, to),
-        UpgradeMethod::Recovery => set_recovery_as_default_boot_option("UPGRADE").map(|_| ()),
     }
 }
 

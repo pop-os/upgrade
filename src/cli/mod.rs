@@ -128,25 +128,13 @@ impl Client {
             }
             // Perform an upgrade to the next release. Supports either systemd or recovery upgrades.
             ("upgrade", Some(matches)) => {
-                let (method, matches) = match matches.subcommand() {
-                    ("systemd", Some(matches)) => (UpgradeMethod::Offline, matches),
-                    ("recovery", Some(matches)) => (UpgradeMethod::Recovery, matches),
-                    _ => unreachable!(),
-                };
-
+                let (method, matches) = (UpgradeMethod::Offline, matches);
                 let forcing =
                     matches.is_present("force-next") || pop_upgrade::development_releases_enabled();
                 let (current, next, available, _is_lts) = self.release_check(forcing)?;
 
                 // Only upgrade if an upgrade is possible, or if being forced to upgrade.
                 if forcing || available >= 0 {
-                    // Before doing a release upgrade with the recovery partition, ensure that
-                    // the recovery partition has been updated in advance.
-                    if let UpgradeMethod::Recovery = method {
-                        self.recovery_upgrade_release("", "", RecoveryReleaseFlags::empty())?;
-                        self.event_listen_recovery_upgrade()?;
-                    }
-
                     // Ask to perform the release upgrade, and then listen for its signals.
                     self.release_upgrade(method, current.as_ref(), next.as_ref())?;
                     let mut recall = self.event_listen_release_upgrade()?;
