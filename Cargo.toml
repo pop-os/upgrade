@@ -61,6 +61,7 @@ twoway = "0.2"
 ubuntu-version = "0.2"
 yansi = "0.5"
 rand = "0.7.3"
+piper = "0.1.2"
 
 [patch.crates-io]
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
