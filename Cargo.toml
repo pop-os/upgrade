@@ -28,7 +28,7 @@ err-derive = "0.2"
 exec = "0.3"
 fern = "0.6"
 fomat-macros = "0.3"
-future-parking_lot = "0.3"
+future-parking_lot = "0.3.3"
 futures = "0.3"
 hreq = { version = "0.2", default-features = false, features = ["smol", "gzip", "tls" ] }
 http = "0.2"
@@ -60,6 +60,7 @@ thiserror = "1"
 twoway = "0.2"
 ubuntu-version = "0.2"
 yansi = "0.5"
+rand = "0.7.3"
 
 [patch.crates-io]
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
