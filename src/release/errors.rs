@@ -51,6 +51,8 @@ pub enum ReleaseError {
     ReleaseVersion(VersionError),
     #[error(display = "failed to apply system repair before upgrade: {}", _0)]
     Repair(RepairError),
+    #[error(display = "failure to simulate upgrade: {}", _0)]
+    Simulation(io::Error),
     #[error(display = "files required for systemd upgrade are missing: {:?}", _0)]
     SystemdUpgradeFilesMissing(Vec<&'static str>),
     #[error(display = "failed to unhold the pop-upgrade package: {}", _0)]

@@ -24,6 +24,7 @@ distinst-chroot = { git = "https://github.com/pop-os/distinst/" }
 distinst-disks = { git = "https://github.com/pop-os/distinst/" }
 enclose = "1"
 envfile = "0.2"
+exit-status-ext = { git = "https://github.com/pop-os/exit-status-ext" }
 err-derive = "0.2"
 exec = "0.3"
 fern = "0.6"

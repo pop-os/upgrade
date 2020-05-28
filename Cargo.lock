@@ -2192,6 +2192,7 @@ dependencies = [
  "envfile 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "err-derive 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "exec 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "exit-status-ext 0.1.0 (git+https://github.com/pop-os/exit-status-ext)",
  "fern 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "fomat-macros 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "future-parking_lot 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
