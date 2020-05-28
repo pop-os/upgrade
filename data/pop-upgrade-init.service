@@ -10,3 +10,5 @@ Type=oneshot
 FailureAction=reboot
 KillMode=none
 ExecStart=/usr/lib/pop-upgrade/upgrade.sh
+StandardOutput=append:/var/log/upgrade.log
+StandardError=append:/var/log/upgrade.log
