@@ -4,16 +4,18 @@ use future_parking_lot::rwlock::{FutureReadable, FutureWriteable, RwLock};
 use futures::prelude::*;
 use hreq::{prelude::*, Agent, Body};
 use http::{Request, Response, Uri};
+use piper::Lock;
 use rand::seq::SliceRandom;
 use smol::Timer;
 use std::{collections::HashMap, fs::File, path::Path, time::Duration};
 
 pub struct Client {
+    agent:   Lock<Agent>,
     mirrors: RwLock<HashMap<Uri, Vec<Uri>>>,
 }
 
 impl Client {
-    pub fn new() -> Self { Self { mirrors: RwLock::new(HashMap::new()) } }
+    pub fn new() -> Self { Self { agent: Lock::default(), mirrors: RwLock::new(HashMap::new()) } }
 
     pub async fn fetch(&self, url: Uri) -> anyhow::Result<Response<Body>> {
         let mut retries = 0u32;
@@ -35,7 +37,7 @@ impl Client {
 
         let resp = match scheme {
             // HTTP requests
-            "http" | "https" => request(uri).await?,
+            "http" | "https" => self.request(uri).await?,
 
             // The mirrors protocol is a plain text list of addresses
             "mirror" => {
@@ -63,7 +65,7 @@ impl Client {
                 };
 
                 if let Some(ref uri) = mirror {
-                    return request(uri).await;
+                    return self.request(uri).await;
                 }
 
                 let req = Request::get(&url).with_body(()).unwrap();
@@ -73,7 +75,7 @@ impl Client {
                 mirror = Some(mirror_uri(&*fetched, package_path)?);
 
                 if let Some(ref uri) = mirror {
-                    return request(uri).await;
+                    return self.request(uri).await;
                 }
 
                 // This shouldn't happen, but error if it does
@@ -111,9 +113,35 @@ impl Client {
         Ok(())
     }
 
+    async fn request(&self, uri: &Uri) -> anyhow::Result<Response<Body>> {
+        let response = self
+            .agent
+            .lock()
+            .await
+            .send(Request::get(uri).with_body(()).unwrap())
+            .await
+            .with_context(|| fomat!("request for " (uri) " failed"))?;
+
+        let status = response.status();
+
+        if !status.is_success() {
+            let msg = fomat!(
+                "HTTP error "
+                (u16::from(status))
+                " connecting to " (uri)
+                if let Some(reason) = status.canonical_reason() {
+                    ": " (reason)
+                }
+            );
+            return Err(anyhow!(msg));
+        }
+
+        Ok(response)
+    }
+
     async fn fetch_mirrors(&self, req: Request<Body>) -> anyhow::Result<Vec<Uri>> {
         let url = req.uri().clone();
-        let response = request(&url).await?;
+        let response = self.request(&url).await?;
 
         let mut mirrors = Vec::new();
 
@@ -163,31 +191,6 @@ impl Client {
 
         Ok(mirrors)
     }
-}
-
-async fn request(uri: &Uri) -> anyhow::Result<Response<Body>> {
-    let response = Request::get(uri)
-        .with_body(())
-        .unwrap()
-        .send()
-        .await
-        .with_context(|| fomat!("request for " (uri) " failed"))?;
-
-    let status = response.status();
-
-    if !status.is_success() {
-        let msg = fomat!(
-            "HTTP error "
-            (u16::from(status))
-            " connecting to " (uri)
-            if let Some(reason) = status.canonical_reason() {
-                ": " (reason)
-            }
-        );
-        return Err(anyhow!(msg));
-    }
-
-    Ok(response)
 }
 
 fn mirror_uri(mirrors: &[Uri], package_path: &str) -> anyhow::Result<Uri> {
