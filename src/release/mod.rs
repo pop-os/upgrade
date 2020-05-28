@@ -16,9 +16,8 @@ use crate::{
 };
 
 use anyhow::Context;
-
-use apt_sources_lists::SourcesLists;
 use envfile::EnvFile;
+use exit_status_ext::ExitStatusExt;
 use futures::prelude::*;
 use std::{
     collections::HashSet,
@@ -26,6 +25,7 @@ use std::{
     fs::{self, File},
     os::unix::fs::symlink,
     path::Path,
+    process::Command,
     sync::Arc,
 };
 use systemd_boot_conf::SystemdBootConf;
@@ -468,7 +468,7 @@ impl DaemonRuntime {
 
             info!("packages fetched successfully");
 
-            Ok(())
+            self.simulate_upgrade()
         };
 
         // On any error, roll back the source lists.
@@ -480,6 +480,15 @@ impl DaemonRuntime {
                 Err(why)
             }
         }
+    }
+
+    fn simulate_upgrade(&self) -> RelResult<()> {
+        Command::new("apt-get")
+            .env("DEBIAN_FRONTEND", "noninteractive")
+            .args(&["--allow-downgrades", "-s", "full-upgrade"])
+            .status()
+            .and_then(ExitStatusExt::as_result)
+            .map_err(ReleaseError::Simulation)
     }
 }
 

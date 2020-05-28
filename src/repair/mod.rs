@@ -35,7 +35,7 @@ pub fn repair() -> Result<(), RepairError> {
 
     fstab::repair().map_err(RepairError::Fstab)?;
     sources::repair(codename).map_err(RepairError::Sources)?;
-    packaging::repair(<&'static str>::from(codename)).map_err(RepairError::Packaging)?;
+    packaging::repair().map_err(RepairError::Packaging)?;
 
     Ok(())
 }
