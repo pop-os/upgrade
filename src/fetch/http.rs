@@ -6,7 +6,7 @@ use hreq::{prelude::*, Agent, Body};
 use http::{Request, Response, Uri};
 use piper::Lock;
 use rand::seq::SliceRandom;
-use smol::Timer;
+use smol::{Task, Timer};
 use std::{collections::HashMap, fs::File, path::Path, time::Duration};
 
 pub struct Client {
@@ -88,7 +88,7 @@ impl Client {
         Ok(resp)
     }
 
-    pub async fn fetch_to_path(&self, uri: &str, path: &Path) -> anyhow::Result<()> {
+    pub async fn fetch_to_path(&self, uri: &str, md5: String, path: &Path) -> anyhow::Result<()> {
         // The file where we shall store the body at.
         let mut partial = {
             let path_clone: Box<Path> = path.into();
@@ -109,8 +109,11 @@ impl Client {
             .with_context(|| fomat!("streaming to " [path] " failed"))?;
 
         let _ = partial.flush().await;
+        drop(partial);
 
-        Ok(())
+        let mut file = File::open(path).context("failed to open partial")?;
+
+        Task::blocking(async move { md5_check(&mut file, &*md5) }).await
     }
 
     async fn request(&self, uri: &Uri) -> anyhow::Result<Response<Body>> {
@@ -191,6 +194,30 @@ impl Client {
 
         Ok(mirrors)
     }
+}
+
+fn md5_check(file: &mut File, md5: &str) -> anyhow::Result<()> {
+    use digest::generic_array::GenericArray;
+    use hex::FromHex;
+    use md5::{Digest, Md5};
+    use std::io::Read;
+
+    let expected =
+        <[u8; 16]>::from_hex(&*md5).map(GenericArray::from).context("malformed MD5 checksum")?;
+
+    let mut hasher = Md5::new();
+
+    let mut buffer = vec![0u8; 8192];
+    loop {
+        let read = file.read(&mut buffer).context("failed to read partial")?;
+
+        if read == 0 {
+            break;
+        }
+        hasher.input(&buffer[..read]);
+    }
+
+    return if expected == hasher.result() { Ok(()) } else { Err(anyhow!("checksum mismatch")) };
 }
 
 fn mirror_uri(mirrors: &[Uri], package_path: &str) -> anyhow::Result<Uri> {
