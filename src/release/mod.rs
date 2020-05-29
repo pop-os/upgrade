@@ -25,7 +25,7 @@ use std::{
     fs::{self, File},
     os::unix::fs::symlink,
     path::Path,
-    process::Command,
+    process::{Command, Stdio},
     sync::Arc,
 };
 use systemd_boot_conf::SystemdBootConf;
@@ -121,6 +121,7 @@ pub enum UpgradeEvent {
     Failure = 12,
     AptFilesLocked = 13,
     RemovingConflicts = 14,
+    Simulating = 15,
 }
 
 impl From<UpgradeEvent> for &'static str {
@@ -143,9 +144,10 @@ impl From<UpgradeEvent> for &'static str {
             UpgradeEvent::RemovingConflicts => "removing deprecated and/or conflicting packages",
             UpgradeEvent::Success => "new release is ready to install",
             UpgradeEvent::SuccessLive => "new release was successfully installed",
-            UpgradeEvent::UpdatingPackageLists => "updating package lists for the current release",
-            UpgradeEvent::UpdatingSourceLists => "updating the source lists to the new release",
+            UpgradeEvent::UpdatingPackageLists => "updating package lists",
+            UpgradeEvent::UpdatingSourceLists => "updating the source lists",
             UpgradeEvent::UpgradingPackages => "upgrading packages for the current release",
+            UpgradeEvent::Simulating => "simulating upgrade",
         }
     }
 }
@@ -175,7 +177,7 @@ impl DaemonRuntime {
                         let final_path = &*Path::new(ARCHIVES).join(&uri.name);
                         let partial_path = &*Path::new(PARTIAL).join(&uri.name);
 
-                        client.fetch_to_path(&uri.uri, partial_path).await?;
+                        client.fetch_to_path(&uri.uri, uri.md5sum.clone(), partial_path).await?;
 
                         fs::rename(partial_path, final_path).with_context(|| {
                             fomat!(
@@ -427,6 +429,7 @@ impl DaemonRuntime {
         info!("fetching packages for the new release");
         (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
         let uris = apt_uris(&["full-upgrade"]).map_err(ReleaseError::AptList)?;
+        info!("fetching the following packages: {:#?}", uris);
         smol::run(self.apt_fetch(uris, fetch))?;
 
         Ok(())
@@ -465,6 +468,8 @@ impl DaemonRuntime {
 
             info!("packages fetched successfully");
 
+            (*logger)(UpgradeEvent::Simulating);
+
             self.simulate_upgrade()
         };
 
@@ -483,6 +488,7 @@ impl DaemonRuntime {
         Command::new("apt-get")
             .env("DEBIAN_FRONTEND", "noninteractive")
             .args(&["--allow-downgrades", "-s", "full-upgrade"])
+            .stdout(Stdio::null())
             .status()
             .and_then(ExitStatusExt::as_result)
             .map_err(ReleaseError::Simulation)
