@@ -70,10 +70,6 @@ use self::error::{Error, InitError};
 pub fn main() {
     let _ = setup_logging(::log::LevelFilter::Debug);
 
-    use hreq::AsyncRuntime;
-
-    AsyncRuntime::Smol.make_default();
-
     let clap = App::new("pop-upgrade")
         .about("Pop!_OS Upgrade Utility")
         .global_setting(AppSettings::ColoredHelp)
@@ -228,6 +224,9 @@ fn main_(matches: &ArgMatches) -> Result<(), Error> {
 
 fn init() -> Result<(), InitError> {
     sighandler::init();
+
+    std::thread::spawn(|| smol::run(futures::future::pending::<()>()));
+
     ::std::fs::create_dir_all("/var/cache/apt/archives/partial/")
         .map_err(InitError::AptCacheDirectories)
 }
