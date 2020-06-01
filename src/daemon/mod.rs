@@ -189,7 +189,7 @@ impl Daemon {
                         let npackages = apt_uris.len() as u32;
                         prog_state.store((0, u64::from(npackages)), Ordering::SeqCst);
 
-                        let result = smol::run(runtime.apt_fetch(apt_uris, fetch_closure.clone()));
+                        let result = smol::block_on(runtime.apt_fetch(apt_uris, fetch_closure.clone()));
 
                         prog_state.store((0, 0), Ordering::SeqCst);
 

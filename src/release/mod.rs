@@ -19,6 +19,7 @@ use anyhow::Context;
 use envfile::EnvFile;
 use exit_status_ext::ExitStatusExt;
 use futures::prelude::*;
+use smol::Task;
 use std::{
     collections::HashSet,
     convert::TryFrom,
@@ -166,20 +167,41 @@ impl DaemonRuntime {
         const ARCHIVES: &str = "/var/cache/apt/archives/";
         const PARTIAL: &str = "/var/cache/apt/archives/partial/";
 
+        let func2 = func.clone();
+
         let mut package_stream = stream::iter(uris.into_iter())
+            // Fetch packages simultaneously
             .map(|uri| {
                 let func = func.clone();
                 let client = self.client.clone();
                 async move {
-                    let future = async move {
-                        func(FetchEvent::Fetching(uri.clone()));
+                    func(FetchEvent::Fetching(uri.clone()));
 
-                        let final_path = &*Path::new(ARCHIVES).join(&uri.name);
-                        let partial_path = &*Path::new(PARTIAL).join(&uri.name);
+                    let final_path = Path::new(ARCHIVES).join(&uri.name);
+                    let partial_path = Path::new(PARTIAL).join(&uri.name);
 
-                        client.fetch_to_path(&uri.uri, uri.md5sum.clone(), partial_path).await?;
+                    client.fetch_to_path(&uri.uri, &*partial_path).await?;
 
-                        fs::rename(partial_path, final_path).with_context(|| {
+                    Ok((uri, partial_path, final_path))
+                }
+            })
+            .buffer_unordered(4)
+            // Compute md5 checksums
+            .map(|result| {
+                let func = func2.clone();
+                async move {
+                    let (uri, partial_path, final_path) = match result {
+                        Ok(v) => v,
+                        Err(why) => return Err(why),
+                    };
+
+                    Task::blocking(async move {
+                        let mut file =
+                            File::open(&*partial_path).context("failed to open partial")?;
+
+                        md5_checksum_match(&mut file, &uri.md5sum)?;
+
+                        fs::rename(&partial_path, &final_path).with_context(|| {
                             fomat!(
                                 "failed to rename "
                                 [partial_path]
@@ -191,16 +213,15 @@ impl DaemonRuntime {
                         func(FetchEvent::Fetched(uri));
 
                         Ok(())
-                    };
-
-                    future.await.map_err(|why| ReleaseError::PackageFetch(why))
+                    })
+                    .await
                 }
             })
             .buffer_unordered(4);
 
         while let Some(result) = package_stream.next().await {
-            if result.is_err() {
-                return result;
+            if let Err(why) = result {
+                return Err(ReleaseError::PackageFetch(why));
             }
         }
 
@@ -342,7 +363,7 @@ impl DaemonRuntime {
             uris.insert(uri);
         }
 
-        smol::run(self.apt_fetch(uris, fetch.clone()))?;
+        smol::block_on(self.apt_fetch(uris, fetch.clone()))?;
 
         // Upgrade the current release to the latest packages.
         (*logger)(UpgradeEvent::UpgradingPackages);
@@ -429,8 +450,7 @@ impl DaemonRuntime {
         info!("fetching packages for the new release");
         (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
         let uris = apt_uris(&["full-upgrade"]).map_err(ReleaseError::AptList)?;
-        info!("fetching the following packages: {:#?}", uris);
-        smol::run(self.apt_fetch(uris, fetch))?;
+        smol::block_on(self.apt_fetch(uris, fetch))?;
 
         Ok(())
     }
@@ -654,4 +674,37 @@ fn recovery_prereq() -> RelResult<()> {
     } else {
         Err(ReleaseError::RecoveryNotFound)
     }
+}
+
+fn md5_checksum_match(file: &mut File, md5: &str) -> anyhow::Result<()> {
+    use digest::generic_array::GenericArray;
+    use hex::FromHex;
+    use md5::{Digest, Md5};
+    use std::io::Read;
+
+    let expected =
+        <[u8; 16]>::from_hex(&*md5).map(GenericArray::from).context("malformed MD5 checksum")?;
+
+    let mut hasher = Md5::new();
+
+    let mut buffer = vec![0u8; 8192];
+    loop {
+        let read = file.read(&mut buffer).context("failed to read partial")?;
+
+        if read == 0 {
+            break;
+        }
+        hasher.input(&buffer[..read]);
+    }
+
+    let actual = hasher.result();
+    return if expected == actual {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "checksum mismatch (expected {}; got {})",
+            hex::encode(expected),
+            hex::encode(actual)
+        ))
+    };
 }

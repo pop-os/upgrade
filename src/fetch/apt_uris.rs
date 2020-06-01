@@ -48,7 +48,7 @@ pub fn apt_uris(args: &[&str]) -> Result<HashSet<AptUri>, AptUriError> {
 
     let process = PidFd::from(child).into_future();
 
-    smol::run(async move {
+    smol::block_on(async move {
         let (_, packages) = futures::join!(process, reader);
         packages
     })

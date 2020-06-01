@@ -2,20 +2,21 @@ use anyhow::{bail, Context as _};
 
 use future_parking_lot::rwlock::{FutureReadable, FutureWriteable, RwLock};
 use futures::prelude::*;
-use hreq::{prelude::*, Agent, Body};
 use http::{Request, Response, Uri};
-use piper::Lock;
+use isahc::{config::RedirectPolicy, prelude::*, Body, HttpClient};
 use rand::seq::SliceRandom;
-use smol::{Task, Timer};
+use smol::Timer;
 use std::{collections::HashMap, fs::File, path::Path, time::Duration};
 
 pub struct Client {
-    agent:   Lock<Agent>,
+    client:  HttpClient,
     mirrors: RwLock<HashMap<Uri, Vec<Uri>>>,
 }
 
 impl Client {
-    pub fn new() -> Self { Self { agent: Lock::default(), mirrors: RwLock::new(HashMap::new()) } }
+    pub fn new() -> Self {
+        Self { client: HttpClient::new().unwrap(), mirrors: RwLock::new(HashMap::new()) }
+    }
 
     pub async fn fetch(&self, url: Uri) -> anyhow::Result<Response<Body>> {
         let mut retries = 0u32;
@@ -68,7 +69,7 @@ impl Client {
                     return self.request(uri).await;
                 }
 
-                let req = Request::get(&url).with_body(()).unwrap();
+                let req = Request::get(&url).body(()).unwrap();
                 let fetched = self.fetch_mirrors(req).await?;
 
                 self.mirrors.future_write().await.insert(url.clone(), fetched.clone());
@@ -88,40 +89,30 @@ impl Client {
         Ok(resp)
     }
 
-    pub async fn fetch_to_path(&self, uri: &str, md5: String, path: &Path) -> anyhow::Result<()> {
-        // The file where we shall store the body at.
-        let mut partial = {
-            let path_clone: Box<Path> = path.into();
-            let partial = smol::blocking! {
-                File::create(&path_clone)
-                    .with_context(|| fomat!("failed to create partial at "[path_clone]))
-            }?;
+    pub async fn fetch_to_path(&self, uri: &str, path: &Path) -> anyhow::Result<()> {
+        let partial =
+            File::create(&path).with_context(|| fomat!("failed to create partial at "[path]))?;
 
-            smol::writer(partial)
-        };
+        let mut partial = smol::writer(partial);
 
         let url = uri.parse::<Uri>().with_context(|| fomat!("failed to parse URL: "(uri)))?;
 
-        let response = self.fetch(url).await.with_context(|| fomat!("failed to request "(uri)))?;
+        let mut response =
+            self.fetch(url).await.with_context(|| fomat!("failed to request "(uri)))?;
 
-        futures::io::copy(response.into_body(), &mut partial)
+        futures::io::copy(response.body_mut(), &mut partial)
             .await
             .with_context(|| fomat!("streaming to " [path] " failed"))?;
 
-        let _ = partial.flush().await;
-        drop(partial);
+        let _ = partial.flush().await?;
 
-        let mut file = File::open(path).context("failed to open partial")?;
-
-        Task::blocking(async move { md5_check(&mut file, &*md5) }).await
+        Ok(())
     }
 
     async fn request(&self, uri: &Uri) -> anyhow::Result<Response<Body>> {
         let response = self
-            .agent
-            .lock()
-            .await
-            .send(Request::get(uri).with_body(()).unwrap())
+            .client
+            .get_async(uri)
             .await
             .with_context(|| fomat!("request for " (uri) " failed"))?;
 
@@ -142,7 +133,7 @@ impl Client {
         Ok(response)
     }
 
-    async fn fetch_mirrors(&self, req: Request<Body>) -> anyhow::Result<Vec<Uri>> {
+    async fn fetch_mirrors(&self, req: Request<()>) -> anyhow::Result<Vec<Uri>> {
         let url = req.uri().clone();
         let response = self.request(&url).await?;
 
@@ -160,20 +151,19 @@ impl Client {
 
             if let Ok(mut url) = line.trim().parse::<Uri>() {
                 // Filter mirrors which are broken, or correct those which have been moved.
-                let mut agent = Agent::new();
-                agent.redirects(0);
 
                 loop {
-                    if let Ok(response) =
-                        agent.send(Request::head(&url).with_body(()).unwrap()).await
-                    {
+                    let req =
+                        Request::head(&url).redirect_policy(RedirectPolicy::None).body(()).unwrap();
+
+                    if let Ok(response) = self.client.send_async(req).await {
                         let status = response.status();
 
                         if status.is_success() {
                             mirrors.push(url);
                         } else if status.is_redirection() {
-                            if let Some(location) = response.header("location") {
-                                if let Ok(redirect) = location.parse::<Uri>() {
+                            if let Some(location) = response.headers().get("location") {
+                                if let Ok(redirect) = location.to_str().unwrap().parse::<Uri>() {
                                     url = redirect;
                                     continue;
                                 }
@@ -194,30 +184,6 @@ impl Client {
 
         Ok(mirrors)
     }
-}
-
-fn md5_check(file: &mut File, md5: &str) -> anyhow::Result<()> {
-    use digest::generic_array::GenericArray;
-    use hex::FromHex;
-    use md5::{Digest, Md5};
-    use std::io::Read;
-
-    let expected =
-        <[u8; 16]>::from_hex(&*md5).map(GenericArray::from).context("malformed MD5 checksum")?;
-
-    let mut hasher = Md5::new();
-
-    let mut buffer = vec![0u8; 8192];
-    loop {
-        let read = file.read(&mut buffer).context("failed to read partial")?;
-
-        if read == 0 {
-            break;
-        }
-        hasher.input(&buffer[..read]);
-    }
-
-    return if expected == hasher.result() { Ok(()) } else { Err(anyhow!("checksum mismatch")) };
 }
 
 fn mirror_uri(mirrors: &[Uri], package_path: &str) -> anyhow::Result<Uri> {
