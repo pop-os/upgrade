@@ -5,9 +5,9 @@ use ubuntu_version::{Version, VersionError};
 pub enum BuildStatus {
     Blacklisted,
     Build(u16),
-    ConnectionIssue(reqwest::Error),
+    ConnectionIssue(isahc::Error),
     InternalIssue(ApiError),
-    ServerStatus(reqwest::Error),
+    ServerStatus(http::StatusCode),
 }
 
 impl BuildStatus {

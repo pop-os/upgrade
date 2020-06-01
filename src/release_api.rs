@@ -1,5 +1,4 @@
 use err_derive::Error;
-use reqwest::{self, Client};
 use serde_derive::Deserialize;
 
 const BASE: &str = "https://api.pop-os.org/";
@@ -9,11 +8,11 @@ pub enum ApiError {
     #[error(display = "build ({}) is not a number", _0)]
     BuildNaN(String),
     #[error(display = "failed to GET release API: {}", _0)]
-    Get(reqwest::Error),
+    Get(isahc::Error),
     #[error(display = "failed to parse JSON response: {}", _0)]
     Json(serde_json::Error),
-    #[error(display = "server returned an error status: {}", _0)]
-    Status(reqwest::Error),
+    #[error(display = "server returned an error status: {:?}", _0)]
+    Status(http::StatusCode),
 }
 
 #[derive(Debug, Deserialize)]
@@ -50,14 +49,16 @@ impl Release {
         info!("checking for build {} in channel {}", version, channel);
         let url = [BASE, "builds/", version, "/", channel].concat();
 
-        let response = Client::new()
-            .get(&url)
-            .send()
-            .map_err(ApiError::Get)?
-            .error_for_status()
-            .map_err(ApiError::Status)?;
+        let response = isahc::get(&url).map_err(ApiError::Get)?;
 
-        serde_json::from_reader::<_, RawRelease>(response).map_err(ApiError::Json)?.into_release()
+        let status = response.status();
+        if !status.is_success() {
+            return Err(ApiError::Status(status));
+        }
+
+        serde_json::from_reader::<_, RawRelease>(response.into_body())
+            .map_err(ApiError::Json)?
+            .into_release()
     }
 
     pub fn build_exists(version: &str, channel: &str) -> Result<u16, ApiError> {
