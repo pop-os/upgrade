@@ -138,6 +138,10 @@ attempt_upgrade () {
         sleep 6
         plymouth message --text="system-updates-stop"
         sync
+
+        apt-mark unhold pop-upgrade
+        systemctl unmask acpid pop-upgrade
+        systemctl reboot
     else
         message -f "Upgrade failed. Restarting the system to try again"
         sleep 6
@@ -147,9 +151,6 @@ attempt_upgrade () {
         systemctl unmask acpid pop-upgrade
         systemctl rescue
     fi
-
-    apt-mark unhold pop-upgrade
-    systemctl unmask acpid pop-upgrade
 }
 
 ATTEMPTED=/upgrade-attempted
