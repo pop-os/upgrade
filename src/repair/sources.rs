@@ -127,17 +127,17 @@ pub fn create_new_sources_list(release: &str) -> io::Result<()> {
         format!(
             r#"# Ubuntu Repositories
 
-deb mirror://mirrors.ubuntu.com/mirrors.txt {0} restricted multiverse universe main
-deb-src mirror://mirrors.ubuntu.com/mirrors.txt {0} restricted multiverse universe main
+deb http://us.archive.ubuntu.com/ {0} restricted multiverse universe main
+deb-src http://us.archive.ubuntu.com/ {0} restricted multiverse universe main
 
-deb mirror://mirrors.ubuntu.com/mirrors.txt {0}-updates restricted multiverse universe main
-deb-src mirror://mirrors.ubuntu.com/mirrors.txt {0}-updates restricted multiverse universe main
+deb http://us.archive.ubuntu.com/ {0}-updates restricted multiverse universe main
+deb-src http://us.archive.ubuntu.com/ {0}-updates restricted multiverse universe main
 
-deb mirror://mirrors.ubuntu.com/mirrors.txt {0}-security restricted multiverse universe main
-deb-src mirror://mirrors.ubuntu.com/mirrors.txt {0}-security restricted multiverse universe main
+deb http://us.archive.ubuntu.com/ {0}-security restricted multiverse universe main
+deb-src http://us.archive.ubuntu.com/ {0}-security restricted multiverse universe main
 
-deb mirror://mirrors.ubuntu.com/mirrors.txt {0}-backports restricted multiverse universe main
-deb-src mirror://mirrors.ubuntu.com/mirrors.txt {0}-backports restricted multiverse universe main
+deb http://us.archive.ubuntu.com/ {0}-backports restricted multiverse universe main
+deb-src http://us.archive.ubuntu.com/ {0}-backports restricted multiverse universe main
 
 # Pop!_OS Repositories
 
