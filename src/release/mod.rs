@@ -472,7 +472,7 @@ impl DaemonRuntime {
 
         // Use a closure to capture any early returns due to an error.
         let updated_list_ops = || {
-            info!("updated the package lists for the new relaese");
+            info!("updated the package lists for the new release");
             apt_update(|ready| {
                 (*logger)(if ready {
                     UpgradeEvent::UpdatingPackageLists
