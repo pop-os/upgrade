@@ -342,7 +342,7 @@ const GENERIC: &str = r#"Looks like we've encountered an issue! No worries, thes
 
 If you are a System76 customer, please run the System76 Driver tool to collect logs and contact support with the logs.
 
-If you are seeing package manager issues, please run the following commands:
+If you are seeing package manager issues, please run the following commands and send them to support in your support ticket:
 
 sudo apt clean
 sudo apt update -m
