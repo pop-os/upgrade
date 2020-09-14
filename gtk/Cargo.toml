@@ -24,7 +24,7 @@ pango = "0.8"
 pop-upgrade = { path = "../" }
 shrinkwraprs = "0.3"
 thiserror = "1"
-ubuntu-version = "0.2"
+ubuntu-version = "0.2.2"
 upower_dbus = "0.1"
 users = "0.10"
 yansi = "0.5"
