@@ -252,7 +252,7 @@ impl DaemonRuntime {
         info!("checking if release can be upgraded from {} to {}", current, new);
 
         info!("creating backup of source lists");
-        repos::backup().context("failed to create backup")?;
+        repos::backup(current).context("failed to create backup")?;
 
         // In case the system abruptly shuts down after this point, create a file to signal
         // that packages were being fetched for a new release.
@@ -265,6 +265,7 @@ impl DaemonRuntime {
 
         let update_sources = || {
             repair::sources::create_new_sources_list(new)?;
+            repos::disable_third_parties()?;
             apt_update(|ready| lock_or(ready, UpgradeEvent::UpdatingPackageLists))
                 .context("failed to update source lists")
         };

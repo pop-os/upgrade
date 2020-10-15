@@ -142,6 +142,7 @@ deb-src http://us.archive.ubuntu.com/ubuntu/ {0}-backports restricted multiverse
 # Pop!_OS Repositories
 
 deb http://ppa.launchpad.net/system76/pop/ubuntu {0} main
+deb-src http://ppa.launchpad.net/system76/pop/ubuntu {0} main
 
 deb http://apt.pop-os.org/proprietary {0} main
 "#,
