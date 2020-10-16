@@ -237,22 +237,10 @@ impl DaemonRuntime {
         current: &str,
         new: &str,
     ) -> anyhow::Result<()> {
-        fn codename_from_version(version: &str) -> &str {
-            version
-                .parse::<Version>()
-                .ok()
-                .and_then(|x| Codename::try_from(x).ok())
-                .map(<&'static str>::from)
-                .unwrap_or(version)
-        }
-
         let current = codename_from_version(current);
         let new = codename_from_version(new);
 
         info!("checking if release can be upgraded from {} to {}", current, new);
-
-        info!("creating backup of source lists");
-        repos::backup(current).context("failed to create backup")?;
 
         // In case the system abruptly shuts down after this point, create a file to signal
         // that packages were being fetched for a new release.
@@ -265,7 +253,6 @@ impl DaemonRuntime {
 
         let update_sources = || {
             repair::sources::create_new_sources_list(new)?;
-            repos::disable_third_parties()?;
             apt_update(|ready| lock_or(ready, UpgradeEvent::UpdatingPackageLists))
                 .context("failed to update source lists")
         };
@@ -338,6 +325,15 @@ impl DaemonRuntime {
         }
 
         let _ = apt_hold("pop-upgrade");
+
+        {
+            let version = codename_from_version(from);
+            info!("creating backup of source lists");
+            repos::backup(version).map_err(ReleaseError::BackupPPAs)?;
+
+            info!("disabling third party sources");
+            repos::disable_third_parties(version).map_err(ReleaseError::DisablePPAs)?;
+        }
 
         let string_buffer = &mut String::new();
         let conflicting = installed(string_buffer, REMOVE_PACKAGES);
@@ -708,4 +704,13 @@ fn md5_checksum_match(file: &mut File, md5: &str) -> anyhow::Result<()> {
             hex::encode(actual)
         ))
     };
+}
+
+fn codename_from_version(version: &str) -> &str {
+    version
+        .parse::<Version>()
+        .ok()
+        .and_then(|x| Codename::try_from(x).ok())
+        .map(<&'static str>::from)
+        .unwrap_or(version)
 }

@@ -17,8 +17,8 @@ pub fn backup(release: &str) -> anyhow::Result<()> {
         // Remove previous backups
         let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
         iter_files(dir, |entry| {
-            if entry.file_name().to_bytes().ends_with(b".save") {
-                let path = entry.path();
+            let path = entry.path();
+            if path.extension().map_or(false, |e| e == "save") {
                 info!("removing old backup at {}", path.display());
                 fs::remove_file(&path)
                     .with_context(|| fomat!("failed to remove backup at "(path.display())))?;
@@ -31,14 +31,16 @@ pub fn backup(release: &str) -> anyhow::Result<()> {
         let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
         iter_files(dir, |entry| {
             let src_path = entry.path();
-            let dst_path_buf = [&*(src_path.to_bytes()), b".save"].concat();
-            let dst_path_str = OsStr::from_bytes(&dst_path_buf).unwrap();
-            let dst_path = Path::new(&dst_path_str);
+            if src_path.extension().map_or(false, |e| e == "list") {
+                let dst_path_buf = [&*(src_path.to_bytes()), b".save"].concat();
+                let dst_path_str = OsStr::from_bytes(&dst_path_buf).unwrap();
+                let dst_path = Path::new(&dst_path_str);
 
-            info!("creating backup of {} to {}", src_path.display(), dst_path.display());
-            fs::copy(&src_path, dst_path).with_context(
-                || fomat!("failed to copy " (src_path.display()) " to " (dst_path.display())),
-            )?;
+                info!("creating backup of {} to {}", src_path.display(), dst_path.display());
+                fs::copy(&src_path, dst_path).with_context(
+                    || fomat!("failed to copy " (src_path.display()) " to " (dst_path.display())),
+                )?;
+            }
 
             Ok(())
         })?;
@@ -60,11 +62,18 @@ pub fn backup(release: &str) -> anyhow::Result<()> {
 }
 
 /// For each `.list` in `sources.list.d`, add `#` to the `deb` lines.
-pub fn disable_third_parties() -> anyhow::Result<()> {
+pub fn disable_third_parties(release: &str) -> anyhow::Result<()> {
     let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
     iter_files(dir, |entry| {
-        if entry.file_name().to_bytes().ends_with(b".list") {
-            let path = entry.path();
+        let path = entry.path();
+        if path.extension().map_or(false, |e| e == "list") {
+            if let Some(fname) = path.file_name() {
+                const POP_PPA: &[u8] = b"system76-ubuntu-pop";
+                if fname.to_bytes().windows(POP_PPA.len()).any(|w| w == POP_PPA) {
+                    fs::remove_file(&path).context("failed to remove the old Pop PPA file")?;
+                    return Ok(());
+                }
+            }
 
             info!("disabling sources in {}", path.display());
 
@@ -87,7 +96,11 @@ pub fn disable_third_parties() -> anyhow::Result<()> {
         }
 
         Ok(())
-    })
+    })?;
+
+    sources::create_new_sources_list(release)?;
+
+    Ok(())
 }
 
 pub fn repair(release: &str) -> anyhow::Result<()> {

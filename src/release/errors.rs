@@ -13,12 +13,16 @@ pub enum ReleaseError {
     AptList(AptUriError),
     #[error(display = "failed to purge packages: {}", _0)]
     AptPurge(io::Error),
+    #[error(display = "failed to back up system sources")]
+    BackupPPAs(anyhow::Error),
     #[error(display = "unable to upgrade to next release: {:?}", _0)]
     Check(anyhow::Error),
     #[error(display = "conflicting and/or deprecated packages could not be removed")]
     ConflictRemoval(#[error(source, no_from)] io::Error),
     #[error(display = "failed to update package lists for the current release: {}", _0)]
     CurrentUpdate(io::Error),
+    #[error(display = "unable to disable third party repositories: {}", _0)]
+    DisablePPAs(anyhow::Error),
     #[error(display = "status for `dpkg --configure -a` failed: {}", _0)]
     DpkgConfigure(io::Error),
     #[error(display = "status for `apt-get install -f` failed: {}", _0)]
