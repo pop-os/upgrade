@@ -312,7 +312,8 @@ impl DaemonRuntime {
     ) -> RelResult<()> {
         self.terminate_background_applications();
 
-        let from_codename = from.parse::<Codename>().unwrap();
+        let from_version = from.parse::<Version>().expect("invalid version");
+        let from_codename = Codename::try_from(from_version).expect("release doesn't have a codename");
 
         let lock_or = |ready, then: UpgradeEvent| {
             (*logger)(if ready { then } else { UpgradeEvent::AptFilesLocked })
