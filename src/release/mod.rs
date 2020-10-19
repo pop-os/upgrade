@@ -12,7 +12,7 @@ pub use self::{
 use crate::{
     daemon::DaemonRuntime,
     fetch::apt_uris::{apt_uris, AptUri},
-    repair,
+    repair::{self, RepairError},
 };
 
 use anyhow::Context;
@@ -252,7 +252,7 @@ impl DaemonRuntime {
         };
 
         let update_sources = || {
-            repair::sources::create_new_sources_list(new)?;
+            repos::create_new_sources_list(new)?;
             apt_update(|ready| lock_or(ready, UpgradeEvent::UpdatingPackageLists))
                 .context("failed to update source lists")
         };
@@ -312,8 +312,7 @@ impl DaemonRuntime {
     ) -> RelResult<()> {
         self.terminate_background_applications();
 
-        // Check the system and perform any repairs necessary for success.
-        repair::repair().map_err(ReleaseError::Repair)?;
+        let from_codename = from.parse::<Codename>().unwrap();
 
         let lock_or = |ready, then: UpgradeEvent| {
             (*logger)(if ready { then } else { UpgradeEvent::AptFilesLocked })
@@ -326,13 +325,29 @@ impl DaemonRuntime {
 
         let _ = apt_hold("pop-upgrade");
 
-        {
-            let version = codename_from_version(from);
-            info!("creating backup of source lists");
-            repos::backup(version).map_err(ReleaseError::BackupPPAs)?;
+        // Check the system and perform any repairs necessary for success.
+        (|| {
+            // Repair the fstab
+            repair::fstab::repair().map_err(RepairError::Fstab)?;
 
-            info!("disabling third party sources");
-            repos::disable_third_parties(version).map_err(ReleaseError::DisablePPAs)?;
+            // Try to fix any packaging errors
+            repair::packaging::repair().map_err(RepairError::Packaging)?;
+
+            Ok(())
+        })()
+        .map_err(ReleaseError::Repair)?;
+
+        let version = codename_from_version(from);
+
+        info!("creating backup of source lists");
+        repos::backup(version).map_err(ReleaseError::BackupPPAs)?;
+
+        info!("disabling third party sources");
+        repos::disable_third_parties(version).map_err(ReleaseError::DisablePPAs)?;
+
+        if repos::is_eol(from_codename) && repos::is_old_release(from_codename) {
+            info!("switching to old-releases repositories");
+            repos::replace_with_old_releases().map_err(ReleaseError::OldReleaseSwitch)?;
         }
 
         let string_buffer = &mut String::new();

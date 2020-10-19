@@ -11,7 +11,6 @@ members = [ "gtk", "gtk/ffi", "tools" ]
 [dependencies]
 anyhow = "1"
 apt-cli-wrappers = { git = "https://github.com/pop-os/apt-cli-wrappers" }
-apt-sources-lists = { git = "https://github.com/pop-os/apt-sources-lists" }
 atomic = "0.4"
 atty = "0.2"
 bitflags = "1"

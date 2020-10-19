@@ -33,6 +33,8 @@ pub enum ReleaseError {
     Lock(io::Error),
     #[error(display = "root is required for this action: rerun with `sudo`")]
     NotRoot,
+    #[error(display = "failed to switch Ubuntu repos to old-releases")]
+    OldReleaseSwitch(#[source] io::Error),
     #[error(display = "fetch of package failed: {:?}", _0)]
     PackageFetch(anyhow::Error),
     #[error(display = "failed to apply pre-upgrade fixes: {}", _0)]
