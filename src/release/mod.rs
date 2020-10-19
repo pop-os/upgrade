@@ -12,7 +12,7 @@ pub use self::{
 use crate::{
     daemon::DaemonRuntime,
     fetch::apt_uris::{apt_uris, AptUri},
-    repair,
+    repair::{self, RepairError},
 };
 
 use anyhow::Context;
@@ -237,22 +237,10 @@ impl DaemonRuntime {
         current: &str,
         new: &str,
     ) -> anyhow::Result<()> {
-        fn codename_from_version(version: &str) -> &str {
-            version
-                .parse::<Version>()
-                .ok()
-                .and_then(|x| Codename::try_from(x).ok())
-                .map(<&'static str>::from)
-                .unwrap_or(version)
-        }
-
         let current = codename_from_version(current);
         let new = codename_from_version(new);
 
         info!("checking if release can be upgraded from {} to {}", current, new);
-
-        info!("creating backup of source lists");
-        repos::backup().context("failed to create backup")?;
 
         // In case the system abruptly shuts down after this point, create a file to signal
         // that packages were being fetched for a new release.
@@ -264,7 +252,7 @@ impl DaemonRuntime {
         };
 
         let update_sources = || {
-            repair::sources::create_new_sources_list(new)?;
+            repos::create_new_sources_list(new)?;
             apt_update(|ready| lock_or(ready, UpgradeEvent::UpdatingPackageLists))
                 .context("failed to update source lists")
         };
@@ -324,8 +312,8 @@ impl DaemonRuntime {
     ) -> RelResult<()> {
         self.terminate_background_applications();
 
-        // Check the system and perform any repairs necessary for success.
-        repair::repair().map_err(ReleaseError::Repair)?;
+        let from_version = from.parse::<Version>().expect("invalid version");
+        let from_codename = Codename::try_from(from_version).expect("release doesn't have a codename");
 
         let lock_or = |ready, then: UpgradeEvent| {
             (*logger)(if ready { then } else { UpgradeEvent::AptFilesLocked })
@@ -337,6 +325,31 @@ impl DaemonRuntime {
         }
 
         let _ = apt_hold("pop-upgrade");
+
+        // Check the system and perform any repairs necessary for success.
+        (|| {
+            // Repair the fstab
+            repair::fstab::repair().map_err(RepairError::Fstab)?;
+
+            // Try to fix any packaging errors
+            repair::packaging::repair().map_err(RepairError::Packaging)?;
+
+            Ok(())
+        })()
+        .map_err(ReleaseError::Repair)?;
+
+        let version = codename_from_version(from);
+
+        info!("creating backup of source lists");
+        repos::backup(version).map_err(ReleaseError::BackupPPAs)?;
+
+        info!("disabling third party sources");
+        repos::disable_third_parties(version).map_err(ReleaseError::DisablePPAs)?;
+
+        if repos::is_eol(from_codename) && repos::is_old_release(from_codename) {
+            info!("switching to old-releases repositories");
+            repos::replace_with_old_releases().map_err(ReleaseError::OldReleaseSwitch)?;
+        }
 
         let string_buffer = &mut String::new();
         let conflicting = installed(string_buffer, REMOVE_PACKAGES);
@@ -707,4 +720,13 @@ fn md5_checksum_match(file: &mut File, md5: &str) -> anyhow::Result<()> {
             hex::encode(actual)
         ))
     };
+}
+
+fn codename_from_version(version: &str) -> &str {
+    version
+        .parse::<Version>()
+        .ok()
+        .and_then(|x| Codename::try_from(x).ok())
+        .map(<&'static str>::from)
+        .unwrap_or(version)
 }
