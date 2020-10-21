@@ -219,7 +219,7 @@ fn replace_with_old_releases_(
 }
 
 pub fn create_new_sources_list(release: &str) -> anyhow::Result<()> {
-    // Switchover is the release where DEB822-format sources were adopted. 
+    // Switchover is the release where DEB822-format sources were adopted.
     // Currently 'groovy'
     let switchover = "groovy";
     let new_timestamp = release.parse::<Codename>()?.release_timestamp();

@@ -313,7 +313,8 @@ impl DaemonRuntime {
         self.terminate_background_applications();
 
         let from_version = from.parse::<Version>().expect("invalid version");
-        let from_codename = Codename::try_from(from_version).expect("release doesn't have a codename");
+        let from_codename =
+            Codename::try_from(from_version).expect("release doesn't have a codename");
 
         let lock_or = |ready, then: UpgradeEvent| {
             (*logger)(if ready { then } else { UpgradeEvent::AptFilesLocked })
@@ -328,10 +329,8 @@ impl DaemonRuntime {
 
         // Check the system and perform any repairs necessary for success.
         (|| {
-            // Repair the fstab
+            repair::crypttab::repair().map_err(RepairError::Crypttab)?;
             repair::fstab::repair().map_err(RepairError::Fstab)?;
-
-            // Try to fix any packaging errors
             repair::packaging::repair().map_err(RepairError::Packaging)?;
 
             Ok(())
