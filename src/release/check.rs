@@ -89,13 +89,15 @@ pub fn release_str(major: u8, minor: u8) -> &'static str {
         (18, 4) => "18.04",
         (19, 10) => "18.10",
         (20, 4) => "20.04",
+        (20, 10) => "20.10",
+        (21, 4) => "21.04",
         _ => panic!("this version of pop-upgrade is not supported on this release"),
     }
 }
 
 fn next_(
     current: Version,
-    development: bool,
+    _development: bool,
     release_check: impl Fn(&str) -> BuildStatus,
 ) -> ReleaseStatus {
     let next: &str;
@@ -116,20 +118,23 @@ fn next_(
         (20, 4) => {
             next = "20.10";
 
-            ReleaseStatus {
-                build: if development { release_check(next) } else { BuildStatus::Blacklisted },
-                current: "20.04",
-                is_lts: true,
-                next,
-            }
+            ReleaseStatus { build: release_check(next), current: "20.04", is_lts: true, next }
         }
 
         (20, 10) => ReleaseStatus {
             build:   BuildStatus::Blacklisted,
             current: "20.10",
-            is_lts:  true,
+            is_lts:  false,
             next:    "21.04",
         },
+
+        (21, 4) => ReleaseStatus {
+            build:   BuildStatus::Blacklisted,
+            current: "21.04",
+            is_lts:  false,
+            next:    "21.10",
+        },
+
         _ => panic!("this version of pop-upgrade is not supported on this release"),
     }
 }
