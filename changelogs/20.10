@@ -1,0 +1,29 @@
+* System apt sources have been converted to DEB822 sources format. Repoman was updated to take advantage of this in order to support defining mirrors for system sources.
+
+* System76 Power now supports a compute graphics mode. This is useful to prevent any applications from accessing it for display output, but leaving it available for CUDA and OpenCL applications.
+
+* NVIDIA driver updates enabled Reverse PRIME support. This allows for external displays to be used while on Intel graphics in Hybrid graphics mode.
+
+* Redesign of keyboard panel in collaboration with GNOME. Adds support for managing multiple bindings for a shortcut.
+
+* Popsicle was released as a flatpak on Flathub, for the benefit of other Linux distributions.
+
+* Pop Shell
+** Added ability to hide window title bars in X11 sessions. These windows can still be dragged by holding `Super` and dragging from anywhere within the window.
+** Added ability to change active hint colors, which also changes the window overlay and stack tab colors.
+** Added dialogs for managing floating window exceptions, which enable defining certain applications or windows to always float.
+** Added smart gaps behavior to extension preferences, which hides the outer gap when there is only one window on a work area.
+** Added a new stacked tiles feature, which permits stacking multiple windows into the same tile, and switching between them via a tab header. This can be toggled on any window node in the tree by pressing `Super` + `S`.
+** Many fixes and improvements have been applied throughout the release, with more to come post-release
+
+* GNOME 3.38
+** The session panel menu now has a new Restart option
+** The Application Grid is now more compact, and scales based on screen dimensions and resolution.
+** Improved responsiveness, less stuttering, and better animations
+** WiFi settings now show a QR code for sharing your Wi-Fi Hotspot with mobile devices
+** Option to show battery percentage
+** Screenshot and Sound Recorder had a visual refresh
+** New parental controls feature after adding child accounts
+** Tracker has moved to a distributed database model, with improved performance and Flatpak support
+
+* Linux Kernel 5.8

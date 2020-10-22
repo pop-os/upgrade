@@ -106,9 +106,12 @@ impl Client {
 
                     let (summary, body) = notification_message(&current, &next);
 
+                    let upgrade_panel =
+                        if &*current == "18.04" { "info-overview" } else { "upgrade" };
+
                     notify(&summary, &body, || {
                         let _ =
-                            exec::Command::new("gnome-control-center").arg("info-overview").exec();
+                            exec::Command::new("gnome-control-center").arg(upgrade_panel).exec();
                     });
                 }
             }
