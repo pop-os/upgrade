@@ -48,16 +48,26 @@ efi_rename () {
     fi
 }
 
-upgrade () {
-    percent=0
+dpkg_configure () {
+    dpkg --configure -a --force-overwrite | while read -r line; do
+        message -i "Attempting to repair: $line"
+    done
 
-    message -i "Installing Prerequisites"
+    # Validate the exit status
+    dpkg --configure -a
+}
 
+apt_install_fix () {
+    message -i "Checking for package fixes"
     env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
         -o Dpkg::Options::="--force-confdef" \
         -o Dpkg::Options::="--force-confold" \
-        install -y --allow-downgrades --show-progress \
-        --no-download --ignore-missing ${PREINST[@]}
+        install -f -y --allow-downgrades --show-progress \
+        --no-download --ignore-missing
+}
+
+apt_full_upgrade () {
+    percent=0
 
     # Watch progress of an update, and report it to the splash screen
     env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
@@ -94,22 +104,32 @@ upgrade () {
         --no-download --ignore-missing
 }
 
-dpkg_configure () {
-    dpkg --configure -a --force-overwrite | while read -r line; do
-        message -i "Attempting to repair: $line"
-    done
+apt_install_prereq () {
+    message -i "Installing Prerequisites"
+    env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
+        -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confold" \
+        install -y --allow-downgrades --show-progress \
+        --no-download --ignore-missing ${PREINST[@]}
+}
 
-    # Validate the exit status
-    dpkg --configure -a
+upgrade () {
+    dpkg_configure
+    apt_install_fix
+    apt_install_prereq
+    apt_full_upgrade
 }
 
 attempt_repair () {
     message -i "Upgrade failed: attempting to repair"
-    if dpkg_configure; then
-        message -i "Repair succeeded. Resuming upgrade"
-        sleep 3
-        upgrade
-    fi
+
+    for (( i=0; i<10; ++i)); do
+        if upgrade; then
+            message -i "Repair succeeded. Resuming upgrade"
+            sleep 3
+            break
+        fi
+    done
 }
 
 # Attempts the upgrade the system, and if the upgrade fails, tries to repair it.
@@ -120,7 +140,7 @@ attempt_upgrade () {
     apt-mark hold pop-upgrade
     systemctl mask acpid pop-upgrade
 
-    if (upgrade || attempt_repair) && apt upgrade -y --allow-downgrades --no-download --ignore-missing; then
+    if (upgrade || attempt_repair); then
         rm -rf  /system-update "$1"
 
         message -i "Upgrade complete. Removing old kernels"
