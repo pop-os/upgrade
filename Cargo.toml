@@ -9,64 +9,71 @@ edition = "2018"
 members = [ "gtk", "gtk/ffi", "tools" ]
 
 [dependencies]
-anyhow = "1"
-apt-cli-wrappers = { git = "https://github.com/pop-os/apt-cli-wrappers" }
+anyhow = "1.0"
+apt-cmd = { git = "https://github.com/pop-os/apt-cmd/" }
+as-result = "0.2"
+async-fs = "1.5"
+# TODO: Rust needs update
+async-io = "=1.1.0"
+# TODO: Rust needs update
+async-lock = "=2.3.0"
 atomic = "0.4"
 atty = "0.2"
-bitflags = "1"
+bitflags = "1.2"
 chrono = "0.4"
 clap = "2"
-crossbeam = "0.7"
+# TODO: Update this
 dbus = "0.6"
+digest = "0.9"
+# TODO: Remove this
 disk-types = "0.1"
-distinst-chroot = { git = "https://github.com/pop-os/distinst/" }
+# TODO: Remove this
 distinst-disks = { git = "https://github.com/pop-os/distinst/" }
 enclose = "1"
 envfile = "0.2"
-exit-status-ext = { git = "https://github.com/pop-os/exit-status-ext" }
-err-derive = "0.2"
 exec = "0.3"
 fern = "0.6"
+flume = "0.9"
 fomat-macros = "0.3"
-future-parking_lot = "0.3.3"
 futures = "0.3"
-http = "0.2"
+futures-util = "0.3"
+hex = "0.4.2"
 human-sort = "0.2"
+# TODO: Switch to surf after updating Rust
+isahc = "0.9"
 libc = "0.2"
 log = "0.4"
 logind-dbus = "0.1"
-notify-rust = "3.6"
+md-5 = "0.9"
+notify-rust = "4.0"
 num-derive = "0.3"
 num-traits = "0.2"
+os_str_bytes = "2.3"
 os-release = "0.1"
-parallel-getter = { git = "https://github.com/pop-os/parallel-getter" }
+# TODO: Remove this
 partition-identity = "0.2"
+piper = "0.1"
 proc-mounts = "0.2"
-procfs = "0.7"
+procfs = "0.8"
 pwd = "1.3"
-reqwest = "0.9"
-serde = "1"
-serde_derive = "1"
-serde_json = "1"
-sha2 = "0.8"
+rand = "0.7"
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+sha2 = "0.9"
 shrinkwraprs = "0.3"
-smol = "0.1"
 sys-mount = "1"
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
 systemd-boot-conf = "0.2"
 tempfile = "3"
 thiserror = "1"
 twoway = "0.2"
-ubuntu-version = "0.2.2"
+ubuntu-version = "0.2"
 yansi = "0.5"
-rand = "0.7.3"
-piper = "0.1.2"
-pidfd = "0.2.4"
-md-5 = "0.8.0"
-hex = "0.4.2"
-digest = "0.8.1"
-isahc = "0.9.3"
-os_str_bytes = "2.3"
+cascade = "1.0.0"
+async-process = "=0.1.1"
+smolscale = "0.1.0"
+users = "0.11.0"
 
 [patch.crates-io]
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }

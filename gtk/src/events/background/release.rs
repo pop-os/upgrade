@@ -1,7 +1,7 @@
 use super::status_changed;
 use crate::events::*;
 
-use apt_cli_wrappers::AptUpgradeEvent;
+use apt_cmd::AptUpgradeEvent;
 use pop_upgrade::{
     client::{self, Client, ReleaseInfo, Signal},
     daemon::DaemonStatus,

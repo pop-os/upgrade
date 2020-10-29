@@ -5,26 +5,26 @@ authors = ["Michael Aaron Murphy <mmstick@pm.me>"]
 edition = "2018"
 
 [dependencies]
-apt-cli-wrappers = { git = "https://github.com/pop-os/apt-cli-wrappers" }
+apt-cmd = { git = "https://github.com/pop-os/apt-cmd/" }
 better-panic = "0.2"
-cascade = "0.1"
+cascade = "1.0"
 chrono = "0.4"
 clap = "2"
 derive-new = "0.5"
 fern = "0.6"
 fomat-macros = "0.3"
-gio = "0.8"
-glib = "0.9"
-gtk = { version = "0.8", features = [ "v3_22" ] }
+gio = "0.9"
+glib = "0.10"
+gtk = { version = "0.9", features = [ "v3_22" ] }
 log = "0.4"
-notify-rust = "3"
+notify-rust = "4.0"
 num-traits = "0.2"
 os-release = "0.1"
-pango = "0.8"
+pango = "0.9"
 pop-upgrade = { path = "../" }
 shrinkwraprs = "0.3"
-thiserror = "1"
+thiserror = "1.0"
 ubuntu-version = "0.2.2"
 upower_dbus = "0.1"
-users = "0.10"
+users = "0.11"
 yansi = "0.5"

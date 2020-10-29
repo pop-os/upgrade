@@ -3,7 +3,7 @@ mod colors;
 use self::colors::*;
 use crate::notify::notify;
 
-use apt_cli_wrappers::AptUpgradeEvent;
+use apt_cmd::AptUpgradeEvent;
 use chrono::{TimeZone, Utc};
 use clap::ArgMatches;
 use num_traits::FromPrimitive;
@@ -332,6 +332,8 @@ impl Client {
                         );
 
                         let _ = io::stdout().flush();
+
+                        reset = true;
                     }
                     client::Signal::RecoveryEvent(event) => {
                         if reset {

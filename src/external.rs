@@ -1,20 +1,21 @@
-use distinst_chroot::Command;
+use async_process::{Command, Stdio};
+use futures::{io::BufReader, prelude::*};
 use std::{io, path::Path};
 
-// pub fn update_initramfs() -> io::Result<()> {
-//     Command::new("update-initramfs").args(&["-ck", "all"]).run()
-// }
+pub async fn findmnt_uuid<P: AsRef<Path>>(path: P) -> io::Result<String> {
+    let mut cmd = cascade::cascade! {
+        Command::new("findmnt");
+        ..stdout(Stdio::piped());
+        ..args(&["-n", "-o", "UUID"]);
+        ..arg(path.as_ref());
+    };
 
-pub fn rsync(src: &[&Path], target: &str, args: &[&str]) -> io::Result<()> {
-    Command::new("rsync").args(args).args(src).arg(target).run()
-}
+    let mut child = cmd.spawn().map_err(|why| io::Error::new(io::ErrorKind::NotFound, why))?;
 
-pub fn findmnt_uuid<P: AsRef<Path>>(path: P) -> io::Result<String> {
-    let uuid =
-        Command::new("findmnt").args(&["-n", "-o", "UUID"]).arg(path.as_ref()).run_with_stdout()?;
+    let reader = BufReader::new(child.stdout.take().unwrap());
 
-    match uuid.lines().next() {
-        Some(line) => Ok(line.to_owned()),
-        None => Err(io::Error::new(io::ErrorKind::NotFound, "uuid not found for device")),
+    match reader.lines().next().await {
+        Some(Ok(line)) => Ok(line),
+        _ => Err(io::Error::new(io::ErrorKind::NotFound, "findmnt: uuid not found for device"))?,
     }
 }

@@ -12,7 +12,7 @@ pub use self::{
 };
 
 use crate::{
-    misc,
+    misc::{self, format_error},
     recovery::{
         self, RecoveryError, RecoveryVersion, ReleaseFlags as RecoveryReleaseFlags,
         UpgradeMethod as RecoveryUpgradeMethod,
@@ -24,15 +24,17 @@ use crate::{
     sighandler, DBUS_IFACE, DBUS_NAME, DBUS_PATH,
 };
 
-use crate::fetch::apt_uris::{apt_uris, AptUri};
-use apt_cli_wrappers::apt_upgrade;
+use anyhow::Context;
+use apt_cmd::{request::Request as AptRequest, AptGet, AptMark};
+use as_result::*;
 use atomic::Atomic;
-use crossbeam::channel::{bounded, Receiver, Sender};
 use dbus::{
     self,
     tree::{Factory, Signal},
     BusType, Connection, Message, NameFlag,
 };
+use flume::{bounded, Receiver, Sender};
+use futures::prelude::*;
 use logind_dbus::LoginManager;
 use num_traits::FromPrimitive;
 use std::{
@@ -45,7 +47,6 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    thread,
 };
 
 pub const DISMISSED: &str = "/usr/lib/pop-upgrade/dismissed";
@@ -54,7 +55,7 @@ pub const INSTALL_DATE: &str = "/usr/lib/pop-upgrade/install_date";
 #[derive(Debug)]
 pub enum Event {
     Cancel,
-    FetchUpdates { apt_uris: HashSet<AptUri>, download_only: bool },
+    FetchUpdates { apt_uris: HashSet<AptRequest>, download_only: bool },
     PackageUpgrade,
     RecoveryUpgrade(RecoveryUpgradeMethod),
     ReleaseUpgrade { how: ReleaseUpgradeMethod, from: String, to: String },
@@ -128,149 +129,174 @@ impl Daemon {
         let cancel = Arc::new(AtomicBool::new(false));
         let cancel_process: Arc<dyn Fn() -> bool + Send + Sync> =
             Arc::new(enclose!((cancel => c) move || c.swap(false, Ordering::SeqCst)));
+
         let mut processing = false;
 
-        info!("spawning background event thread");
-        thread::spawn(enclose!((cancel, status, sub_status, prog_state) move || {
-            let mut logind = match LoginManager::new() {
-                Ok(logind) => Some(logind),
-                Err(why) => {
-                    error!("failed to connect to logind: {}", why);
-                    None
-                }
-            };
-
-            let mut runtime = DaemonRuntime::new();
-
-            let fetch_closure = Arc::new(enclose!((prog_state, dbus_tx) move |event| {
-                match event {
-                    FetchEvent::Fetched(uri) => {
-                        let (current, npackages) = prog_state.load(Ordering::SeqCst);
-                        prog_state.store((current + 1, npackages), Ordering::SeqCst);
-
-                        let _ = dbus_tx.send(SignalEvent::Fetched(
-                            uri.name,
-                            current as u32 + 1,
-                            npackages as u32,
-                        ));
+        std::thread::spawn(
+            enclose!((cancel, status, sub_status, prog_state) move || async_io::block_on(async move {
+                let mut logind = match LoginManager::new() {
+                    Ok(logind) => Some(logind),
+                    Err(why) => {
+                        error!("failed to connect to logind: {}", why);
+                        None
                     }
-                    FetchEvent::Fetching(uri) => {
-                        let _ = dbus_tx.send(SignalEvent::Fetching(uri.name));
-                    }
-                    FetchEvent::Init(total) => {
-                        prog_state.store((0, total as u64), Ordering::SeqCst);
-                    }
-                }
-            }));
+                };
 
-            while let Ok(event) = event_rx.recv() {
-                let _suspend_lock = logind.as_mut().and_then(|logind| {
-                    match logind
-                        .connect()
-                        .inhibit_suspend("pop-upgrade", "performing upgrade event")
-                    {
-                        Ok(lock) => Some(lock),
-                        Err(why) => {
-                            error!("failed to inhibit suspension: {}", why);
-                            None
+                let mut runtime = DaemonRuntime::new();
+
+                let fetch_closure = Arc::new(enclose!((prog_state, dbus_tx) move |event| {
+                    match event {
+                        FetchEvent::Fetched(uri) => {
+                            let (current, npackages) = prog_state.load(Ordering::SeqCst);
+                            prog_state.store((current + 1, npackages), Ordering::SeqCst);
+
+                            let _ = dbus_tx.send(SignalEvent::Fetched(
+                                uri.name,
+                                current as u32 + 1,
+                                npackages as u32,
+                            ));
+                        }
+                        FetchEvent::Fetching(uri) => {
+                            let _ = dbus_tx.send(SignalEvent::Fetching(uri.name));
+                        }
+                        FetchEvent::Init(total) => {
+                            prog_state.store((0, total as u64), Ordering::SeqCst);
                         }
                     }
-                });
+                }));
 
-                match event {
-                    Event::Cancel => {
-                        if processing {
-                            cancel.store(true, Ordering::SeqCst);
-                            continue;
-                        }
-                    }
-                    Event::FetchUpdates { apt_uris, download_only } => {
-                        info!("fetching packages for {:?}", apt_uris);
-                        let npackages = apt_uris.len() as u32;
-                        prog_state.store((0, u64::from(npackages)), Ordering::SeqCst);
-
-                        let result = smol::block_on(runtime.apt_fetch(apt_uris, fetch_closure.clone()));
-
-                        prog_state.store((0, 0), Ordering::SeqCst);
-
-                        let result = result.and_then(|_| {
-                            if download_only {
-                                Ok(())
-                            } else {
-                                apt_upgrade(|event| {
-                                    let _ = dbus_tx.send(SignalEvent::Upgrade(event));
-                                })
-                                .map_err(ReleaseError::Upgrade)
+                while let Ok(event) = event_rx.recv() {
+                    let _suspend_lock = logind.as_mut().and_then(|logind| {
+                        match logind
+                            .connect()
+                            .inhibit_suspend("pop-upgrade", "performing upgrade event")
+                        {
+                            Ok(lock) => Some(lock),
+                            Err(why) => {
+                                error!("failed to inhibit suspension: {}", why);
+                                None
                             }
-                        });
+                        }
+                    });
 
-                        let _ = dbus_tx.send(SignalEvent::FetchResult(result));
-                    }
-                    Event::PackageUpgrade => {
-                        info!("upgrading packages");
-                        let _ = runtime.package_upgrade(|event| {
-                            let _ = dbus_tx.send(SignalEvent::Upgrade(event));
-                        });
-                    }
-                    Event::RecoveryUpgrade(action) => {
-                        processing = true;
-                        info!("attempting recovery upgrade with {:?}", action);
-                        let result = recovery::recovery(
-                            &cancel_process,
-                            &action,
-                            enclose!((dbus_tx, prog_state) move |p, t| {
-                                prog_state.store((p, t), Ordering::SeqCst);
-                                let _ = dbus_tx
-                                    .send(SignalEvent::RecoveryDownloadProgress(p, t));
-                            }),
-                            enclose!((dbus_tx, sub_status) move |status| {
-                                sub_status.store(status as u8, Ordering::SeqCst);
-                                let _ =
-                                    dbus_tx.send(SignalEvent::RecoveryUpgradeEvent(status));
-                            }),
-                        );
+                    match event {
+                        Event::Cancel => {
+                            if processing {
+                                cancel.store(true, Ordering::SeqCst);
+                                continue;
+                            }
+                        }
 
-                        let _ = dbus_tx.send(SignalEvent::RecoveryUpgradeResult(result));
-                        processing = false;
-                    }
-                    Event::ReleaseUpgrade { how, from, to } => {
-                        info!(
-                            "attempting release upgrade, using a {}",
-                            <&'static str>::from(how)
-                        );
+                        Event::FetchUpdates { apt_uris, download_only } => {
+                            info!("fetching packages for {:?}", apt_uris);
+                            let npackages = apt_uris.len() as u32;
+                            prog_state.store((0, u64::from(npackages)), Ordering::SeqCst);
 
-                        let progress = enclose!((dbus_tx, sub_status) move |event| {
-                            let _ = dbus_tx.send(SignalEvent::ReleaseUpgradeEvent(event));
-                            sub_status.store(event as u8, Ordering::SeqCst);
-                        });
+                            let result = runtime.apt_fetch(apt_uris, fetch_closure.clone()).await;
+                            info!("fetched");
 
-                        let result = runtime.upgrade(
-                            how,
-                            &from,
-                            &to,
-                            &progress,
-                            fetch_closure.clone(),
-                            &|event| {
+
+                            prog_state.store((0, 0), Ordering::SeqCst);
+
+                            let result = match result {
+                                Ok(_) => {
+                                    if download_only {
+                                        Ok(())
+                                    } else {
+                                        (async {
+                                            info!("performing upgrade");
+                                            let (mut child, events) = AptGet::new()
+                                                .noninteractive()
+                                                .stream_upgrade()
+                                                .await
+                                                .map_err(ReleaseError::Upgrade)?;
+
+                                            futures_util::pin_mut!(events);
+
+                                            while let Some(event) = events.next().await {
+                                                let _ = dbus_tx.send(SignalEvent::Upgrade(event));
+                                            }
+
+                                            info!("completed apt upgrade");
+
+                                            child.status().await.map_result().map_err(ReleaseError::Upgrade)
+                                        }).await
+                                    }
+                                }
+                                Err(why) => Err(why)
+                            };
+
+                            let _ = dbus_tx.send(SignalEvent::FetchResult(result));
+                        }
+
+                        Event::PackageUpgrade => {
+                            info!("upgrading packages");
+                            let _ = runtime.package_upgrade(|event| {
                                 let _ = dbus_tx.send(SignalEvent::Upgrade(event));
-                            },
-                        );
+                            });
+                        }
 
-                        let _ = apt_cli_wrappers::apt_unhold("pop-upgrade");
+                        Event::RecoveryUpgrade(action) => {
+                            processing = true;
+                            info!("attempting recovery upgrade with {:?}", action);
+                            let result = recovery::recovery(
+                                &|| (*cancel_process)(),
+                                &action,
+                                enclose!((dbus_tx, prog_state) move |p, t| {
+                                    prog_state.store((p, t), Ordering::SeqCst);
+                                    let _ = dbus_tx
+                                        .send(SignalEvent::RecoveryDownloadProgress(p, t));
+                                }),
+                                enclose!((dbus_tx, sub_status) move |status| {
+                                    sub_status.store(status as u8, Ordering::SeqCst);
+                                    let _ =
+                                        dbus_tx.send(SignalEvent::RecoveryUpgradeEvent(status));
+                                }),
+                            ).await;
 
-                        let _ = fg_tx.send(FgEvent::SetUpgradeState(
-                            result,
-                            how,
-                            from.into(),
-                            to.into(),
-                        ));
+                            let _ = dbus_tx.send(SignalEvent::RecoveryUpgradeResult(result));
+                            processing = false;
+                        }
+
+                        Event::ReleaseUpgrade { how, from, to } => {
+                            info!(
+                                "attempting release upgrade, using a {}",
+                                <&'static str>::from(how)
+                            );
+
+                            let progress = enclose!((dbus_tx, sub_status) move |event| {
+                                let _ = dbus_tx.send(SignalEvent::ReleaseUpgradeEvent(event));
+                                sub_status.store(event as u8, Ordering::SeqCst);
+                            });
+
+                            let result = runtime.upgrade(
+                                how,
+                                &from,
+                                &to,
+                                &progress,
+                                fetch_closure.clone(),
+                                &|event| {
+                                    let _ = dbus_tx.send(SignalEvent::Upgrade(event));
+                                },
+                            ).await;
+
+                            let _ = AptMark::new().hold(&["pop-upgrade"]).await;
+
+                            let _ = fg_tx.send(FgEvent::SetUpgradeState(
+                                result,
+                                how,
+                                from.into(),
+                                to.into(),
+                            ));
+                        }
                     }
-                }
 
-                cancel.store(false, Ordering::SeqCst);
-                status.store(DaemonStatus::Inactive, Ordering::SeqCst);
-                info!("event processed");
-            }
-        }));
+                    cancel.store(false, Ordering::SeqCst);
+                    status.store(DaemonStatus::Inactive, Ordering::SeqCst);
+                    info!("event processed");
+                }
+            })),
+        );
 
         Ok(Daemon {
             cancel,
@@ -409,95 +435,98 @@ impl Daemon {
 
         info!("daemon registered -- listening for new events");
 
-        release::cleanup();
+        async_io::block_on(async move {
+            release::cleanup().await;
 
-        loop {
-            connection.incoming(1000).next();
+            loop {
+                connection.incoming(1000).next();
 
-            if let Some(status) = sighandler::status() {
-                info!("received a '{}' signal", status);
+                if let Some(status) = sighandler::status() {
+                    info!("received a '{}' signal", status);
 
-                use sighandler::Signal::*;
+                    use sighandler::Signal::*;
 
-                match status {
-                    Terminate => {
-                        info!("terminating daemon");
-                        break Ok(());
-                    }
-                    TermStop => {
-                        info!("stopping daemon");
-                        break Ok(());
-                    }
-                    _ => (),
-                }
-            }
-
-            while let Ok(fg_event) = fg_receiver.try_recv() {
-                match fg_event {
-                    FgEvent::SetUpgradeState(result, action, from, to) => {
-                        if result.is_ok() {
-                            info!("setting release upgrade state");
-                            let state = ReleaseUpgradeState { action, from, to };
-                            daemon.borrow_mut().release_upgrade = Some(state);
+                    match status {
+                        Terminate => {
+                            info!("terminating daemon");
+                            break Ok(());
                         }
-
-                        daemon.borrow_mut().last_known.release_upgrade = result;
-                    }
-                }
-            }
-
-            while let Ok(dbus_event) = receiver.try_recv() {
-                Self::send_signal_message(&connection, {
-                    match &dbus_event {
-                        SignalEvent::Fetched(..)
-                        | SignalEvent::Fetching(_)
-                        | SignalEvent::RecoveryUpgradeEvent(_)
-                        | SignalEvent::RecoveryUpgradeResult(_)
-                        | SignalEvent::ReleaseUpgradeEvent(_)
-                        | SignalEvent::Upgrade(_) => info!("{}", dbus_event),
+                        TermStop => {
+                            info!("stopping daemon");
+                            break Ok(());
+                        }
                         _ => (),
                     }
+                }
 
-                    match dbus_event {
-                        SignalEvent::FetchResult(result) => {
-                            let (status, why) = result_signal(result.as_ref());
-                            let message = Self::signal_message(&fetch_result).append2(status, why);
+                while let Ok(fg_event) = fg_receiver.try_recv() {
+                    match fg_event {
+                        FgEvent::SetUpgradeState(result, action, from, to) => {
+                            if result.is_ok() {
+                                info!("setting release upgrade state");
+                                let state = ReleaseUpgradeState { action, from, to };
+                                daemon.borrow_mut().release_upgrade = Some(state);
+                            }
 
-                            (*daemon.borrow_mut()).last_known.fetch = result;
-                            message
+                            daemon.borrow_mut().last_known.release_upgrade = result;
                         }
-                        SignalEvent::Fetched(name, completed, total) => Self::signal_message(
-                            &fetched_package,
-                        )
-                        .append3(name.as_str(), completed, total),
-                        SignalEvent::Fetching(name) => {
-                            Self::signal_message(&fetching_package).append1(name.as_str())
-                        }
-                        SignalEvent::NoConnection => Self::signal_message(&no_connection),
-                        SignalEvent::RecoveryDownloadProgress(progress, total) => {
-                            Self::signal_message(&recovery_download_progress)
-                                .append2(progress, total)
-                        }
-                        SignalEvent::RecoveryUpgradeEvent(event) => {
-                            Self::signal_message(&recovery_event).append1(event as u8)
-                        }
-                        SignalEvent::RecoveryUpgradeResult(result) => {
-                            let (status, why) = result_signal(result.as_ref());
-                            let message =
-                                Self::signal_message(&recovery_result).append2(status, why);
-
-                            (*daemon.borrow_mut()).last_known.recovery_upgrade = result;
-                            message
-                        }
-                        SignalEvent::ReleaseUpgradeEvent(event) => {
-                            Self::signal_message(&release_event).append1(event as u8)
-                        }
-                        SignalEvent::Upgrade(ref event) => Self::signal_message(&upgrade_event)
-                            .append1(event.clone().into_dbus_map()),
                     }
-                })
+                }
+
+                while let Ok(dbus_event) = receiver.try_recv() {
+                    Self::send_signal_message(&connection, {
+                        match &dbus_event {
+                            SignalEvent::Fetched(..)
+                            | SignalEvent::Fetching(_)
+                            | SignalEvent::RecoveryUpgradeEvent(_)
+                            | SignalEvent::RecoveryUpgradeResult(_)
+                            | SignalEvent::ReleaseUpgradeEvent(_)
+                            | SignalEvent::Upgrade(_) => info!("{}", dbus_event),
+                            _ => (),
+                        }
+
+                        match dbus_event {
+                            SignalEvent::FetchResult(result) => {
+                                let (status, why) = result_signal(result.as_ref());
+                                let message =
+                                    Self::signal_message(&fetch_result).append2(status, why);
+
+                                (*daemon.borrow_mut()).last_known.fetch = result;
+                                message
+                            }
+                            SignalEvent::Fetched(name, completed, total) => Self::signal_message(
+                                &fetched_package,
+                            )
+                            .append3(name.as_str(), completed, total),
+                            SignalEvent::Fetching(name) => {
+                                Self::signal_message(&fetching_package).append1(name.as_str())
+                            }
+                            SignalEvent::NoConnection => Self::signal_message(&no_connection),
+                            SignalEvent::RecoveryDownloadProgress(progress, total) => {
+                                Self::signal_message(&recovery_download_progress)
+                                    .append2(progress, total)
+                            }
+                            SignalEvent::RecoveryUpgradeEvent(event) => {
+                                Self::signal_message(&recovery_event).append1(event as u8)
+                            }
+                            SignalEvent::RecoveryUpgradeResult(result) => {
+                                let (status, why) = result_signal(result.as_ref());
+                                let message =
+                                    Self::signal_message(&recovery_result).append2(status, why);
+
+                                (*daemon.borrow_mut()).last_known.recovery_upgrade = result;
+                                message
+                            }
+                            SignalEvent::ReleaseUpgradeEvent(event) => {
+                                Self::signal_message(&release_event).append1(event as u8)
+                            }
+                            SignalEvent::Upgrade(ref event) => Self::signal_message(&upgrade_event)
+                                .append1(event.clone().into_dbus_map()),
+                        }
+                    })
+                }
             }
-        }
+        })
     }
 
     /// Dismiss future desktop notifications.
@@ -523,37 +552,17 @@ impl Daemon {
         }
     }
 
-    fn fetch_apt_uris(args: &[String]) -> Result<HashSet<AptUri>, String> {
-        apt_uris(&["full-upgrade"])
-            .and_then(|mut upgrades| {
-                if args.is_empty() {
-                    return Ok(upgrades);
-                }
-
-                let args = {
-                    let mut targs = Vec::with_capacity(args.len() + 1);
-                    targs.push("install");
-                    targs.extend(args.iter().map(String::as_str));
-                    targs
-                };
-
-                for uri in apt_uris(&args)? {
-                    upgrades.insert(uri);
-                }
-
-                Ok(upgrades)
-            })
-            .map_err(|why| format!("unable to fetch apt URIs: {}", why))
-    }
-
-    fn fetch_updates(
-        &mut self,
-        additional_packages: &[String],
+    async fn fetch_updates<'a>(
+        &'a mut self,
+        additional_packages: &'a [String],
         download_only: bool,
-    ) -> Result<(bool, u32), String> {
+    ) -> anyhow::Result<(bool, u32)> {
         info!("fetching updates for the system, including {:?}", additional_packages);
 
-        let apt_uris = Self::fetch_apt_uris(additional_packages)?;
+        let mut borrows = Vec::with_capacity(additional_packages.len());
+        borrows.extend(additional_packages.into_iter().map(String::as_str));
+
+        let apt_uris = crate::fetch::apt::fetch_uris(Some(&borrows)).await?;
 
         if apt_uris.is_empty() {
             info!("no updates available to fetch");
@@ -567,7 +576,7 @@ impl Daemon {
         Ok((true, npackages))
     }
 
-    fn package_upgrade(&mut self) -> Result<(), String> {
+    fn package_upgrade(&mut self) -> anyhow::Result<()> {
         info!("upgrading packages for the release");
 
         self.submit_event(Event::PackageUpgrade)?;
@@ -580,13 +589,12 @@ impl Daemon {
         self.cancel.store(true, Ordering::SeqCst);
     }
 
-    fn recovery_upgrade_file(&mut self, path: &str) -> Result<(), String> {
+    fn recovery_upgrade_file(&mut self, path: &str) -> anyhow::Result<()> {
         info!("using {} to upgrade the recovery partition", path);
 
         let event = Event::RecoveryUpgrade(RecoveryUpgradeMethod::FromFile(PathBuf::from(path)));
 
-        self.submit_event(event)?;
-        Ok(())
+        self.submit_event(event)
     }
 
     fn recovery_upgrade_release(
@@ -594,7 +602,7 @@ impl Daemon {
         version: &str,
         arch: &str,
         flags: u8,
-    ) -> Result<(), String> {
+    ) -> anyhow::Result<()> {
         info!("upgrading the recovery partition to {}-{}", version, arch);
 
         let event = Event::RecoveryUpgrade(RecoveryUpgradeMethod::FromRelease {
@@ -603,26 +611,25 @@ impl Daemon {
             flags:   RecoveryReleaseFlags::from_bits_truncate(flags),
         });
 
-        self.submit_event(event)?;
-        Ok(())
+        self.submit_event(event)
     }
 
     fn recovery_version(&mut self) -> Result<RecoveryVersion, String> {
         info!("checking recovery version");
-        let version = crate::recovery::version().map_err(|why| format!("{}", why))?;
+        let version = crate::recovery::version().map_err(|ref why| format_error(why))?;
         info!("{:?}", version);
         Ok(version)
     }
 
     fn refresh_os(&mut self, flag: RefreshOp) -> Result<bool, String> {
         info!("preparing to refresh OS");
-        crate::release::refresh_os(flag).map_err(|why| format!("{}", why))
+        crate::release::refresh_os(flag).map_err(|ref why| format_error(why))
     }
 
     fn release_check(&self, development: bool) -> Result<ReleaseStatus, String> {
         info!("performing a release check");
 
-        let status = release::check::next(development).map_err(|why| format!("{}", why))?;
+        let status = release::check::next(development).map_err(|ref why| format_error(why))?;
 
         let mut buffer = String::new();
 
@@ -637,16 +644,14 @@ impl Daemon {
         Ok(status)
     }
 
-    fn release_upgrade(&mut self, how: u8, from: &str, to: &str) -> Result<(), String> {
+    fn release_upgrade(&mut self, how: u8, from: &str, to: &str) -> anyhow::Result<()> {
         info!("upgrading release from {} to {}, with {}", from, to, how);
 
         let how = ReleaseUpgradeMethod::from_u8(how)
-            .ok_or("provided upgrade `how` value is out of range")?;
+            .context("provided upgrade `how` value is out of range")?;
 
         let event = Event::ReleaseUpgrade { how, from: from.into(), to: to.into() };
-        self.submit_event(event)?;
-
-        Ok(())
+        self.submit_event(event)
     }
 
     fn release_upgrade_finalize(&mut self) -> Result<(), String> {
@@ -661,11 +666,13 @@ impl Daemon {
         }
     }
 
-    fn release_repair(&mut self) -> Result<(), String> {
-        crate::repair::repair().map_err(|why| format!("{}", why))
+    async fn release_repair(&mut self) -> anyhow::Result<()> {
+        crate::repair::repair().await?;
+
+        Ok(())
     }
 
-    fn reset(&mut self) -> Result<(), String> {
+    async fn reset(&mut self) -> Result<(), String> {
         info!("resetting daemon");
 
         self.status.store(DaemonStatus::Inactive, Ordering::SeqCst);
@@ -673,7 +680,7 @@ impl Daemon {
         self.fetching_state.store((0, 0), Ordering::SeqCst);
         self.release_upgrade = None;
 
-        release::cleanup();
+        release::cleanup().await;
 
         Ok(())
     }
@@ -702,12 +709,12 @@ impl Daemon {
         signal.msg(&DBUS_PATH.into(), &DBUS_NAME.into())
     }
 
-    fn submit_event(&self, event: Event) -> Result<(), String> {
+    fn submit_event(&self, event: Event) -> anyhow::Result<()> {
         let desc = "too many requests sent -- refusing additional requests";
 
         if self.event_tx.is_full() {
             warn!("{}", desc);
-            return Err(desc.into());
+            return Err(anyhow::anyhow!("{}", desc));
         }
 
         let _ = self.event_tx.send(event);
@@ -721,7 +728,7 @@ pub fn result_signal<E: ::std::fmt::Display>(result: Result<&(), &E>) -> (u8, St
         Err(_) => 1,
     };
 
-    let why: String = result.err().map(|why| format!("{}", why)).unwrap_or_default();
+    let why: String = result.err().map(|why| fomat!((why))).unwrap_or_default();
 
     (status, why)
 }

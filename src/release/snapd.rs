@@ -1,30 +1,29 @@
-use super::{apt_hold, errors::ReleaseError};
-use apt_cli_wrappers::predepends_of;
-use std::fs;
+use super::errors::ReleaseError;
+use apt_cmd::{AptCache, AptMark};
+use async_fs as fs;
 
 /// Holds all packages which have a pre-depend on snapd.
 ///
 /// This should be executed after the source lists are upgraded to the new release,
 /// and before packages have been fetched.
-pub fn hold_transitional_packages() -> Result<(), ReleaseError> {
-    let mut buffer = String::new();
-    let snap_packages = predepends_of(&mut buffer, "snapd")
-        .map_err(ReleaseError::TransitionalSnapFetch)?
-        .collect::<Vec<&str>>();
+pub async fn hold_transitional_packages() -> Result<(), ReleaseError> {
+    let mut out = String::new();
+    let snap_packages = AptCache::predepends_of(&mut out, "snapd")
+        .await
+        .map_err(ReleaseError::TransitionalSnapFetch)?;
 
     let mut buffer = String::new();
 
     for package in &snap_packages {
-        buffer.push_str(*package);
+        buffer.push_str(&*package);
         buffer.push('\n');
     }
 
     fs::write(crate::TRANSITIONAL_SNAPS, buffer.as_bytes())
+        .await
         .map_err(ReleaseError::TransitionalSnapRecord)?;
 
-    for package in &snap_packages {
-        apt_hold(*package).map_err(ReleaseError::TransitionalSnapHold)?;
-    }
+    let _ = AptMark::new().hold(&snap_packages).await;
 
     Ok(())
 }

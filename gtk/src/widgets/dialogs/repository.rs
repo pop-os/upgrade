@@ -10,10 +10,10 @@ pub struct RepositoryDialog {
 impl RepositoryDialog {
     pub fn new<S: AsRef<str>>(repositories: impl Iterator<Item = S>) -> Self {
         let entries = cascade! {
-            list: gtk::ListBox::new();
+            let list = gtk::ListBox::new();
             ..set_selection_mode(gtk::SelectionMode::None);
-            | for repository in repositories {
-                list.insert(&gtk::CheckButton::new_with_label(repository.as_ref()), -1);
+            for repository in repositories {
+                list.insert(&gtk::CheckButton::with_label(repository.as_ref()), -1);
             };
         };
 

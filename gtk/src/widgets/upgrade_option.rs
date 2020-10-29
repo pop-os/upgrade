@@ -23,14 +23,14 @@ impl UpgradeOption {
         let button_label = gtk::LabelBuilder::new().margin(4).build();
 
         let button = cascade! {
-            button: gtk::ButtonBuilder::new()
+            gtk::ButtonBuilder::new()
                 .can_focus(true)
                 .halign(gtk::Align::End)
                 .hexpand(true)
                 .valign(gtk::Align::Center)
                 .build();
             ..get_style_context().add_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION);
-            | button.add(&button_label);
+            ..add(&button_label);
         };
 
         let label = cascade! {
@@ -41,14 +41,14 @@ impl UpgradeOption {
         };
 
         let sublabel = cascade! {
-            label: gtk::Label::new(None);
+            let label = gtk::Label::new(None);
             ..set_line_wrap(true);
             ..set_xalign(0.0);
             ..set_yalign(0.0);
             ..get_style_context().add_class(&gtk::STYLE_CLASS_DIM_LABEL);
             ..set_no_show_all(true);
             ..hide();
-            | scale_label(&label, 0.9);
+            scale_label(&label, 0.9);
         };
 
         let labels = cascade! {

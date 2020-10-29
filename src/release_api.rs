@@ -1,18 +1,21 @@
-use err_derive::Error;
 use serde_derive::Deserialize;
+use thiserror::Error;
 
 const BASE: &str = "https://api.pop-os.org/";
 
 #[derive(Debug, Error)]
 pub enum ApiError {
-    #[error(display = "build ({}) is not a number", _0)]
+    #[error("build ({}) is not a number", _0)]
     BuildNaN(String),
-    #[error(display = "failed to GET release API: {}", _0)]
-    Get(isahc::Error),
-    #[error(display = "failed to parse JSON response: {}", _0)]
-    Json(serde_json::Error),
-    #[error(display = "server returned an error status: {:?}", _0)]
-    Status(http::StatusCode),
+
+    #[error("failed to GET release API")]
+    Get(#[from] isahc::Error),
+
+    #[error("failed to parse JSON response")]
+    Json(#[from] serde_json::Error),
+
+    #[error("server returned an error status: {:?}", _0)]
+    Status(isahc::http::StatusCode),
 }
 
 #[derive(Debug, Deserialize)]

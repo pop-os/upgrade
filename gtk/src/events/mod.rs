@@ -6,11 +6,7 @@ use crate::{
     errors::UiError,
     get_dismiss_row, get_upgrade_row, notify, reboot,
     state::State,
-    widgets::{
-        dialogs::{RepositoryDialog, UpgradeDialog},
-        permissions::PermissionDenied,
-        Dismisser, Section,
-    },
+    widgets::{dialogs::UpgradeDialog, permissions::PermissionDenied, Dismisser, Section},
 };
 
 use chrono::{TimeZone, Utc};
@@ -395,7 +391,9 @@ fn release_upgrade_dialog(state: &mut State, widgets: &EventWidgets) {
     let dialog = UpgradeDialog::new(&state.upgrading_from, &state.upgrading_to);
 
     let answer = dialog.run();
-    dialog.destroy();
+    unsafe {
+        dialog.destroy();
+    }
     if gtk::ResponseType::Accept == answer {
         let _ = state.sender.send(BackgroundEvent::Finalize);
     } else {
@@ -438,12 +436,12 @@ fn set_dismissal_widget(
     widget.set_dismissed(is_dismissed(next));
     button_sg.add_widget(&widget.button);
 
-    widgets.dismisser.foreach(WidgetExt::destroy);
+    widgets.dismisser.foreach(|w| unsafe { w.destroy() });
     widgets.dismisser.add(widget.as_ref());
     widgets.dismisser.show_all();
 
     if let Some(dismisser) = dismisser {
-        dismisser.destroy();
+        unsafe { dismisser.destroy() };
         *dismisser = widget;
     }
 }
@@ -503,7 +501,9 @@ fn upgrade_clicked(state: &mut State, widgets: &EventWidgets) {
         // widgets.refresh.option.hide();
 
         if let Some(dismisser) = state.dismisser.take() {
-            dismisser.destroy();
+            unsafe {
+                dismisser.destroy();
+            }
         }
 
         let _ = state.sender.send(BackgroundEvent::DownloadUpgrade(info));

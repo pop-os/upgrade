@@ -2,7 +2,7 @@ use crate::{
     recovery::{RecoveryError, RecoveryEvent},
     release::{ReleaseError, UpgradeEvent},
 };
-use apt_cli_wrappers::AptUpgradeEvent;
+use apt_cmd::AptUpgradeEvent;
 use std::fmt::{self, Display, Formatter};
 
 // Signals supported by the daemon.
