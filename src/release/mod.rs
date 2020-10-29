@@ -456,6 +456,13 @@ impl DaemonRuntime {
         // then fetch the packages required for the upgrade.
         let _ = self.fetch_new_release_packages(logger, fetch, from, to).await?;
 
+        if let Err(why) = crate::gnome_extensions::disable() {
+            error!(
+                "failed to disable gnome-shell extensions: {}",
+                crate::misc::format_error(why.as_ref())
+            )
+        }
+
         (*logger)(UpgradeEvent::Success);
         Ok(())
     }
