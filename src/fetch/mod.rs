@@ -1,2 +1,1 @@
-pub mod apt_uris;
-pub mod http;
+pub mod apt;

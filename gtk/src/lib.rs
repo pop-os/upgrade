@@ -72,7 +72,7 @@ impl UpgradeWidget {
         cascade! {
             gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
             ..add_widget(upgrade.option.as_ref());
-        }
+        };
 
         let container = cascade! {
             gtk::Box::new(gtk::Orientation::Vertical, 12);

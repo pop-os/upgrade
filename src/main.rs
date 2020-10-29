@@ -1,11 +1,14 @@
 #[macro_use]
-extern crate err_derive;
-#[macro_use]
 extern crate fomat_macros;
+
 #[macro_use]
 extern crate log;
+
 #[macro_use]
 extern crate shrinkwraprs;
+
+#[macro_use]
+extern crate thiserror;
 
 mod cli;
 mod logging;
@@ -23,42 +26,26 @@ pub mod error {
 
     #[derive(Debug, Error)]
     pub enum Error {
-        #[error(display = "dbus client error: {}", _0)]
-        Client(ClientError),
-        #[error(display = "daemon initialization error: {}", _0)]
-        Daemon(DaemonError),
-        #[error(display = "recovery subcommand failed: {}", _0)]
-        Recovery(RecoveryError),
-        #[error(display = "release subcommand failed: {}", _0)]
-        Release(ReleaseError),
-        #[error(display = "failed to ensure requirements are met: {}", _0)]
-        Init(InitError),
-    }
+        #[error("dbus client error")]
+        Client(#[from] ClientError),
 
-    impl From<ClientError> for Error {
-        fn from(why: ClientError) -> Self { Error::Client(why) }
-    }
+        #[error("daemon initialization error")]
+        Daemon(#[from] DaemonError),
 
-    impl From<DaemonError> for Error {
-        fn from(why: DaemonError) -> Self { Error::Daemon(why) }
-    }
+        #[error("recovery subcommand failed")]
+        Recovery(#[from] RecoveryError),
 
-    impl From<RecoveryError> for Error {
-        fn from(why: RecoveryError) -> Self { Error::Recovery(why) }
-    }
+        #[error("release subcommand failed")]
+        Release(#[from] ReleaseError),
 
-    impl From<ReleaseError> for Error {
-        fn from(why: ReleaseError) -> Self { Error::Release(why) }
-    }
-
-    impl From<InitError> for Error {
-        fn from(why: InitError) -> Self { Error::Init(why) }
+        #[error("failed to ensure requirements are met")]
+        Init(#[from] InitError),
     }
 
     #[derive(Debug, Error)]
     pub enum InitError {
-        #[error(display = "failure to create /var/cache/apt/archives/partial directories: {}", _0)]
-        AptCacheDirectories(io::Error),
+        #[error("failure to create /var/cache/apt/archives/partial directories")]
+        AptCacheDirectories(#[source] io::Error),
     }
 }
 
@@ -224,8 +211,6 @@ fn main_(matches: &ArgMatches) -> Result<(), Error> {
 
 fn init() -> Result<(), InitError> {
     sighandler::init();
-
-    std::thread::spawn(|| smol::run(futures::future::pending::<()>()));
 
     ::std::fs::create_dir_all("/var/cache/apt/archives/partial/")
         .map_err(InitError::AptCacheDirectories)

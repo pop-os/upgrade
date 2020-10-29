@@ -1,34 +1,44 @@
-use err_derive::Error;
-use sha2::{Digest, Sha256};
-use std::{
-    fs::File,
-    io::{self, Read},
-};
+use async_fs::File;
+use futures::prelude::*;
+use hex::FromHex;
+use sha2::{digest::generic_array::GenericArray, Digest, Sha256};
+use std::io;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ValidateError {
-    #[error(display = "checksum failed; expected {}, found {}", expected, found)]
+    #[error("checksum failed; expected {}, found {}", expected, found)]
     Checksum { expected: String, found: String },
-    #[error(display = "I/O error while checksumming: {}", _0)]
-    Io(io::Error),
+
+    #[error("expected checksum isn't a valid checksum")]
+    InvalidInput,
+
+    #[error("I/O error while checksumming")]
+    Io(#[from] io::Error),
 }
 
-pub fn validate_checksum(file: &mut File, checksum: &str) -> Result<(), ValidateError> {
+pub async fn validate_checksum(file: &mut File, checksum: &str) -> Result<(), ValidateError> {
     info!("validating checksum of downloaded ISO");
+    let expected = <[u8; 32]>::from_hex(checksum)
+        .map(GenericArray::from)
+        .map_err(|_| ValidateError::InvalidInput)?;
+
     let mut hasher = Sha256::new();
-    let mut buffer = [0u8; 64 * 1024];
+    let mut buffer = vec![0u8; 8 * 1024];
 
     loop {
-        let read = file.read(&mut buffer).map_err(ValidateError::Io)?;
-        if read == 0 {
-            break;
+        match file.read(&mut buffer).await? {
+            0 => break,
+            read => hasher.update(&buffer[..read]),
         }
-        hasher.input(&buffer[..read]);
     }
 
-    let found = format!("{:x}", hasher.result());
-    if found != checksum {
-        return Err(ValidateError::Checksum { expected: checksum.into(), found });
+    let found = hasher.finalize();
+    if &*found != &*expected {
+        return Err(ValidateError::Checksum {
+            expected: checksum.into(),
+            found:    format!("{:x}", found),
+        });
     }
 
     Ok(())

@@ -100,14 +100,19 @@ pub struct Status {
 pub enum Error {
     #[error("failed to add match on client connection")]
     AddMatch(#[source] dbus::Error),
+
     #[error("argument mismatch in {} method", _0)]
     ArgumentMismatch(&'static str, #[source] dbus::arg::TypeMismatchError),
+
     #[error("calling {} method failed", _0)]
     Call(&'static str, #[source] dbus::Error),
+
     #[error("unable to establish dbus connection")]
     Connection(#[source] dbus::Error),
+
     #[error("daemon status integer was outside the acceptable range of values")]
     DaemonStatusOutOfRange,
+
     #[error("failed to create {} method call", _0)]
     NewMethodCall(&'static str, String),
 }

@@ -28,12 +28,12 @@ pub enum RepairError {
     WipePulse(#[source] io::Error),
 }
 
-pub fn repair() -> Result<(), RepairError> {
+pub async fn repair() -> Result<(), RepairError> {
     info!("performing release repair");
 
     crypttab::repair().map_err(RepairError::Crypttab)?;
     fstab::repair().map_err(RepairError::Fstab)?;
-    packaging::repair().map_err(RepairError::Packaging)?;
+    packaging::repair().await.map_err(RepairError::Packaging)?;
 
     Ok(())
 }

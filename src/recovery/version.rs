@@ -1,16 +1,20 @@
 use std::{fs, io, str::FromStr};
+use thiserror::Error;
 
 pub const RECOVERY_VERSION: &str = "/recovery/version";
 
 #[derive(Debug, Error)]
 pub enum RecoveryVersionError {
-    #[error(display = "build version in recovery version file is not a number")]
+    #[error("build version in recovery version file is not a number")]
     BuildNaN,
-    #[error(display = "failed to read recovery version file: {}", _0)]
-    File(io::Error),
-    #[error(display = "no build number found in recovery version file")]
+
+    #[error("failed to read recovery version file")]
+    File(#[from] io::Error),
+
+    #[error("no build number found in recovery version file")]
     NoBuild,
-    #[error(display = "no version found in recovery version file")]
+
+    #[error("no version found in recovery version file")]
     NoVersion,
 }
 

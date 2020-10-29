@@ -7,7 +7,7 @@ pub enum BuildStatus {
     Build(u16),
     ConnectionIssue(isahc::Error),
     InternalIssue(ApiError),
-    ServerStatus(http::StatusCode),
+    ServerStatus(isahc::http::StatusCode),
 }
 
 impl BuildStatus {

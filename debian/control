@@ -5,7 +5,7 @@ Maintainer: Michael Aaron Murphy <michael@system76.com>
 Build-Depends:
   cargo (>=0.29),
   clang,
-  debhelper-compat (=9),
+  debhelper-compat (=10),
   dh-systemd,
   libclang-dev,
   libdbus-1-dev,

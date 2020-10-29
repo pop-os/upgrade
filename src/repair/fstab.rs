@@ -2,8 +2,8 @@
 
 use self::FileSystem::*;
 use crate::system_environment::SystemEnvironment;
+use as_result::MapResult;
 use disk_types::{BlockDeviceExt, FileSystem, PartitionExt};
-use distinst_chroot::Command;
 use distinst_disks::{Disks, PartitionInfo};
 use partition_identity::{PartitionID, PartitionSource};
 use proc_mounts::{MountInfo, MountIter, MountTab};
@@ -12,46 +12,63 @@ use std::{
     io::{self, Write},
     path::{Path, PathBuf},
 };
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum FstabError {
-    #[error(display = "failed to create backup of original fstab: {}", _0)]
-    BackupCreate(io::Error),
+    #[error("failed to create backup of original fstab")]
+    BackupCreate(#[source] io::Error),
+
     #[error(
-        display = "failed to restore backup of original fstab: {}: originally caused by: {}",
+        "failed to restore backup of original fstab: {}: originally caused by: {}",
         why,
         original
     )]
     BackupRestore { why: io::Error, original: Box<FstabError> },
-    #[error(display = "failed to open the fstab file for writing: {}", _0)]
-    Create(io::Error),
-    #[error(display = "failed to probe disk for missing mount point")]
-    DiskProbe(io::Error),
-    #[error(display = "source in fstab has an invalid ID: '{}", _0)]
+
+    #[error("failed to open the fstab file for writing")]
+    Create(#[source] io::Error),
+
+    #[error("failed to probe disk for missing mount point")]
+    DiskProbe(#[source] io::Error),
+
+    #[error("source in fstab has an invalid ID: '{}", _0)]
     InvalidSourceId(String),
-    #[error(display = "failed to create missing directory at {}: {}", path, why)]
-    MissingDirCreation { path: &'static str, why: io::Error },
-    #[error(display = "failed to mount devices with `mount -a`: {}", _0)]
-    MountFailure(io::Error),
-    #[error(display = "failed to parse the fstab file: {}", _0)]
-    Parse(io::Error),
-    #[error(display = "failed to read /proc/mounts: {}", _0)]
-    ProcRead(io::Error),
-    #[error(display = "failed to read the fstab file: {}", _0)]
-    Read(io::Error),
-    #[error(display = "root partition's device path was not found (maybe it is a logical device?)")]
+
+    #[error("failed to create missing directory at {}", path)]
+    MissingDirCreation { path: &'static str, source: io::Error },
+
+    #[error("failed to mount devices with `mount -a`")]
+    MountFailure(#[source] io::Error),
+
+    #[error("failed to parse the fstab file")]
+    Parse(#[source] io::Error),
+
+    #[error("failed to read /proc/mounts")]
+    ProcRead(#[source] io::Error),
+
+    #[error("failed to read the fstab file")]
+    Read(#[source] io::Error),
+
+    #[error("root partition's device path was not found (maybe it is a logical device?)")]
     RootDeviceNotFound,
-    #[error(display = "root partition was not found in the fstab file")]
+
+    #[error("root partition was not found in the fstab file")]
     RootNotFound,
-    #[error(display = "not only is root not listed in the fstab, it's also not mounted")]
+
+    #[error("not only is root not listed in the fstab, it's also not mounted")]
     RootNotMounted,
-    #[error(display = "failed to find the source ID by its path: {:?}", _0)]
+
+    #[error("failed to find the source ID by its path: {:?}", _0)]
     SourceNotFound(PathBuf),
-    #[error(display = "failed to find a device path for a fstab source ID: {:?}", _0)]
+
+    #[error("failed to find a device path for a fstab source ID: {:?}", _0)]
     SourceWithoutDevice(PathBuf),
-    #[error(display = "failed to find either a PartUUID or UUID for a fstab source: {:?}", _0)]
+
+    #[error("failed to find either a PartUUID or UUID for a fstab source: {:?}", _0)]
     SourceWithoutIDs(PathBuf),
-    #[error(display = "failed to write to fstab: {}", _0)]
+
+    #[error("failed to write to fstab")]
     Write(io::Error),
 }
 
@@ -76,7 +93,7 @@ pub fn repair() -> Result<(), FstabError> {
     for path in &[EFI, RECOVERY] {
         if !Path::new(*path).exists() {
             fs::create_dir(*path)
-                .map_err(|why| FstabError::MissingDirCreation { path: *path, why })?;
+                .map_err(|source| FstabError::MissingDirCreation { path: *path, source })?;
         }
     }
 
@@ -166,7 +183,9 @@ pub fn repair() -> Result<(), FstabError> {
     mount_all().map_err(FstabError::MountFailure)
 }
 
-fn mount_all() -> io::Result<()> { Command::new("mount").arg("-a").run() }
+fn mount_all() -> io::Result<()> {
+    std::process::Command::new("mount").arg("-a").status().map_result()
+}
 
 fn fstab_check_root(root: Option<&MountInfo>) -> Result<Option<PartitionID>, FstabError> {
     let root = root.ok_or(FstabError::RootNotFound)?;

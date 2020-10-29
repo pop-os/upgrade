@@ -7,6 +7,8 @@ use dbus::{
     self,
     tree::{MTFn, Method},
 };
+
+use crate::misc::format_error;
 use num_traits::FromPrimitive;
 use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::atomic::Ordering};
 
@@ -40,7 +42,7 @@ pub fn dismiss_notification(
 ) -> Method<MTFn<()>, ()> {
     dbus_factory
         .method::<_, String>(DISMISS_NOTIFICATION, move |message| {
-            let value = message.read1().map_err(|why| format!("{}", why))?;
+            let value = message.read1().map_err(|ref why| format_error(why))?;
 
             let event = DismissEvent::from_u8(value).ok_or("dismiss value is out of range")?;
 
@@ -69,11 +71,11 @@ pub fn fetch_updates(
                 Ok(vec![true.into(), completed.into(), total.into()])
             } else {
                 let (value, download_only): (Vec<String>, bool) =
-                    message.read2().map_err(|why| format!("{}", why))?;
+                    message.read2().map_err(|ref why| format_error(why))?;
 
-                daemon
-                    .fetch_updates(&value, download_only)
+                async_io::block_on(daemon.fetch_updates(&value, download_only))
                     .map(|(x, t)| vec![x.into(), 0u32.into(), t.into()])
+                    .map_err(|ref why| format_error(why.as_ref()))
             }
         })
     });
@@ -110,7 +112,7 @@ pub fn package_upgrade(
     let method = dbus_factory.method::<_, String>(PACKAGE_UPGRADE, move |_| {
         daemon.borrow_mut().set_status(DaemonStatus::PackageUpgrade, move |daemon, active| {
             if !active {
-                daemon.package_upgrade()?;
+                daemon.package_upgrade().map_err(|ref why| format_error(why.as_ref()))?;
             }
 
             Ok(Vec::new())
@@ -130,8 +132,8 @@ pub fn recovery_upgrade_file(
         let mut daemon = daemon.borrow_mut();
         daemon.set_status(DaemonStatus::RecoveryUpgrade, move |daemon, active| {
             if !active {
-                let path = message.read1().map_err(|why| format!("{}", why))?;
-                daemon.recovery_upgrade_file(path)?;
+                let path = message.read1().map_err(|ref why| format_error(why))?;
+                daemon.recovery_upgrade_file(path).map_err(|ref why| format_error(why.as_ref()))?;
             }
 
             Ok(Vec::new())
@@ -151,8 +153,11 @@ pub fn recovery_upgrade_release(
         let mut daemon = daemon.borrow_mut();
         daemon.set_status(DaemonStatus::RecoveryUpgrade, move |daemon, active| {
             if !active {
-                let (version, arch, flags) = message.read3().map_err(|why| format!("{}", why))?;
-                daemon.recovery_upgrade_release(version, arch, flags)?;
+                let (version, arch, flags) =
+                    message.read3().map_err(|ref why| format_error(why))?;
+                daemon
+                    .recovery_upgrade_release(version, arch, flags)
+                    .map_err(|ref why| format_error(why.as_ref()))?;
             }
 
             Ok(Vec::new())
@@ -201,7 +206,7 @@ pub const REFRESH_OS: &str = "RefreshOS";
 
 pub fn refresh_os(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method<MTFn<()>, ()> {
     let method = dbus_factory.method::<_, String>(REFRESH_OS, move |message| {
-        let enable = message.read1().map_err(|why| format!("{}", why))?;
+        let enable = message.read1().map_err(|ref why| format_error(why))?;
         let value = daemon.borrow_mut().refresh_os(match enable {
             1u8 => RefreshOp::Enable,
             2u8 => RefreshOp::Disable,
@@ -223,7 +228,7 @@ pub fn release_check(
     dbus_factory: &DbusFactory,
 ) -> Method<MTFn<()>, ()> {
     let method = dbus_factory.method(RELEASE_CHECK, move |message| {
-        let development = message.read1().map_err(|why| format!("{}", why))?;
+        let development = message.read1().map_err(|ref why| format_error(why))?;
         daemon.borrow_mut().release_check(development).map(|status| {
             let is_lts = status.is_lts();
             vec![
@@ -253,8 +258,10 @@ pub fn release_upgrade(
         let mut daemon = daemon.borrow_mut();
         daemon.set_status(DaemonStatus::ReleaseUpgrade, move |daemon, active| {
             if !active {
-                let (how, from, to) = message.read3().map_err(|why| format!("{}", why))?;
-                daemon.release_upgrade(how, from, to)?;
+                let (how, from, to) = message.read3().map_err(|ref why| format_error(why))?;
+                daemon
+                    .release_upgrade(how, from, to)
+                    .map_err(|ref why| format_error(why.as_ref()))?;
             }
 
             Ok(Vec::new())
@@ -300,7 +307,8 @@ pub fn release_repair(
 ) -> Method<MTFn<()>, ()> {
     let method = dbus_factory.method::<_, String>(RELEASE_REPAIR, move |_message| {
         let mut daemon = daemon.borrow_mut();
-        daemon.release_repair()?;
+        async_io::block_on(daemon.release_repair())
+            .map_err(|ref why| format_error(why.as_ref()))?;
         Ok(Vec::new())
     });
 
@@ -311,7 +319,7 @@ pub const RESET: &str = "Reset";
 
 pub fn reset(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method<MTFn<()>, ()> {
     let method = dbus_factory.method::<_, String>(RESET, move |_| {
-        daemon.borrow_mut().reset()?;
+        async_io::block_on(daemon.borrow_mut().reset())?;
         Ok(Vec::new())
     });
 

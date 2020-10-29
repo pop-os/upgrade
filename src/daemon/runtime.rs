@@ -1,10 +1,5 @@
-use crate::fetch::http::Client;
-use std::sync::Arc;
-
-pub struct DaemonRuntime {
-    pub client: Arc<Client>,
-}
+pub struct DaemonRuntime;
 
 impl DaemonRuntime {
-    pub fn new() -> Self { DaemonRuntime { client: Arc::new(Client::new()) } }
+    pub fn new() -> Self { Self }
 }

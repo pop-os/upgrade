@@ -1,23 +1,20 @@
 mod errors;
 mod version;
 
-use atomic::Atomic;
-use parallel_getter::ParallelGetter;
+use as_result::*;
+use async_process::Command;
+use futures::prelude::*;
 use std::{
-    fs::{self, OpenOptions},
-    io::{Seek, SeekFrom, Write},
+    io::SeekFrom,
     path::{Path, PathBuf},
-    sync::{atomic::Ordering, Arc},
+    time::Instant,
 };
 use sys_mount::{Mount, MountFlags, Unmount, UnmountFlags};
 use tempfile::{tempdir, TempDir};
 
 use crate::{
-    checksum::validate_checksum,
-    external::{findmnt_uuid, rsync},
-    release_api::Release,
-    release_architecture::detect_arch,
-    system_environment::SystemEnvironment,
+    checksum::validate_checksum, external::findmnt_uuid, release_api::Release,
+    release_architecture::detect_arch, system_environment::SystemEnvironment,
 };
 
 pub use self::{
@@ -57,9 +54,9 @@ pub enum UpgradeMethod {
     FromRelease { version: Option<String>, arch: Option<String>, flags: ReleaseFlags },
 }
 
-pub fn recovery<F, E>(
-    cancel: &Arc<dyn Fn() -> bool + Send + Sync>,
-    action: &UpgradeMethod,
+pub async fn recovery<'a, F, E>(
+    cancel: &'a (dyn Fn() -> bool + Send + Sync),
+    action: &'a UpgradeMethod,
     progress: F,
     event: E,
 ) -> RecResult<()>
@@ -72,7 +69,7 @@ where
     }
 
     // Check the system and perform any repairs necessary for success.
-    crate::repair::repair().map_err(RecoveryError::Repair)?;
+    crate::repair::repair().await.map_err(RecoveryError::Repair)?;
 
     cancellation_check(&cancel)?;
 
@@ -93,15 +90,13 @@ where
             .unwrap_or(false)
     }
 
-    // The function must be Arc'd so that it can be borrowed.
-    // Borrowck disallows moving ownership due to using FnMut instead of FnOnce.
-    let progress = Arc::new(progress);
-
     if let Some((version, build)) =
-        fetch_iso(cancel, verify, &action, &progress, &event, "/recovery")?
+        fetch_iso(cancel, verify, &action, &progress, &event, "/recovery").await?
     {
         let data = format!("{} {}", version, build);
-        fs::write(RECOVERY_VERSION, data.as_bytes()).map_err(RecoveryError::WriteVersion)?;
+        async_fs::write(RECOVERY_VERSION, data.as_bytes())
+            .await
+            .map_err(RecoveryError::WriteVersion)?;
     }
 
     Ok(())
@@ -120,12 +115,12 @@ pub fn recovery_exists() -> Result<bool, RecoveryError> {
     Ok(false)
 }
 
-fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
-    cancel: &Arc<dyn Fn() -> bool + Send + Sync>,
+async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
+    cancel: &'a (dyn Fn() -> bool + Send + Sync),
     verify: fn(&str, u16) -> bool,
-    action: &UpgradeMethod,
-    progress: &Arc<F>,
-    event: &dyn Fn(RecoveryEvent),
+    action: &'a UpgradeMethod,
+    progress: &'a F,
+    event: &'a dyn Fn(RecoveryEvent),
     recovery_path: P,
 ) -> RecResult<Option<(Box<str>, u16)>> {
     let recovery_path = recovery_path.as_ref();
@@ -141,9 +136,13 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
         return Err(RecoveryError::EfiNotFound);
     }
 
-    let recovery_uuid = findmnt_uuid(recovery_path)?;
+    let recovery_uuid = findmnt_uuid(recovery_path).await?;
+
     let casper = ["casper-", &recovery_uuid].concat();
     let recovery = ["Recovery-", &recovery_uuid].concat();
+
+    // TODO: Create recovery entry if it is missing
+    std::fs::create_dir_all(&recovery)?;
 
     let mut temp_iso_dir = None;
     let (build, version, iso) = match action {
@@ -164,11 +163,11 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
             cancellation_check(&cancel)?;
 
             let iso =
-                from_release(cancel, &mut temp_iso_dir, progress, event, &version, arch, *flags)?;
+                from_release(cancel, &mut temp_iso_dir, progress, event, &version, arch, *flags)
+                    .await?;
             (build, version, iso)
         }
         UpgradeMethod::FromFile(ref _path) => {
-            // from_file(path)?
             unimplemented!();
         }
     };
@@ -191,16 +190,28 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     let casper_vmlinuz = recovery_path.join([&casper, "/vmlinuz.efi"].concat());
     let recovery_str = recovery_path.to_str().unwrap();
 
-    rsync(&[&disk, &dists, &pool], recovery_str, &["-KLavc", "--inplace", "--delete"])?;
+    let mut cmd = cascade! {
+        Command::new("rsync");
+        ..args(&[&disk, &dists, &pool]);
+        ..arg(recovery_str);
+        ..args(&["-KLavc", "--inplace", "--delete"]);
+    };
 
-    rsync(
-        &[&casper_p],
-        &[recovery_str, "/", &casper].concat(),
-        &["-KLavc", "--inplace", "--delete"],
-    )?;
+    cmd.status().await.map_result()?;
 
-    crate::misc::cp(&casper_initrd, &efi_initrd)?;
-    crate::misc::cp(&casper_vmlinuz, &efi_vmlinuz)?;
+    let mut cmd = cascade! {
+        Command::new("rsync");
+        ..args(&[&casper_p]);
+        ..arg(&[recovery_str, "/", &casper].concat());
+        ..args(&["-KLavc", "--inplace", "--delete"]);
+    };
+
+    cmd.status().await.map_result()?;
+
+    let cp1 = crate::misc::cp(&casper_initrd, &efi_initrd);
+    let cp2 = crate::misc::cp(&casper_vmlinuz, &efi_vmlinuz);
+
+    futures::try_join!(cp1, cp2)?;
 
     (*event)(RecoveryEvent::Complete);
 
@@ -208,13 +219,13 @@ fn fetch_iso<P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
 }
 
 /// Fetches the release ISO remotely from api.pop-os.org.
-fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
-    cancel: &Arc<dyn Fn() -> bool + Send + Sync>,
-    temp: &mut Option<TempDir>,
-    progress: &Arc<F>,
-    event: &dyn Fn(RecoveryEvent),
-    version: &str,
-    arch: Option<&str>,
+async fn from_release<'a, F: Fn(u64, u64) + 'static + Send + Sync>(
+    cancel: &'a (dyn Fn() -> bool + Send + Sync),
+    temp: &'a mut Option<TempDir>,
+    progress: &'a F,
+    event: &'a dyn Fn(RecoveryEvent),
+    version: &'a str,
+    arch: Option<&'a str>,
     _flags: ReleaseFlags,
 ) -> RecResult<PathBuf> {
     let arch = match arch {
@@ -224,6 +235,7 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
 
     let release = Release::get_release(version, arch).map_err(RecoveryError::ApiError)?;
     let iso_path = from_remote(cancel, temp, progress, event, &release.url, &release.sha_sum)
+        .await
         .map_err(|why| RecoveryError::Download(Box::new(why)))?;
 
     Ok(iso_path)
@@ -232,46 +244,85 @@ fn from_release<F: Fn(u64, u64) + 'static + Send + Sync>(
 /// Downloads the ISO from a remote location, to a temporary local directory.
 ///
 /// Once downloaded, the ISO will be verfied against the given checksum.
-fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
-    cancel: &Arc<dyn Fn() -> bool + Send + Sync>,
-    temp_dir: &mut Option<TempDir>,
-    progress: &Arc<F>,
-    event: &dyn Fn(RecoveryEvent),
-    url: &str,
-    checksum: &str,
+async fn from_remote<'a, F: Fn(u64, u64) + 'static + Send + Sync>(
+    cancel: &'a (dyn Fn() -> bool + Send + Sync),
+    temp_dir: &'a mut Option<TempDir>,
+    progress: &'a F,
+    event: &'a dyn Fn(RecoveryEvent),
+    url: &'a str,
+    checksum: &'a str,
 ) -> RecResult<PathBuf> {
     info!("downloading ISO from remote at {}", url);
     let temp = tempdir().map_err(RecoveryError::TempDir)?;
     let path = temp.path().join("new.iso");
 
-    let mut file =
-        OpenOptions::new().create(true).write(true).read(true).truncate(true).open(&path)?;
+    let mut file = async_fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .read(true)
+        .truncate(true)
+        .open(&path)
+        .await?;
 
-    let total = Arc::new(Atomic::new(0));
-    ParallelGetter::new(url, &mut file)
-        .threads(8)
-        .callback(
-            1000,
-            Box::new(enclose!((total, progress, cancel) move |p, t| {
-                total.store(t / 1024, Ordering::SeqCst);
-                (*progress)(p / 1024, t / 1024);
-                cancel()
-            })),
-        )
-        .get()
-        .map_err(|why| RecoveryError::Fetch { url: url.to_owned(), why })?;
+    let mut total = 0;
+
+    (async {
+        let req = isahc::get_async(url).await?;
+
+        let status = req.status();
+        if !status.is_success() {
+            return Err(anyhow!("request failed due to status code {}", status));
+        }
+
+        total = req
+            .headers()
+            .get("content-length")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(0)
+            / 1024;
+
+        let mut buf = vec![0u8; 8 * 1024];
+        let mut p = 0;
+
+        let mut body = req.into_body();
+
+        let mut last = Instant::now();
+
+        loop {
+            let read = body.read(&mut buf).await?;
+            if read == 0 {
+                break;
+            }
+
+            file.write_all(&buf[..read]).await?;
+
+            p += read;
+
+            if last.elapsed().as_secs() > 1 {
+                last = Instant::now();
+                (*progress)(p as u64 / 1024, total);
+            }
+
+            cancellation_check(cancel)?;
+        }
+
+        Ok(())
+    })
+    .await
+    .map_err(|source| RecoveryError::Fetch { url: url.to_owned(), source })?;
 
     cancellation_check(cancel)?;
 
-    let total = total.load(Ordering::SeqCst);
     (*progress)(total, total);
     (*event)(RecoveryEvent::Verifying);
 
-    file.flush()?;
-    file.seek(SeekFrom::Start(0))?;
+    file.flush().await?;
+    file.seek(SeekFrom::Start(0)).await?;
 
     validate_checksum(&mut file, checksum)
-        .map_err(|why| RecoveryError::Checksum { path: path.clone(), why })?;
+        .await
+        .map_err(|source| RecoveryError::Checksum { path: path.clone(), source })?;
 
     cancellation_check(cancel)?;
 
@@ -279,7 +330,7 @@ fn from_remote<F: Fn(u64, u64) + 'static + Send + Sync>(
     Ok(path)
 }
 
-fn cancellation_check(cancel: &Arc<dyn Fn() -> bool + Send + Sync>) -> RecResult<()> {
+fn cancellation_check(cancel: &(dyn Fn() -> bool + Send + Sync)) -> RecResult<()> {
     if cancel() {
         Err(RecoveryError::Cancelled)
     } else {

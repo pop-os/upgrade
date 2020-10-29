@@ -17,6 +17,24 @@ const APPS_FILE: &str = "/etc/apt/sources.list.d/pop-os-apps.sources";
 const POP_PPA_FILE: &str = "/etc/apt/sources.list.d/pop-os-ppa.list";
 const PROPRIETARY_URL: &str = "http://apt.pop-os.org/proprietary";
 
+enum ReleaseSupport {
+    BeforeGroovy,
+    PostGroovy,
+}
+
+impl ReleaseSupport {
+    fn get(release: &str) -> anyhow::Result<ReleaseSupport> {
+        // The release where DEB822-format sources were adopted.
+        const DEB822: &str = "groovy";
+
+        let new = release.parse::<Codename>()?.release_timestamp();
+
+        let groovy = DEB822.parse::<Codename>()?.release_timestamp();
+
+        Ok(if new >= groovy { ReleaseSupport::PostGroovy } else { ReleaseSupport::BeforeGroovy })
+    }
+}
+
 /// Backup the sources lists
 pub fn backup(release: &str) -> anyhow::Result<()> {
     if Path::new(PPA_DIR).exists() {
@@ -143,7 +161,9 @@ pub fn replace_with_old_releases() -> io::Result<()> {
 }
 
 /// Restore a previous backup of the sources lists
-pub fn restore() -> anyhow::Result<()> {
+pub fn restore(release: &str) -> anyhow::Result<()> {
+    info!("restoring release files for {}", release);
+
     let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
     iter_files(dir, |entry| {
         let src_path = entry.path();
@@ -169,11 +189,28 @@ pub fn restore() -> anyhow::Result<()> {
 
     if Path::new(BACKUP_MAIN_FILE).exists() {
         info!("restoring system sources list");
+
         if Path::new(MAIN_FILE).exists() {
             fs::remove_file(MAIN_FILE).context("failed to remove modified system sources.list")?;
         }
 
         fs::rename(BACKUP_MAIN_FILE, MAIN_FILE).context("failed to restore system sources.list")?;
+
+        if let ReleaseSupport::BeforeGroovy = ReleaseSupport::get(release)? {
+            // Also remove these on a groovy upgrade that fails
+            if Path::new(NEW_MAIN_FILE).exists() {
+                fs::remove_file(NEW_MAIN_FILE).context("failed to remove deb822 system sources")?;
+            }
+
+            if Path::new(APPS_FILE).exists() {
+                fs::remove_file(APPS_FILE)
+                    .context("failed to remove deb822 proprietary sources")?;
+            }
+
+            if Path::new(POP_PPA_FILE).exists() {
+                fs::remove_file(POP_PPA_FILE).context("failed to remove groovy Pop PPA")?;
+            }
+        }
     }
 
     Ok(())
@@ -219,12 +256,7 @@ fn replace_with_old_releases_(
 }
 
 pub fn create_new_sources_list(release: &str) -> anyhow::Result<()> {
-    // Switchover is the release where DEB822-format sources were adopted.
-    // Currently 'groovy'
-    let switchover = "groovy";
-    let new_timestamp = release.parse::<Codename>()?.release_timestamp();
-    let switchover_timestamp = switchover.parse::<Codename>()?.release_timestamp();
-    if new_timestamp >= switchover_timestamp {
+    if let ReleaseSupport::PostGroovy = ReleaseSupport::get(release)? {
         // new sources
         fs::write(NEW_MAIN_FILE, new_system_sources(release))?;
         fs::write(APPS_FILE, pop_apps_source(release))?;

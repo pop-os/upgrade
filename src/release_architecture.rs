@@ -1,12 +1,14 @@
 use std::io;
 use sysfs_class::{PciDevice, SysClass};
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ReleaseArchError {
-    #[error(display = "error when probing PCI device: {}", _0)]
-    PciProbe(io::Error),
-    #[error(display = "error fetching vendor ID of PCI device: {}", _0)]
-    PciVendor(io::Error),
+    #[error("error when probing PCI device")]
+    PciProbe(#[source] io::Error),
+
+    #[error("error fetching vendor ID of PCI device")]
+    PciVendor(#[source] io::Error),
 }
 
 /// Probe PCI devices for the existence of NVIDIA hardware, and return either "intel" or "nvidia".
