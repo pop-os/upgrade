@@ -34,7 +34,19 @@ pub fn run(
     send: impl Fn(UiEvent) + Send + Sync + 'static,
 ) {
     let send: &dyn Fn(UiEvent) = &send;
-    if let Ok(ref client) = Client::new() {
+    if let Ok(ref mut client) = Client::new() {
+        info!("Checking for updates to daemon");
+        if client.update_and_restart().unwrap_or(false) {
+            let file = std::path::Path::new(pop_upgrade::RESTART_SCHEDULED);
+            while file.exists() {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+
+            if let Ok(c) = Client::new() {
+                *client = c;
+            }
+        }
+
         while let Ok(event) = receiver.recv() {
             trace!("received BackgroundEvent: {:?}", event);
             match event {

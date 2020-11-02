@@ -339,3 +339,18 @@ pub fn status(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Method
 
     method.outarg::<u8>("status").outarg::<u8>("sub_status").consume()
 }
+
+pub const UPDATE_CHECK: &str = "UpdateCheck";
+
+pub fn update_check(
+    daemon: Rc<RefCell<Daemon>>,
+    dbus_factory: &DbusFactory,
+) -> Method<MTFn<()>, ()> {
+    let method = dbus_factory.method::<_, String>(UPDATE_CHECK, move |_| {
+        let status = async_io::block_on(daemon.borrow_mut().update_and_restart());
+
+        Ok(vec![status.into()])
+    });
+
+    method.outarg::<u8>("status").consume()
+}

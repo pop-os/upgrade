@@ -305,6 +305,13 @@ impl Client {
             .map(|(status, sub_status)| DaemonStatus { status, sub_status })
     }
 
+    pub fn update_and_restart(&self) -> Result<bool, Error> {
+        self.call_method(methods::UPDATE_CHECK, |m| m)?
+            .read1::<u8>()
+            .map_err(|why| Error::ArgumentMismatch(methods::UPDATE_CHECK, why))
+            .map(|v| v == 1)
+    }
+
     /// Verifies if a recovery partition exists.
     pub fn recovery_exists(&self) -> bool { crate::recovery::recovery_exists().unwrap_or(false) }
 
