@@ -363,6 +363,8 @@ impl DaemonRuntime {
             UpgradeMethod::Offline => Self::systemd_upgrade_prereq_check()?,
         }
 
+        let _ = AptMark::new().hold(&["pop-upgrade"]).await;
+
         // Check the system and perform any repairs necessary for success.
         (async move {
             repair::crypttab::repair().map_err(RepairError::Crypttab)?;
@@ -447,6 +449,9 @@ impl DaemonRuntime {
 
         // Apply any fixes necessary before the upgrade.
         repair::pre_upgrade().map_err(ReleaseError::PreUpgrade)?;
+
+        let _ = AptMark::new().unhold(&["pop-upgrade"]).await;
+        
         // Update the source lists to the new release,
         // then fetch the packages required for the upgrade.
         let _ = self.fetch_new_release_packages(logger, fetch, from, to).await?;
