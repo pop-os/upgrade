@@ -193,7 +193,21 @@ fn main_(matches: &ArgMatches) -> Result<(), Error> {
         ("cancel", _) => Client::new()?.cancel()?,
         ("daemon", _) => Daemon::init()?,
         (other, Some(matches)) => {
-            let client = Client::new()?;
+            let mut client = Client::new()?;
+
+            println!("checking if pop-upgrade requires an update");
+            if client.update_and_restart()? {
+                println!("waiting for daemon to update and restart");
+
+                let file = std::path::Path::new(pop_upgrade::RESTART_SCHEDULED);
+                while file.exists() {
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                }
+
+                println!("reconnecting to pop-upgrade daemon");
+                client = Client::new()?;
+            }
+
             let func = match other {
                 "recovery" => Client::recovery,
                 "release" => Client::release,

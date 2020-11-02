@@ -21,7 +21,7 @@ use crate::{
         self, FetchEvent, RefreshOp, ReleaseError, ReleaseStatus,
         UpgradeMethod as ReleaseUpgradeMethod,
     },
-    sighandler, DBUS_IFACE, DBUS_NAME, DBUS_PATH,
+    sighandler, DBUS_IFACE, DBUS_NAME, DBUS_PATH, RESTART_SCHEDULED,
 };
 
 use anyhow::Context;
@@ -41,7 +41,7 @@ use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     rc::Rc,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -95,6 +95,7 @@ pub struct Daemon {
     cancel:          Arc<AtomicBool>,
     last_known:      LastKnown,
     release_upgrade: Option<ReleaseUpgradeState>,
+    perform_upgrade: bool,
 }
 
 impl Daemon {
@@ -309,6 +310,7 @@ impl Daemon {
             release_upgrade: None,
             status,
             sub_status,
+            perform_upgrade: false,
         })
     }
 
@@ -409,6 +411,7 @@ impl Daemon {
             .add_m(methods::release_upgrade_status(daemon.clone(), &dbus_factory))
             .add_m(methods::reset(daemon.clone(), &dbus_factory))
             .add_m(methods::status(daemon.clone(), &dbus_factory))
+            .add_m(methods::update_check(daemon.clone(), &dbus_factory))
             .add_s(fetch_result.clone())
             .add_s(fetched_package.clone())
             .add_s(fetching_package.clone())
@@ -435,11 +438,21 @@ impl Daemon {
 
         info!("daemon registered -- listening for new events");
 
+        if Path::new(RESTART_SCHEDULED).exists() {
+            let _ = fs::remove_file(RESTART_SCHEDULED);
+        }
+
         async_io::block_on(async move {
             release::cleanup().await;
 
             loop {
                 connection.incoming(1000).next();
+
+                if daemon.borrow().perform_upgrade {
+                    // Systemd will request the daemon to sigterm on completion
+                    let _ =
+                        AptGet::new().force().allow_downgrades().install(&["pop-upgrade"]).await;
+                }
 
                 if let Some(status) = sighandler::status() {
                     info!("received a '{}' signal", status);
@@ -720,6 +733,35 @@ impl Daemon {
         let _ = self.event_tx.send(event);
         Ok(())
     }
+
+    async fn update_and_restart(&mut self) -> u8 {
+        info!("updating apt sources");
+        let _ = AptGet::new().update().await;
+
+        if let Ok(true) = upgrade_required().await {
+            if async_fs::File::create(RESTART_SCHEDULED).await.is_ok() {
+                info!("installing latest version of `pop-upgrade`, which will restart the daemon");
+                self.perform_upgrade = true;
+                return 1;
+            }
+        }
+
+        0
+    }
+}
+
+pub async fn upgrade_required() -> anyhow::Result<bool> {
+    let (_, packages) = apt_cmd::apt::upgradable_packages().await?;
+
+    futures_util::pin_mut!(packages);
+
+    while let Some(package) = packages.next().await {
+        if &package == "pop-upgrade" {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 
 pub fn result_signal<E: ::std::fmt::Display>(result: Result<&(), &E>) -> (u8, String) {
