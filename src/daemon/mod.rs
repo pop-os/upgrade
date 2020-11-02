@@ -450,9 +450,15 @@ impl Daemon {
 
                 if daemon.borrow().perform_upgrade {
                     // Systemd will request the daemon to sigterm on completion
-                    let _ =
-                        AptGet::new().force().allow_downgrades()
-                            .install(&["pop-upgrade", "libpop-upgrade-gtk"]).await;
+                    let _ = AptGet::new()
+                        .noninteractive()
+                        .force()
+                        .allow_downgrades()
+                        .install(&["pop-upgrade", "libpop-upgrade-gtk"])
+                        .await;
+
+                    // Fix any packaging errors that might happen on doing this
+                    let _ = AptGet::new().noninteractive().fix_broken().status().await;
                 }
 
                 if let Some(status) = sighandler::status() {
