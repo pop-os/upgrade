@@ -451,7 +451,7 @@ impl DaemonRuntime {
         repair::pre_upgrade().map_err(ReleaseError::PreUpgrade)?;
 
         let _ = AptMark::new().unhold(&["pop-upgrade"]).await;
-        
+
         // Update the source lists to the new release,
         // then fetch the packages required for the upgrade.
         let _ = self.fetch_new_release_packages(logger, fetch, from, to).await?;

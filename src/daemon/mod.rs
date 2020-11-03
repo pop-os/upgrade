@@ -758,12 +758,10 @@ impl Daemon {
 }
 
 pub async fn upgrade_required() -> anyhow::Result<bool> {
-    let (_, packages) = apt_cmd::apt::upgradable_packages().await?;
+    let (_, mut policies) = apt_cmd::AptCache::new().policy(&["pop-upgrade"]).await?;
 
-    futures_util::pin_mut!(packages);
-
-    while let Some(package) = packages.next().await {
-        if &package == "pop-upgrade" {
+    if let Some(policy) = policies.next().await {
+        if policy.installed != policy.candidate {
             return Ok(true);
         }
     }
