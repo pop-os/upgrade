@@ -67,9 +67,9 @@ pub enum FgEvent {
 }
 
 pub struct LastKnown {
-    fetch:            Result<(), ReleaseError>,
+    fetch: Result<(), ReleaseError>,
     recovery_upgrade: Result<(), RecoveryError>,
-    release_upgrade:  Result<(), ReleaseError>,
+    release_upgrade: Result<(), ReleaseError>,
 }
 
 impl Default for LastKnown {
@@ -80,20 +80,20 @@ impl Default for LastKnown {
 
 pub struct ReleaseUpgradeState {
     action: release::UpgradeMethod,
-    from:   Box<str>,
-    to:     Box<str>,
+    from: Box<str>,
+    to: Box<str>,
 }
 
 pub struct Daemon {
-    event_tx:        Sender<Event>,
-    fg_rx:           Receiver<FgEvent>,
-    dbus_rx:         Receiver<SignalEvent>,
-    connection:      Arc<Connection>,
-    status:          Arc<Atomic<DaemonStatus>>,
-    sub_status:      Arc<Atomic<u8>>,
-    fetching_state:  Arc<Atomic<(u64, u64)>>,
-    cancel:          Arc<AtomicBool>,
-    last_known:      LastKnown,
+    event_tx: Sender<Event>,
+    fg_rx: Receiver<FgEvent>,
+    dbus_rx: Receiver<SignalEvent>,
+    connection: Arc<Connection>,
+    status: Arc<Atomic<DaemonStatus>>,
+    sub_status: Arc<Atomic<u8>>,
+    fetching_state: Arc<Atomic<(u64, u64)>>,
+    cancel: Arc<AtomicBool>,
+    last_known: LastKnown,
     release_upgrade: Option<ReleaseUpgradeState>,
     perform_upgrade: bool,
 }
@@ -281,7 +281,7 @@ impl Daemon {
                                 },
                             ).await;
 
-                            let _ = AptMark::new().hold(&["pop-upgrade"]).await;
+                            let _ = AptMark::new().unhold(&["pop-upgrade"]).await;
 
                             let _ = fg_tx.send(FgEvent::SetUpgradeState(
                                 result,
@@ -627,8 +627,8 @@ impl Daemon {
 
         let event = Event::RecoveryUpgrade(RecoveryUpgradeMethod::FromRelease {
             version: if version.is_empty() { None } else { Some(version.into()) },
-            arch:    if arch.is_empty() { None } else { Some(arch.into()) },
-            flags:   RecoveryReleaseFlags::from_bits_truncate(flags),
+            arch: if arch.is_empty() { None } else { Some(arch.into()) },
+            flags: RecoveryReleaseFlags::from_bits_truncate(flags),
         });
 
         self.submit_event(event)

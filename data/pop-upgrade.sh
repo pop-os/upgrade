@@ -137,7 +137,6 @@ attempt_upgrade () {
     message -i "Installing Updates (0%)"
     touch "$1"
 
-    apt-mark hold pop-upgrade
     systemctl mask acpid pop-upgrade
 
     if (upgrade || attempt_repair); then
@@ -159,7 +158,6 @@ attempt_upgrade () {
         plymouth message --text="system-updates-stop"
         sync
 
-        apt-mark unhold pop-upgrade
         systemctl unmask acpid pop-upgrade
         systemctl reboot
     else
@@ -167,7 +165,6 @@ attempt_upgrade () {
         sleep 6
         plymouth message --text="system-updates-stop"
         sync
-        apt-mark unhold pop-upgrade
         systemctl unmask acpid pop-upgrade
         systemctl rescue
     fi
