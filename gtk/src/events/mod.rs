@@ -391,9 +391,7 @@ fn release_upgrade_dialog(state: &mut State, widgets: &EventWidgets) {
     let dialog = UpgradeDialog::new(&state.upgrading_from, &state.upgrading_to);
 
     let answer = dialog.run();
-    unsafe {
-        dialog.destroy();
-    }
+    dialog.close();
     if gtk::ResponseType::Accept == answer {
         let _ = state.sender.send(BackgroundEvent::Finalize);
     } else {
