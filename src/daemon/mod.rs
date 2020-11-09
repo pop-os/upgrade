@@ -208,6 +208,8 @@ impl Daemon {
                                             info!("performing upgrade");
                                             let (mut child, events) = AptGet::new()
                                                 .noninteractive()
+                                                .allow_downgrades()
+                                                .force()
                                                 .stream_upgrade()
                                                 .await
                                                 .map_err(ReleaseError::Upgrade)?;
