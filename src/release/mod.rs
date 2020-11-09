@@ -735,7 +735,7 @@ pub async fn cleanup() {
     if Path::new(crate::TRANSITIONAL_SNAPS).exists() {
         if let Ok(packages) = fs::read_to_string(crate::TRANSITIONAL_SNAPS) {
             for package in packages.lines() {
-                let _ = AptMark::new().hold(&[&*package]).await;
+                let _ = AptMark::new().unhold(&[&*package]).await;
             }
         }
 
