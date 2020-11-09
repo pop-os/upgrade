@@ -704,6 +704,8 @@ pub enum FetchEvent {
 
 /// Check if certain files exist at the time of starting this daemon.
 pub async fn cleanup() {
+    let _ = AptMark::new().unhold(&["pop-upgrade"]).await;
+
     for &file in [RELEASE_FETCH_FILE, STARTUP_UPGRADE_FILE].iter() {
         if Path::new(file).exists() {
             info!("cleaning up after failed upgrade");
@@ -716,7 +718,6 @@ pub async fn cleanup() {
                         .expect("no codename for version");
 
                     let _ = crate::release::repos::restore(codename);
-                    let _ = AptMark::new().unhold(&["pop-upgrade"]).await;
                 }
                 Err(why) => {
                     error!("could not detect distro release version: {}", why);
