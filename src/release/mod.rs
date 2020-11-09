@@ -716,6 +716,7 @@ pub async fn cleanup() {
                         .expect("no codename for version");
 
                     let _ = crate::release::repos::restore(codename);
+                    let _ = AptMark::new().unhold(&["pop-upgrade"]).await;
                 }
                 Err(why) => {
                     error!("could not detect distro release version: {}", why);
