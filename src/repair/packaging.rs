@@ -3,7 +3,7 @@ use apt_cmd::{AptGet, Dpkg};
 
 pub async fn repair() -> anyhow::Result<()> {
     AptGet::new()
-        .args(&["install", "-f"])
+        .args(&["install", "-f", "-y", "--allow-downgrades"])
         .status()
         .await
         .context("failed to repair broken packages with `apt-get install -f`")?;

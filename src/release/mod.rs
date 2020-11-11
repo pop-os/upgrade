@@ -307,7 +307,8 @@ impl DaemonRuntime {
 
         apt_lock_wait().await;
         info!("autoremoving packages");
-        let _ = AptGet::new().noninteractive().force().autoremove().status().await;
+        let _ =
+            AptGet::new().noninteractive().allow_downgrades().force().autoremove().status().await;
 
         // If the first upgrade attempt fails, try to dpkg --configure -a and try again.
         if apt_upgrade().await.is_err() {
@@ -320,6 +321,8 @@ impl DaemonRuntime {
             AptGet::new()
                 .noninteractive()
                 .fix_broken()
+                .allow_downgrades()
+                .force()
                 .status()
                 .await
                 .map_err(ReleaseError::FixBroken)?;
@@ -335,7 +338,8 @@ impl DaemonRuntime {
 
         apt_lock_wait().await;
         info!("autoremoving packages");
-        let _ = AptGet::new().noninteractive().force().autoremove().status().await;
+        let _ =
+            AptGet::new().noninteractive().force().allow_downgrades().autoremove().status().await;
 
         Ok(())
     }
@@ -414,6 +418,7 @@ impl DaemonRuntime {
             (logger)(UpgradeEvent::RemovingConflicts);
             AptGet::new()
                 .noninteractive()
+                .force()
                 .remove(conflicting)
                 .await
                 .map_err(ReleaseError::ConflictRemoval)?;
@@ -585,6 +590,7 @@ impl DaemonRuntime {
         AptGet::new()
             .noninteractive()
             .allow_downgrades()
+            .force()
             .simulate()
             .upgrade()
             .await
