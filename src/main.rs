@@ -204,6 +204,8 @@ fn main_(matches: &ArgMatches) -> Result<(), Error> {
                     std::thread::sleep(std::time::Duration::from_secs(1));
                 }
 
+                std::thread::sleep(std::time::Duration::from_secs(1));
+
                 println!("reconnecting to pop-upgrade daemon");
                 client = Client::new()?;
             }

@@ -710,6 +710,8 @@ pub enum FetchEvent {
 
 /// Check if certain files exist at the time of starting this daemon.
 pub async fn cleanup() {
+    let _ = fs::remove_file(crate::RESTART_SCHEDULED);
+
     let _ = AptMark::new().unhold(&["pop-upgrade"]).await;
 
     for &file in [RELEASE_FETCH_FILE, STARTUP_UPGRADE_FILE].iter() {

@@ -41,7 +41,7 @@ use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
     fs,
-    path::{Path, PathBuf},
+    path::PathBuf,
     rc::Rc,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -67,9 +67,9 @@ pub enum FgEvent {
 }
 
 pub struct LastKnown {
-    fetch:            Result<(), ReleaseError>,
+    fetch: Result<(), ReleaseError>,
     recovery_upgrade: Result<(), RecoveryError>,
-    release_upgrade:  Result<(), ReleaseError>,
+    release_upgrade: Result<(), ReleaseError>,
 }
 
 impl Default for LastKnown {
@@ -80,20 +80,20 @@ impl Default for LastKnown {
 
 pub struct ReleaseUpgradeState {
     action: release::UpgradeMethod,
-    from:   Box<str>,
-    to:     Box<str>,
+    from: Box<str>,
+    to: Box<str>,
 }
 
 pub struct Daemon {
-    event_tx:        Sender<Event>,
-    fg_rx:           Receiver<FgEvent>,
-    dbus_rx:         Receiver<SignalEvent>,
-    connection:      Arc<Connection>,
-    status:          Arc<Atomic<DaemonStatus>>,
-    sub_status:      Arc<Atomic<u8>>,
-    fetching_state:  Arc<Atomic<(u64, u64)>>,
-    cancel:          Arc<AtomicBool>,
-    last_known:      LastKnown,
+    event_tx: Sender<Event>,
+    fg_rx: Receiver<FgEvent>,
+    dbus_rx: Receiver<SignalEvent>,
+    connection: Arc<Connection>,
+    status: Arc<Atomic<DaemonStatus>>,
+    sub_status: Arc<Atomic<u8>>,
+    fetching_state: Arc<Atomic<(u64, u64)>>,
+    cancel: Arc<AtomicBool>,
+    last_known: LastKnown,
     release_upgrade: Option<ReleaseUpgradeState>,
     perform_upgrade: bool,
 }
@@ -440,10 +440,6 @@ impl Daemon {
 
         info!("daemon registered -- listening for new events");
 
-        if Path::new(RESTART_SCHEDULED).exists() {
-            let _ = fs::remove_file(RESTART_SCHEDULED);
-        }
-
         async_io::block_on(async move {
             release::cleanup().await;
 
@@ -463,16 +459,7 @@ impl Daemon {
                         }
                     }
 
-                    // Systemd will request the daemon to sigterm on completion
-                    let _ = AptGet::new()
-                        .noninteractive()
-                        .force()
-                        .allow_downgrades()
-                        .install(&packages)
-                        .await;
-
-                    // Fix any packaging errors that might happen on doing this
-                    let _ = AptGet::new().noninteractive().fix_broken().force().status().await;
+                    self_upgrade(&packages).await;
                 }
 
                 if let Some(status) = sighandler::status() {
@@ -641,8 +628,8 @@ impl Daemon {
 
         let event = Event::RecoveryUpgrade(RecoveryUpgradeMethod::FromRelease {
             version: if version.is_empty() { None } else { Some(version.into()) },
-            arch:    if arch.is_empty() { None } else { Some(arch.into()) },
-            flags:   RecoveryReleaseFlags::from_bits_truncate(flags),
+            arch: if arch.is_empty() { None } else { Some(arch.into()) },
+            flags: RecoveryReleaseFlags::from_bits_truncate(flags),
         });
 
         self.submit_event(event)
@@ -811,4 +798,13 @@ fn dismiss_file_remove() -> Result<(), String> {
 fn dismissed_by_timestamp(timestamp: i64) -> Result<(), String> {
     fs::write(INSTALL_DATE, timestamp.to_string().as_bytes())
         .map_err(|why| format!("install timestamp write: {}", why))
+}
+
+/// Installs packages in background, ensuring that the process continues
+/// even if the daemon is restarted
+async fn self_upgrade(packages: &[&str]) {
+    let _ = AptGet::new().noninteractive().fix_broken().allow_downgrades().force().status().await;
+    let _ = AptGet::new().allow_downgrades().force().install(packages).await;
+
+    std::process::exit(1);
 }
