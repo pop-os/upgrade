@@ -179,6 +179,7 @@ pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut 
             UiEvent::Completed(CompletedEvent::Refresh) => reboot(),
 
             UiEvent::Completed(CompletedEvent::Scan(event)) => {
+                widgets.stack.set_visible_child_name("updated");
                 scan_event(&mut state, &widgets, event);
             }
 
