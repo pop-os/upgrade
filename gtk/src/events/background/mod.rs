@@ -37,6 +37,7 @@ pub fn run(
     if let Ok(ref mut client) = Client::new() {
         info!("Checking for updates to daemon");
         if client.update_and_restart().unwrap_or(false) {
+            send(UiEvent::Updating);
             let file = std::path::Path::new(pop_upgrade::RESTART_SCHEDULED);
             while file.exists() {
                 std::thread::sleep(std::time::Duration::from_secs(1));
@@ -46,6 +47,8 @@ pub fn run(
                 *client = c;
             }
         }
+
+        send(UiEvent::Updated);
 
         while let Ok(event) = receiver.recv() {
             trace!("received BackgroundEvent: {:?}", event);

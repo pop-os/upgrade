@@ -74,10 +74,35 @@ impl UpgradeWidget {
             ..add_widget(upgrade.option.as_ref());
         };
 
+        let loading_label = gtk::Label::new(None);
+
+        let loading = cascade! {
+            gtk::Box::new(gtk::Orientation::Vertical, 48);
+            ..set_halign(gtk::Align::Center);
+            ..set_valign(gtk::Align::Center);
+            ..add(&loading_label);
+            ..add(&cascade! {
+                gtk::Spinner::new();
+                ..set_size_request(128, 128);
+                ..start();
+            });
+            ..show_all();
+        };
+
+        upgrade.frame.show_all();
+
         let container = cascade! {
             gtk::Box::new(gtk::Orientation::Vertical, 12);
             ..add(&upgrade.label);
             ..add(&upgrade.frame);
+            ..show_all();
+        };
+
+        let stack = cascade! {
+            gtk::Stack::new();
+            ..add_named(&container, "updated");
+            ..add_named(&loading, "loading");
+            ..set_visible_child_name("loading");
             ..show_all();
         };
 
@@ -89,7 +114,14 @@ impl UpgradeWidget {
 
         events::attach(
             gui_receiver,
-            EventWidgets { button_sg, container: container.clone(), dismisser, upgrade },
+            EventWidgets {
+                button_sg,
+                container,
+                dismisser,
+                loading_label,
+                stack: stack.clone(),
+                upgrade,
+            },
             State::new(
                 bg_sender.clone(),
                 Arc::downgrade(&gui_sender),
@@ -100,7 +132,7 @@ impl UpgradeWidget {
         );
 
         Self {
-            container: container.upcast::<gtk::Container>(),
+            container: stack.upcast::<gtk::Container>(),
             sender: bg_sender,
             callback_error,
             callback_event,
@@ -108,10 +140,7 @@ impl UpgradeWidget {
         }
     }
 
-    pub fn scan(&self) {
-        self.hide();
-        let _ = self.sender.send(BackgroundEvent::Scan);
-    }
+    pub fn scan(&self) { let _ = self.sender.send(BackgroundEvent::Scan); }
 
     pub fn shutdown(&self) { let _ = self.sender.send(BackgroundEvent::Shutdown); }
 

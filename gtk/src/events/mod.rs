@@ -40,6 +40,8 @@ pub enum UiEvent {
     ReleaseUpgradeDialog,
     Shutdown,
     StatusChanged(DaemonStatus, DaemonStatus, Box<str>),
+    Updated,
+    Updating,
     UpgradeClicked,
     UpgradeEvent(UpgradeEvent),
     UpgradeNotificationClicked,
@@ -90,9 +92,11 @@ pub enum Event {
 }
 
 pub struct EventWidgets {
-    pub button_sg: gtk::SizeGroup,
-    pub container: gtk::Box,
-    pub dismisser: gtk::ListBoxRow,
+    pub button_sg:     gtk::SizeGroup,
+    pub container:     gtk::Box,
+    pub dismisser:     gtk::ListBoxRow,
+    pub stack:         gtk::Stack,
+    pub loading_label: gtk::Label,
 
     pub upgrade: Section,
 }
@@ -103,7 +107,6 @@ impl EventWidgets {
         self.upgrade.frame.remove(&self.upgrade.list);
         self.upgrade.frame.add(PermissionDenied::new().as_ref());
         self.upgrade.frame.show_all();
-        self.container.show();
     }
 }
 
@@ -140,8 +143,9 @@ pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut 
             }
 
             UiEvent::Initiated(InitiatedEvent::Scanning) => {
+                widgets.loading_label.set_label("Checking for updates");
+                widgets.stack.set_visible_child_name("loading");
                 widgets.upgrade.option.reset_progress();
-                widgets.container.hide();
             }
 
             UiEvent::Initiated(InitiatedEvent::Recovery) => {
@@ -179,6 +183,15 @@ pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut 
             }
 
             UiEvent::CancelledUpgrade => cancelled_upgrade(&mut state, &widgets),
+
+            UiEvent::Updating => {
+                widgets.loading_label.set_label("Updating the upgrade service");
+                widgets.stack.set_visible_child_name("loading");
+            }
+
+            UiEvent::Updated => {
+                widgets.stack.set_visible_child_name("updated");
+            }
 
             UiEvent::UpgradeClicked => upgrade_clicked(&mut state, &widgets),
 
