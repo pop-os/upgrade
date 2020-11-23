@@ -20,19 +20,16 @@ Homepage: https://github.com/pop-os/upgrade
 Package: pop-upgrade
 Architecture: amd64
 Depends:
-  libdbus-1-3,
-  libgtk-3-0,
   rsync,
   ${misc:Depends},
-  ${shlib:Depends}
+  ${shlibs:Depends}
 Description: Utility for performing system upgrades on Pop!_OS
 
 Package: libpop-upgrade-gtk
 Architecture: amd64
 Depends:
   pop-upgrade (= ${binary:Version}),
-  libdbus-1-3,
-  libgtk-3-0
+  ${shlibs:Depends}
 Description: The Pop upgrade experience as a GTK widget in a dylib
  The Pop upgrade experience as a GTK widget in a dylib
 
