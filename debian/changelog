@@ -1,3 +1,9 @@
+pop-upgrade (0.1.1) groovy; urgency=medium
+
+  * Include SONAME in library
+
+ -- Ian Douglas Scott <idscott@system76.com>  Tue, 01 Dec 2020 09:03:15 -0800
+
 pop-upgrade (0.1.0) cosmic; urgency=medium
 
   * Initial release.
