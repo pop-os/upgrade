@@ -10,6 +10,8 @@ pub const APP_ID: &str = "com.system76.UpgradeManager";
 fn main() {
     better_panic::install();
     glib::set_program_name(APP_ID.into());
+    
+    let _ = install_logging(LevelFilter::Debug);
 
     let application = Application::new(Some(APP_ID), ApplicationFlags::empty())
         .expect("GTK initialization failed");
@@ -21,6 +23,7 @@ fn main() {
     });
 
     application.connect_startup(|app| {
+        argument_parsing();
         let widget = UpgradeWidget::new();
         widget.scan();
 
@@ -57,7 +60,6 @@ fn main() {
 /// Currently the primary purpose is to determine the logging level.
 fn argument_parsing() {
     use clap::{App, Arg};
-    use log::LevelFilter;
 
     let matches = App::new("com.system76.FirmwareManager")
         .arg(

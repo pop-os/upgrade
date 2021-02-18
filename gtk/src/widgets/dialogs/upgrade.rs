@@ -1,12 +1,15 @@
+use super::DialogTemplate;
+use crate::battery;
 use gtk::prelude::*;
 use pop_upgrade::changelogs;
 
 const CHANGELOG_PADDING: i32 = 48;
 
-#[derive(Shrinkwrap)]
+#[derive(AsRef, Deref)]
 pub struct UpgradeDialog {
-    #[shrinkwrap(main_field)]
-    dialog: gtk::Dialog,
+    #[as_ref]
+    #[deref]
+    dialog: DialogTemplate,
 }
 
 impl UpgradeDialog {
@@ -44,7 +47,7 @@ impl UpgradeDialog {
             }
         }
 
-        let dialog = super::dialog_template(
+        let dialog = DialogTemplate::new(
             "distributor-logo",
             "Upgrade",
             "Reboot & Upgrade",
@@ -81,13 +84,9 @@ fn add_version(changelogs: &gtk::Box, version: &str) {
 }
 
 fn battery_label() -> &'static str {
-    if on_battery() {
+    if battery::active() {
         "<b>Plug into power</b> before you begin. "
     } else {
         ""
     }
-}
-
-fn on_battery() -> bool {
-    upower_dbus::UPower::new(-1).and_then(|upower| upower.on_battery()).unwrap_or(false)
 }

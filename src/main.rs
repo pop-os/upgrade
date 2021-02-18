@@ -1,4 +1,7 @@
 #[macro_use]
+extern crate anyhow;
+
+#[macro_use]
 extern crate fomat_macros;
 
 #[macro_use]
@@ -50,9 +53,9 @@ pub mod error {
 }
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
-use std::{error::Error as _, process::exit};
+use std::process::exit;
 
-use self::error::{Error, InitError};
+use self::error::InitError;
 
 pub fn main() {
     let _ = setup_logging(::log::LevelFilter::Debug);
@@ -108,16 +111,11 @@ pub fn main() {
                                         )
                                         .long("next"),
                                 ),
-                        )
-                        // .subcommand(
-                        //     SubCommand::with_name("from-file")
-                        //         .about("update the recovery partition using an ISO on the system")
-                        //         .arg(
-                        //             Arg::with_name("PATH")
-                        //                 .help("location to fetch the from file")
-                        //                 .required(true),
-                        //         ),
-                        // ),
+                        ),
+                )
+                .subcommand(
+                    SubCommand::with_name("check")
+                        .about("check the status of the recovery partition"),
                 ),
         )
         // Distribution release tools
@@ -147,8 +145,8 @@ pub fn main() {
                 .subcommand(
                     SubCommand::with_name("refresh")
                         .about("refresh the existing OS (requires recovery partition)")
-                        .arg(Arg::with_name("disable"))
-                        .arg(Arg::with_name("enable")),
+                        .subcommand(SubCommand::with_name("disable"))
+                        .subcommand(SubCommand::with_name("enable")),
                 )
                 .subcommand(
                     SubCommand::with_name("repair")
@@ -186,7 +184,7 @@ pub fn main() {
     }
 }
 
-fn main_(matches: &ArgMatches) -> Result<(), Error> {
+fn main_(matches: &ArgMatches) -> anyhow::Result<()> {
     init()?;
 
     match matches.subcommand() {

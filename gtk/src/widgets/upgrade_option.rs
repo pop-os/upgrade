@@ -8,12 +8,13 @@ pub struct UpgradeOption {
     #[shrinkwrap(main_field)]
     container: gtk::Grid,
 
-    pub button: gtk::Button,
+    pub button:   gtk::Button,
+    pub label:    gtk::Label,
+    pub progress: gtk::ProgressBar,
+    pub sublabel: gtk::Label,
 
     button_label: gtk::Label,
-    label:        gtk::Label,
-    sublabel:     gtk::Label,
-    progress:     gtk::ProgressBar,
+    last_class:   Option<&'static str>,
 
     button_signal: RefCell<Option<SignalHandlerId>>,
 }
@@ -29,7 +30,6 @@ impl UpgradeOption {
                 .hexpand(true)
                 .valign(gtk::Align::Center)
                 .build();
-            ..get_style_context().add_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION);
             ..add(&button_label);
         };
 
@@ -71,7 +71,7 @@ impl UpgradeOption {
             ..set_margin_end(20);
             ..set_margin_top(9);
             ..set_margin_bottom(9);
-            ..set_column_spacing(12);
+            ..set_column_spacing(24);
             ..set_row_spacing(4);
             ..set_size_request(-1, 32);
             ..attach(&labels,   0, 0, 1, 1);
@@ -81,14 +81,28 @@ impl UpgradeOption {
         };
 
         Self {
+            button_label,
             button_signal: RefCell::new(None),
             button,
-            button_label,
             container,
             label,
+            last_class: None,
             progress,
             sublabel,
         }
+    }
+
+    pub fn button_class(&mut self, class: &'static str) -> &Self {
+        let ctx = self.button.get_style_context();
+
+        if let Some(class) = self.last_class {
+            ctx.remove_class(class);
+        }
+
+        ctx.add_class(class);
+        self.last_class = Some(class);
+
+        self
     }
 
     /// Sets the button label
@@ -110,7 +124,7 @@ impl UpgradeOption {
         match action {
             Some((label, func)) => {
                 self.button_label(label);
-                self.button.show();
+                self.show_button();
                 let id = self.button.connect_clicked(move |button| {
                     button.hide();
                     func()
@@ -120,6 +134,11 @@ impl UpgradeOption {
             None => self.button.hide(),
         }
 
+        self
+    }
+
+    pub fn sensitive(&self, sensitive: bool) -> &Self {
+        self.button.set_sensitive(sensitive);
         self
     }
 

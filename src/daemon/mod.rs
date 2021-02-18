@@ -14,8 +14,8 @@ pub use self::{
 use crate::{
     misc::{self, format_error},
     recovery::{
-        self, RecoveryError, RecoveryVersion, ReleaseFlags as RecoveryReleaseFlags,
-        UpgradeMethod as RecoveryUpgradeMethod,
+        self, RecoveryError, RecoveryVersion, RecoveryVersionError,
+        ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
     },
     release::{
         self, FetchEvent, RefreshOp, ReleaseError, ReleaseStatus,
@@ -320,6 +320,10 @@ impl Daemon {
         info!("initializing daemon");
         fs::create_dir_all(crate::VAR_LIB_DIR)
             .map_err(|why| DaemonError::VarLibDirectory(crate::VAR_LIB_DIR, why))?;
+
+        if let Err(why) = release::systemd::restore_default() {
+            warn!("failure restoring previous boot entry: {}", why);
+        }
 
         let factory = Factory::new_fn::<()>();
 
@@ -637,8 +641,17 @@ impl Daemon {
 
     fn recovery_version(&mut self) -> Result<RecoveryVersion, String> {
         info!("checking recovery version");
-        let version = crate::recovery::version().map_err(|ref why| format_error(why))?;
-        info!("{:?}", version);
+
+        let version = match crate::recovery::version() {
+            Ok(version) => version,
+            Err(RecoveryVersionError::Unknown) => {
+                RecoveryVersion { version: String::new(), build: -1 }
+            }
+            Err(ref why) => {
+                return Err(format_error(why))?;
+            }
+        };
+
         Ok(version)
     }
 

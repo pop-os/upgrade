@@ -14,6 +14,7 @@ use pop_upgrade::{
     recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags},
     release::{
         eol::{EolDate, EolStatus},
+        systemd::{self, LoaderEntry},
         RefreshOp, UpgradeEvent, UpgradeMethod,
     },
 };
@@ -45,8 +46,12 @@ impl Client {
     pub fn new() -> Result<Self, client::Error> { client::Client::new().map(Client) }
 
     /// Executes the recovery subcommand of the client.
-    pub fn recovery(&self, matches: &ArgMatches) -> Result<(), client::Error> {
+    pub fn recovery(&self, matches: &ArgMatches) -> anyhow::Result<()> {
         match matches.subcommand() {
+            ("default-boot", _) => {
+                root_required()?;
+                systemd::BootConf::load()?.set_default_boot_variant(LoaderEntry::Recovery)?;
+            }
             ("upgrade", Some(matches)) => {
                 match matches.subcommand() {
                     ("from-release", Some(matches)) => {
@@ -70,13 +75,20 @@ impl Client {
 
                 self.event_listen_recovery_upgrade()?;
             }
+            ("check", _) => {
+                let version = self.recovery_version()?;
+                pintln!(
+                    "version: " (version.version) "\n"
+                    "build: " (version.build)
+                );
+            }
             _ => unreachable!(),
         }
 
         Ok(())
     }
 
-    pub fn release(&self, matches: &ArgMatches) -> Result<(), client::Error> {
+    pub fn release(&self, matches: &ArgMatches) -> anyhow::Result<()> {
         match matches.subcommand() {
             ("dismiss", _) => {
                 let devel = pop_upgrade::development_releases_enabled();
@@ -171,10 +183,13 @@ impl Client {
             // Set the recovery partition as the next boot target, and configure it to
             // automatically switch to the refresh view.
             ("refresh", Some(matches)) => {
-                let action = match () {
-                    _ if matches.is_present("enable") => RefreshOp::Enable,
-                    _ if matches.is_present("disable") => RefreshOp::Disable,
-                    _ => RefreshOp::Status,
+                let action = match matches.subcommand() {
+                    ("enable", _) => RefreshOp::Enable,
+                    ("disable", _) => RefreshOp::Disable,
+                    _ => {
+                        self.refresh_os(RefreshOp::Status)?;
+                        return Ok(());
+                    }
                 };
 
                 self.refresh_os(action)?;
@@ -189,7 +204,7 @@ impl Client {
         Ok(())
     }
 
-    pub fn status(&self, _matches: &ArgMatches) -> Result<(), client::Error> {
+    pub fn status(&self, _matches: &ArgMatches) -> anyhow::Result<()> {
         let info = self.0.status()?;
 
         let (status, sub_status) = match DaemonStatus::from_u8(info.status) {
@@ -624,5 +639,13 @@ fn prompt_message(message: &str, default: bool) -> bool {
             Ok(Answer::Break(answer)) => break answer,
             Err(_why) => break default,
         }
+    }
+}
+
+pub fn root_required() -> anyhow::Result<()> {
+    if unsafe { libc::geteuid() == 0 } {
+        Ok(())
+    } else {
+        Err(anyhow!("root is required for this operation"))
     }
 }

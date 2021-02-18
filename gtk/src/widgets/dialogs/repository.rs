@@ -1,10 +1,11 @@
+use super::DialogTemplate;
 use gtk::prelude::*;
 
-#[derive(Shrinkwrap)]
+#[derive(AsRef, Deref)]
 pub struct RepositoryDialog {
-    #[shrinkwrap(main_field)]
-    dialog:  gtk::Dialog,
-    entries: gtk::ListBox,
+    #[as_ref]
+    #[deref]
+    dialog: DialogTemplate,
 }
 
 impl RepositoryDialog {
@@ -17,7 +18,7 @@ impl RepositoryDialog {
             };
         };
 
-        let dialog = super::dialog_template(
+        let dialog = DialogTemplate::new(
             "application-x-deb",
             "3rd party repositories",
             "Accept",
@@ -37,16 +38,6 @@ impl RepositoryDialog {
 
         dialog.set_size_request(600, 400);
 
-        Self { dialog, entries }
-    }
-
-    pub fn answers(&self) -> impl Iterator<Item = bool> {
-        self.entries
-            .get_children()
-            .into_iter()
-            .filter_map(|w| w.downcast::<gtk::ListBoxRow>().ok())
-            .flat_map(|w| w.get_children().into_iter())
-            .filter_map(|w| w.downcast::<gtk::CheckButton>().ok())
-            .map(|w| w.get_active())
+        Self { dialog }
     }
 }

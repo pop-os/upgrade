@@ -1,6 +1,7 @@
 mod errors;
 mod version;
 
+use anyhow::Context;
 use as_result::*;
 use async_process::Command;
 use futures::prelude::*;
@@ -93,7 +94,7 @@ where
     if let Some((version, build)) =
         fetch_iso(cancel, verify, &action, &progress, &event, "/recovery").await?
     {
-        let data = format!("{} {}", version, build);
+        let data = fomat!((version) " " (build));
         async_fs::write(RECOVERY_VERSION, data.as_bytes())
             .await
             .map_err(RecoveryError::WriteVersion)?;
@@ -136,13 +137,17 @@ async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
         return Err(RecoveryError::EfiNotFound);
     }
 
-    let recovery_uuid = findmnt_uuid(recovery_path).await?;
+    let recovery_uuid = findmnt_uuid(recovery_path)
+        .await
+        .context("cannot find UUID of recover partition")?;
 
     let casper = ["casper-", &recovery_uuid].concat();
     let recovery = ["Recovery-", &recovery_uuid].concat();
+    let efi_recovery = efi_path.join(&recovery);
 
     // TODO: Create recovery entry if it is missing
-    std::fs::create_dir_all(&recovery)?;
+    std::fs::create_dir_all(&efi_recovery)
+        .context("failed to create recovery entry directory")?;
 
     let mut temp_iso_dir = None;
     let (build, version, iso) = match action {
@@ -176,14 +181,15 @@ async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
 
     (*event)(RecoveryEvent::Syncing);
     let tempdir = tempfile::tempdir().map_err(RecoveryError::TempDir)?;
-    let _iso_mount = Mount::new(iso, tempdir.path(), "iso9660", MountFlags::RDONLY, None)?
+    let _iso_mount = Mount::new(iso, tempdir.path(), "iso9660", MountFlags::RDONLY, None)
+        .context("failed to mount recovery ISO")?
         .into_unmount_drop(UnmountFlags::DETACH);
 
     let disk = tempdir.path().join(".disk");
     let dists = tempdir.path().join("dists");
     let pool = tempdir.path().join("pool");
     let casper_p = tempdir.path().join("casper/");
-    let efi_recovery = efi_path.join(&recovery);
+    
     let efi_initrd = efi_recovery.join("initrd.gz");
     let efi_vmlinuz = efi_recovery.join("vmlinuz.efi");
     let casper_initrd = recovery_path.join([&casper, "/initrd.gz"].concat());
@@ -197,7 +203,7 @@ async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
         ..args(&["-KLavc", "--inplace", "--delete"]);
     };
 
-    cmd.status().await.map_result()?;
+    cmd.status().await.context("rsync failed to copy")?;
 
     let mut cmd = cascade! {
         Command::new("rsync");
@@ -206,12 +212,13 @@ async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
         ..args(&["-KLavc", "--inplace", "--delete"]);
     };
 
-    cmd.status().await.map_result()?;
+    cmd.status().await.context("rsync failed to copy casper")?;
 
     let cp1 = crate::misc::cp(&casper_initrd, &efi_initrd);
     let cp2 = crate::misc::cp(&casper_vmlinuz, &efi_vmlinuz);
 
-    futures::try_join!(cp1, cp2)?;
+    futures::try_join!(cp1, cp2)
+        .context("failed to copy kernel to recovery")?;
 
     (*event)(RecoveryEvent::Complete);
 
@@ -262,7 +269,8 @@ async fn from_remote<'a, F: Fn(u64, u64) + 'static + Send + Sync>(
         .read(true)
         .truncate(true)
         .open(&path)
-        .await?;
+        .await
+        .context("failed to create ISO file for writing")?;
 
     let mut total = 0;
 
@@ -317,8 +325,10 @@ async fn from_remote<'a, F: Fn(u64, u64) + 'static + Send + Sync>(
     (*progress)(total, total);
     (*event)(RecoveryEvent::Verifying);
 
-    file.flush().await?;
-    file.seek(SeekFrom::Start(0)).await?;
+    async {
+        file.flush().await?;
+        file.seek(SeekFrom::Start(0)).await
+    }.await.context("failed to write recovery ISO")?;
 
     validate_checksum(&mut file, checksum)
         .await
