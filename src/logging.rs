@@ -34,6 +34,7 @@ pub fn setup_logging(filter: LevelFilter) -> Result<(), InitError> {
         .level(LevelFilter::Off)
         // Include only the logs for relevant crates of interest
         .level_for("pop_upgrade", filter)
+        .level_for("pop_upgrade_gtk", LevelFilter::Trace)
         .level_for("apt_fetcher", filter)
         .format(move |out, message, record| {
             out.finish(format_args!(

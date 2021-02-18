@@ -73,7 +73,7 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) {
                     }
                 }
                 Signal::ReleaseEvent(event) => {
-                    send(UiEvent::UpgradeEvent(event));
+                    send(UiEvent::Upgrade(OsUpgradeEvent::Event(event)));
                 }
                 Signal::ReleaseResult(status) => {
                     if status.status != 0 {
@@ -159,7 +159,7 @@ pub fn update(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
                         }
                     }
                     Signal::ReleaseEvent(event) => {
-                        send(UiEvent::UpgradeEvent(event));
+                        send(UiEvent::Upgrade(OsUpgradeEvent::Event(event)));
                     }
                     _ => (),
                 }

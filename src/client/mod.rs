@@ -74,7 +74,7 @@ pub struct Fetched {
 #[derive(Clone, Debug)]
 pub struct RecoveryVersion {
     pub version: Box<str>,
-    pub build:   u16,
+    pub build:   i16,
 }
 
 /// Information about the current and next release.
@@ -86,6 +86,7 @@ pub struct ReleaseInfo {
     pub current: Box<str>,
     pub next:    Box<str>,
     pub build:   i16,
+    pub urgent:  Option<u16>,
     pub is_lts:  bool,
 }
 
@@ -238,7 +239,7 @@ impl Client {
     /// Fetches the version of the recovery partition currently-installed.
     pub fn recovery_version(&self) -> Result<RecoveryVersion, Error> {
         self.call_method(methods::RECOVERY_VERSION, |m| m)?
-            .read2::<&str, u16>()
+            .read2::<&str, i16>()
             .map_err(|why| Error::ArgumentMismatch(methods::RECOVERY_VERSION, why))
             .map(|(version, build)| RecoveryVersion { version: version.into(), build })
     }
@@ -255,12 +256,13 @@ impl Client {
     /// Used to determine if a release upgrade is available.
     pub fn release_check(&self, development: bool) -> Result<ReleaseInfo, Error> {
         self.call_method(methods::RELEASE_CHECK, |m| m.append1(development))?
-            .read4::<&str, &str, i16, bool>()
+            .read5::<&str, &str, i16, i16, bool>()
             .map_err(|why| Error::ArgumentMismatch(methods::RELEASE_CHECK, why))
-            .map(|(current, next, build, is_lts)| ReleaseInfo {
+            .map(|(current, next, build, urgent, is_lts)| ReleaseInfo {
                 current: current.into(),
                 next: next.into(),
                 build,
+                urgent: if urgent > -1 { Some(urgent as u16) } else { None },
                 is_lts,
             })
     }

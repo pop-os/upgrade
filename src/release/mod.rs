@@ -1,9 +1,13 @@
 pub mod check;
 pub mod eol;
 pub mod repos;
+pub mod systemd;
 
 mod errors;
+mod recovery;
 mod snapd;
+
+use self::systemd::LoaderEntry;
 
 pub use self::{
     check::{BuildStatus, ReleaseStatus},
@@ -19,8 +23,9 @@ use apt_cmd::{
     lock::apt_lock_wait, request::Request as AptRequest, AptGet, AptMark, AptUpgradeEvent, Dpkg,
     DpkgQuery,
 };
-use envfile::EnvFile;
+
 use futures::prelude::*;
+
 use std::{
     collections::HashSet,
     convert::TryFrom,
@@ -79,15 +84,34 @@ pub enum RefreshOp {
 
 /// Configure the system to refresh the OS in the recovery partition.
 pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
-    recovery_prereq()?;
+    recovery::upgrade_prereq()?;
 
-    let action = match op {
-        RefreshOp::Disable => unset_recovery_as_default_boot_option,
-        RefreshOp::Enable => set_recovery_as_default_boot_option,
-        RefreshOp::Status => get_recovery_value_set,
-    };
+    let mut conf = systemd::BootConf::load().map_err(ReleaseError::RecoveryConf)?;
 
-    action("REFRESH")
+    match op {
+        RefreshOp::Disable => {
+            info!("Disabling refresh OS");
+
+            conf.set_default_boot_variant(LoaderEntry::Current)
+                .map_err(ReleaseError::SystemdBoot)?;
+
+            recovery::mode_unset().map_err(|why| ReleaseError::RecoveryConf(why.into()))?;
+
+            Ok(false)
+        }
+        RefreshOp::Enable => {
+            info!("Enabling refresh OS");
+
+            recovery::mode_set("refresh", conf.default_boot())
+                .map_err(|why| ReleaseError::RecoveryConf(why.into()))?;
+                
+            conf.set_default_boot_variant(LoaderEntry::Recovery)
+                .map_err(ReleaseError::SystemdBoot)?;
+
+            Ok(true)
+        }
+        RefreshOp::Status => recovery::mode_is("refresh"),
+    }
 }
 
 #[repr(u8)]
@@ -364,7 +388,7 @@ impl DaemonRuntime {
 
         // Ensure that prerequest files and mounts are available.
         match action {
-            UpgradeMethod::Offline => Self::systemd_upgrade_prereq_check()?,
+            UpgradeMethod::Offline => systemd::upgrade_prereq()?,
         }
 
         let _ = AptMark::new().hold(&["pop-upgrade"]).await;
@@ -507,27 +531,6 @@ impl DaemonRuntime {
         }
     }
 
-    /// Validate that the pre-required files for performing a system upgrade are in place.
-    fn systemd_upgrade_prereq_check() -> RelResult<()> {
-        const REQUIRED_UPGRADE_FILES: [&str; 3] = [
-            "/usr/lib/pop-upgrade/upgrade.sh",
-            "/usr/lib/systemd/system/pop-upgrade-init.service",
-            "/usr/lib/systemd/system/system-update.target.wants/pop-upgrade-init.service",
-        ];
-
-        let invalid = REQUIRED_UPGRADE_FILES
-            .iter()
-            .cloned()
-            .filter(|file| !Path::new(file).is_file())
-            .collect::<Vec<&'static str>>();
-
-        if !invalid.is_empty() {
-            return Err(ReleaseError::SystemdUpgradeFilesMissing(invalid));
-        }
-
-        Ok(())
-    }
-
     async fn attempt_fetch<'a>(
         self: &'a mut Self,
         logger: &'a dyn Fn(UpgradeEvent),
@@ -598,9 +601,10 @@ impl DaemonRuntime {
     }
 }
 
+/// Currently not a supported path
 pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResult<()> {
     match action {
-        UpgradeMethod::Offline => systemd_upgrade_set(from, to),
+        UpgradeMethod::Offline => systemd::upgrade_set(from, to),
     }
 }
 
@@ -613,93 +617,6 @@ fn rollback(release: &str, why: &(dyn std::error::Error + 'static)) {
             crate::misc::format_error(why.as_ref())
         );
     }
-}
-
-/// Create the system upgrade files that systemd will check for at startup.
-fn systemd_upgrade_set(from: &str, to: &str) -> RelResult<()> {
-    let current = from
-        .parse::<Version>()
-        .ok()
-        .and_then(|x| Codename::try_from(x).ok())
-        .map(<&'static str>::from)
-        .unwrap_or(from);
-
-    let new = to
-        .parse::<Version>()
-        .ok()
-        .and_then(|x| Codename::try_from(x).ok())
-        .map(<&'static str>::from)
-        .unwrap_or(to);
-
-    fs::write(STARTUP_UPGRADE_FILE, &format!("{} {}", current, new))
-        .and_then(|_| symlink("/var/cache/apt/archives", SYSTEM_UPDATE))
-        .map_err(ReleaseError::StartupFileCreation)
-}
-
-fn get_recovery_value_set(option: &str) -> RelResult<bool> {
-    Ok(EnvFile::new(Path::new("/recovery/recovery.conf"))
-        .map_err(ReleaseError::RecoveryConfOpen)?
-        .get(option)
-        .unwrap_or("0")
-        == "1")
-}
-
-enum LoaderEntry {
-    Current,
-    Recovery,
-}
-
-/// Fetch the systemd-boot configuration, and designate the recovery partition as the default
-/// boot option.
-///
-/// It will be up to the recovery partition to revert this change once it has completed its job.
-fn set_recovery_as_default_boot_option(option: &str) -> RelResult<bool> {
-    systemd_boot_loader_swap(LoaderEntry::Recovery, "recovery partition")?;
-
-    EnvFile::new(Path::new("/recovery/recovery.conf"))
-        .map_err(ReleaseError::RecoveryConfOpen)?
-        .update(option, "1")
-        .write()
-        .map_err(ReleaseError::RecoveryUpdate)?;
-
-    Ok(true)
-}
-
-fn unset_recovery_as_default_boot_option(option: &str) -> RelResult<bool> {
-    systemd_boot_loader_swap(LoaderEntry::Current, "os partition")?;
-
-    let mut envfile = EnvFile::new(Path::new("/recovery/recovery.conf"))
-        .map_err(ReleaseError::RecoveryConfOpen)?;
-
-    // TODO: Add a convenience method to envfile.
-    envfile.store.remove(option);
-
-    envfile.write().map_err(ReleaseError::RecoveryUpdate)?;
-    Ok(false)
-}
-
-fn systemd_boot_loader_swap(loader: LoaderEntry, description: &str) -> RelResult<()> {
-    info!("gathering systemd-boot configuration information");
-
-    let mut systemd_boot_conf =
-        SystemdBootConf::new("/boot/efi").map_err(ReleaseError::SystemdBootConf)?;
-
-    {
-        info!("found the systemd-boot config -- searching for the {}", description);
-        let SystemdBootConf { ref entries, ref mut loader_conf, .. } = systemd_boot_conf;
-        let recovery_entry = entries
-            .iter()
-            .find(|e| match loader {
-                LoaderEntry::Current => e.id.to_lowercase().ends_with("current"),
-                LoaderEntry::Recovery => e.id.to_lowercase().starts_with("recovery"),
-            })
-            .ok_or(ReleaseError::MissingRecoveryEntry)?;
-
-        loader_conf.default = Some(recovery_entry.id.to_owned());
-    }
-
-    info!("found the {} -- setting it as the default boot entry", description);
-    systemd_boot_conf.overwrite_loader_conf().map_err(ReleaseError::SystemdBootConfOverwrite)
 }
 
 pub enum FetchEvent {
@@ -756,24 +673,6 @@ fn hold_apt_locks() -> RelResult<(File, File)> {
     File::open(LISTS_LOCK)
         .and_then(|lists| File::open(DPKG_LOCK).map(|dpkg| (lists, dpkg)))
         .map_err(ReleaseError::Lock)
-}
-
-fn recovery_prereq() -> RelResult<()> {
-    if !Path::new(SYSTEMD_BOOT_LOADER).exists() {
-        return Err(ReleaseError::SystemdBootLoaderNotFound);
-    }
-
-    if !Path::new(SYSTEMD_BOOT_LOADER_PATH).exists() {
-        return Err(ReleaseError::SystemdBootEfiPathNotFound);
-    }
-
-    let partitions = fs::read_to_string("/proc/mounts").map_err(ReleaseError::ReadingPartitions)?;
-
-    if partitions.contains("/recovery") {
-        Ok(())
-    } else {
-        Err(ReleaseError::RecoveryNotFound)
-    }
 }
 
 fn codename_from_version(version: &str) -> &str {

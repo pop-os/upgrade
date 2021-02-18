@@ -1,7 +1,11 @@
 #[macro_use]
 extern crate cascade;
 #[macro_use]
+extern crate derive_more;
+#[macro_use]
 extern crate derive_new;
+#[macro_use]
+extern crate enclose;
 #[macro_use]
 extern crate fomat_macros;
 #[macro_use]
@@ -11,6 +15,7 @@ extern crate shrinkwraprs;
 #[macro_use]
 extern crate thiserror;
 
+mod battery;
 mod errors;
 mod events;
 mod gtk_utils;
@@ -28,6 +33,9 @@ use std::{
     sync::{mpsc, Arc},
     thread,
 };
+
+const RECOVERY_PARTITION: usize = 0;
+const REFRESH_OS: usize = 1;
 
 pub type ErrorCallback = Rc<RefCell<Box<dyn Fn(&str)>>>;
 pub type EventCallback = Rc<RefCell<Box<dyn Fn(Event)>>>;
@@ -49,29 +57,50 @@ impl UpgradeWidget {
         let (gui_sender, gui_receiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         let gui_sender = Arc::new(gui_sender);
 
-        {
-            let gui_sender = gui_sender.clone();
-
-            thread::spawn(move || {
-                events::background::run(bg_receiver, move |event| {
-                    let _ = gui_sender.send(event);
-                });
+        thread::spawn(enclose!((gui_sender) move || {
+            events::background::run(bg_receiver, move |event| {
+                let _ = gui_sender.send(event);
             });
-        }
+        }));
 
-        let upgrade = Section::new("<b>OS Upgrade</b>");
+        let button_sg = gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
+        let option_sg = gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
+        let sublab_sg = gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
+
+        let mut upgrade = Section::new("<b>OS Upgrade</b>");
+        let mut recovery = Section::new("<b>OS Recovery</b>");
+
+        upgrade.add_option(&option_sg, &button_sg, &sublab_sg, |option| {
+            option.button_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION);
+        });
+
+        recovery
+            .add_option(&option_sg, &button_sg, &sublab_sg, |option| {
+                option
+                    .button_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION)
+                    .label("Recovery Partition")
+                    .sublabel(Some("Checking for updates ..."));
+            })
+            .add_option(&option_sg, &button_sg, &sublab_sg, |option| {
+                option
+                    .button_label("Refresh")
+                    .label("Refresh OS")
+                    .sublabel(Some("Reinstall while keeping user accounts and files"));
+            });
 
         let dismisser = gtk::ListBoxRow::new();
         upgrade.list.add(&dismisser);
 
-        let button_sg = cascade! {
-            gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
-            ..add_widget(&upgrade.option.button);
-        };
+        // let button_sg = cascade! {
+        //     gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
+        //     ..add_widget(&upgrade.options[0].button);
+        //     ..add_widget(&recovery.options[REFRESH_OS].button);
+        // };
 
         cascade! {
             gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
-            ..add_widget(upgrade.option.as_ref());
+            ..add_widget(upgrade.options[0].as_ref());
+            ..add_widget(recovery.options[REFRESH_OS].as_ref());
         };
 
         let loading_label = gtk::Label::new(None);
@@ -95,6 +124,8 @@ impl UpgradeWidget {
             gtk::Box::new(gtk::Orientation::Vertical, 12);
             ..add(&upgrade.label);
             ..add(&upgrade.frame);
+            ..add(&recovery.label);
+            ..add(&recovery.frame);
             ..show_all();
         };
 
@@ -119,6 +150,7 @@ impl UpgradeWidget {
                 container,
                 dismisser,
                 loading_label,
+                recovery,
                 stack: stack.clone(),
                 upgrade,
             },

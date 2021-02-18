@@ -14,6 +14,9 @@ pub enum RecoveryError {
     #[error("failed to fetch release data from server")]
     ApiError(#[from] ApiError),
 
+    #[error("generic error")]
+    Anyhow(#[from] anyhow::Error),
+
     #[error("process has been cancelled")]
     Cancelled,
 
@@ -25,9 +28,6 @@ pub enum RecoveryError {
 
     #[error("fetching from {} failed: {}", url, source)]
     Fetch { url: String, source: anyhow::Error },
-
-    #[error("generic I/O error")]
-    Io(#[from] io::Error),
 
     #[error("ISO does not exist at path")]
     IsoNotFound,

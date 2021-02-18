@@ -1,6 +1,6 @@
-mod recovery;
-mod release;
-mod scan;
+pub mod recovery;
+pub mod release;
+pub mod scan;
 
 use crate::{errors::UnderlyingError, events::*, reboot};
 
@@ -27,6 +27,7 @@ pub enum BackgroundEvent {
     Reset,
     Scan,
     Shutdown,
+    UpdateRecovery(Box<str>),
 }
 
 pub fn run(
@@ -51,14 +52,14 @@ pub fn run(
         send(UiEvent::Updated);
 
         while let Ok(event) = receiver.recv() {
-            trace!("received BackgroundEvent: {:?}", event);
+            trace!("received background event: {:?}", event);
             match event {
                 BackgroundEvent::DismissNotification(dismiss) => {
                     let dismiss_event =
                         if dismiss { DismissEvent::ByUser } else { DismissEvent::Unset };
 
                     let event = match client.dismiss_notification(dismiss_event) {
-                        Ok(dismissed) => UiEvent::Dismissed(dismissed),
+                        Ok(dismissed) => UiEvent::Upgrade(OsUpgradeEvent::Dismissed(dismissed)),
                         Err(why) => {
                             UiEvent::Error(UiError::Dismiss(dismiss, UnderlyingError::Client(why)))
                         }
@@ -90,7 +91,7 @@ pub fn run(
 
                 BackgroundEvent::Reset => {
                     send(match client.reset() {
-                        Ok(()) => UiEvent::CancelledUpgrade,
+                        Ok(()) => UiEvent::Upgrade(OsUpgradeEvent::Cancelled),
                         Err(why) => UiEvent::Error(UiError::Cancel(why)),
                     });
                 }
@@ -100,6 +101,10 @@ pub fn run(
                 BackgroundEvent::Shutdown => {
                     send(UiEvent::Shutdown);
                     break;
+                }
+
+                BackgroundEvent::UpdateRecovery(version) => {
+                    self::recovery::upgrade(client, send, &version);
                 }
             }
         }

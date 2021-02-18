@@ -1,6 +1,5 @@
 use crate::{release_architecture::ReleaseArchError, repair::RepairError};
 use std::io;
-use systemd_boot_conf::Error as SystemdBootConfError;
 use ubuntu_version::VersionError;
 
 pub type RelResult<T> = Result<T, ReleaseError>;
@@ -59,6 +58,9 @@ pub enum ReleaseError {
     #[error("failed to read the /proc/partitions file")]
     ReadingPartitions(#[source] io::Error),
 
+    #[error("error updating recovery configuration file")]
+    RecoveryConf(#[source] anyhow::Error),
+
     #[error("failed to open the recovery configuration file")]
     RecoveryConfOpen(#[source] io::Error),
 
@@ -104,15 +106,11 @@ pub enum ReleaseError {
     #[error("failed to create /pop-upgrade file")]
     StartupFileCreation(#[source] io::Error),
 
-    #[error("failed to load systemd-boot configuration")]
-    SystemdBootConf(#[from] SystemdBootConfError),
+    #[error("failed to modify systemd-boot configuration: {}", _0)]
+    SystemdBoot(anyhow::Error),
 
-    #[error("failed to overwrite systemd-boot configuration")]
-    SystemdBootConfOverwrite(#[source] SystemdBootConfError),
-
-    #[error(
-        "attempted recovery-based upgrade method, but the systemd efi loader path was not found"
-    )]
+    #[error("attempted recovery-based upgrade method, but the systemd efi loader path \
+        was not found")]
     SystemdBootEfiPathNotFound,
 
     #[error("attempted recovery-based upgrade method, but the systemd boot loader was not found")]

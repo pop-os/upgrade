@@ -199,7 +199,7 @@ pub fn recovery_version(
             .map(|version| vec![version.version.into(), version.build.into()])
     });
 
-    method.outarg::<&str>("version").outarg::<u16>("build").consume()
+    method.outarg::<&str>("version").outarg::<i16>("build").consume()
 }
 
 pub const REFRESH_OS: &str = "RefreshOS";
@@ -227,23 +227,35 @@ pub fn release_check(
     daemon: Rc<RefCell<Daemon>>,
     dbus_factory: &DbusFactory,
 ) -> Method<MTFn<()>, ()> {
+    fn hardcoded_urgent_build(os: &str) -> i16 {
+        match os {
+            "18.04" => 58,
+            "19.10" => 11,
+            _ => -1,
+        }
+    }
+
     let method = dbus_factory.method(RELEASE_CHECK, move |message| {
         let development = message.read1().map_err(|ref why| format_error(why))?;
         daemon.borrow_mut().release_check(development).map(|status| {
             let is_lts = status.is_lts();
+            let urgent = hardcoded_urgent_build(&status.current);
             vec![
                 String::from(status.current).into(),
                 String::from(status.next).into(),
                 status.build.status_code().into(),
+                urgent.into(),
                 is_lts.into(),
             ]
         })
     });
 
     method
+        .inarg::<bool>("development")
         .outarg::<&str>("current")
         .outarg::<&str>("next")
         .outarg::<i16>("build")
+        .outarg::<i16>("urgent")
         .outarg::<bool>("is_lts")
         .consume()
 }
