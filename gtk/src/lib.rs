@@ -1,3 +1,5 @@
+#![deny(clippy::all)]
+
 #[macro_use]
 extern crate cascade;
 #[macro_use]
@@ -19,7 +21,11 @@ mod state;
 mod users;
 mod widgets;
 
-use self::{events::*, state::State, widgets::Section};
+use self::{
+    events::{BackgroundEvent, Event, EventWidgets},
+    state::State,
+    widgets::Section,
+};
 use gtk::prelude::*;
 use std::{
     cell::RefCell,
@@ -43,8 +49,8 @@ pub struct UpgradeWidget {
     container:      gtk::Container,
 }
 
-impl UpgradeWidget {
-    pub fn new() -> Self {
+impl Default for UpgradeWidget {
+    fn default() -> Self {
         let (bg_sender, bg_receiver) = mpsc::sync_channel(5);
         let (gui_sender, gui_receiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         let gui_sender = Arc::new(gui_sender);
@@ -53,7 +59,7 @@ impl UpgradeWidget {
             let gui_sender = gui_sender.clone();
 
             thread::spawn(move || {
-                events::background::run(bg_receiver, move |event| {
+                events::background::run(&bg_receiver, move |event| {
                     let _ = gui_sender.send(event);
                 });
             });
@@ -139,6 +145,10 @@ impl UpgradeWidget {
             callback_ready,
         }
     }
+}
+
+impl UpgradeWidget {
+    pub fn new() -> Self { Self::default() }
 
     pub fn scan(&self) { let _ = self.sender.send(BackgroundEvent::Scan); }
 

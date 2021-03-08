@@ -1,9 +1,11 @@
+#![deny(clippy::all)]
+
 #[macro_use]
 extern crate cascade;
 
 use gio::{prelude::*, ApplicationFlags};
 use gtk::{prelude::*, Application};
-use pop_upgrade_gtk::*;
+use pop_upgrade_gtk::UpgradeWidget;
 
 pub const APP_ID: &str = "com.system76.UpgradeManager";
 
@@ -57,7 +59,6 @@ fn main() {
 /// Currently the primary purpose is to determine the logging level.
 fn argument_parsing() {
     use clap::{App, Arg};
-    use log::LevelFilter;
 
     let matches = App::new("com.system76.FirmwareManager")
         .arg(

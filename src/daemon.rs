@@ -26,7 +26,7 @@ use crate::{
 
 use anyhow::Context;
 use apt_cmd::{request::Request as AptRequest, AptCache, AptGet, AptMark};
-use as_result::*;
+use as_result::MapResult;
 use atomic::Atomic;
 use dbus::{
     self,
@@ -310,7 +310,7 @@ impl Daemon {
             event_tx,
             fetching_state: prog_state,
             fg_rx,
-            last_known: Default::default(),
+            last_known: LastKnown::default(),
             release_upgrade: None,
             status,
             sub_status,
@@ -467,7 +467,7 @@ impl Daemon {
                 if let Some(status) = sighandler::status() {
                     log::info!("received a '{}' signal", status);
 
-                    use sighandler::Signal::*;
+                    use sighandler::Signal::{TermStop, Terminate};
 
                     match status {
                         Terminate => {
@@ -583,7 +583,7 @@ impl Daemon {
         log::info!("fetching updates for the system, including {:?}", additional_packages);
 
         let mut borrows = Vec::with_capacity(additional_packages.len());
-        borrows.extend(additional_packages.into_iter().map(String::as_str));
+        borrows.extend(additional_packages.iter().map(String::as_str));
 
         let apt_uris = crate::fetch::apt::fetch_uris(Some(&borrows)).await?;
 

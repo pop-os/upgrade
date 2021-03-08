@@ -1,3 +1,5 @@
+#![deny(clippy::all)]
+
 mod cli;
 mod logging;
 mod notify;

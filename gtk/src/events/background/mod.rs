@@ -2,7 +2,11 @@ mod recovery;
 mod release;
 mod scan;
 
-use crate::{errors::UnderlyingError, events::*, reboot};
+use crate::{
+    errors::UnderlyingError,
+    events::{CompletedEvent, InitiatedEvent, UiError, UiEvent},
+    reboot,
+};
 
 use self::scan::scan;
 
@@ -30,7 +34,7 @@ pub enum BackgroundEvent {
 }
 
 pub fn run(
-    receiver: mpsc::Receiver<BackgroundEvent>,
+    receiver: &mpsc::Receiver<BackgroundEvent>,
     send: impl Fn(UiEvent) + Send + Sync + 'static,
 ) {
     let send: &dyn Fn(UiEvent) = &send;
@@ -68,7 +72,7 @@ pub fn run(
                 }
 
                 BackgroundEvent::DownloadUpgrade(info) => {
-                    self::release::download(client, send, info);
+                    self::release::download(client, send, &info);
                 }
 
                 BackgroundEvent::Finalize => match client.release_upgrade_finalize() {

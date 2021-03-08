@@ -30,18 +30,15 @@ impl UpgradeDialog {
 
         let mut iter = changelogs::since(since);
 
-        match iter.next() {
-            Some((version, changelog)) => {
+        if let Some((_version, changelog)) = iter.next() {
+            add_changelog(&changelog_list, changelog);
+            for (version, changelog) in iter {
+                changelog_list.add(&gtk::Separator::new(gtk::Orientation::Horizontal));
+                add_version(&changelog_list, version);
                 add_changelog(&changelog_list, changelog);
-                for (version, changelog) in iter {
-                    changelog_list.add(&gtk::Separator::new(gtk::Orientation::Horizontal));
-                    add_version(&changelog_list, version);
-                    add_changelog(&changelog_list, changelog);
-                }
             }
-            None => {
-                add_changelog(&changelog_list, "No changelog found");
-            }
+        } else {
+            add_changelog(&changelog_list, "No changelog found");
         }
 
         let dialog = super::dialog_template(

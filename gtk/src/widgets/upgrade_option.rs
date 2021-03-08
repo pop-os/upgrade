@@ -174,16 +174,13 @@ impl UpgradeOption {
 
     /// Sets a sublabel with additional information about the operation.
     pub fn sublabel(&self, label: Option<&str>) -> &Self {
-        match label {
-            Some(label) => {
-                self.label.set_yalign(1.0);
-                self.sublabel.set_label(label);
-                self.sublabel.show();
-            }
-            None => {
-                self.label.set_yalign(0.5);
-                self.sublabel.hide();
-            }
+        if let Some(label) = label {
+            self.label.set_yalign(1.0);
+            self.sublabel.set_label(label);
+            self.sublabel.show();
+        } else {
+            self.label.set_yalign(0.5);
+            self.sublabel.hide();
         }
 
         self

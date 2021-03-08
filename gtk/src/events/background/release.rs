@@ -1,5 +1,5 @@
 use super::status_changed;
-use crate::events::*;
+use crate::events::{CompletedEvent, InitiatedEvent, ProgressEvent, UiError, UiEvent};
 
 use apt_cmd::AptUpgradeEvent;
 use pop_upgrade::{
@@ -8,7 +8,7 @@ use pop_upgrade::{
     release::UpgradeMethod,
 };
 
-pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) {
+pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: &ReleaseInfo) {
     log::info!("downloading updates for {}", info.next);
     if !update(client, send) {
         return;

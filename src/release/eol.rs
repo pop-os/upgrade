@@ -53,7 +53,7 @@ impl EolDate {
 #[inline]
 fn imminent(current: Date<Utc>, eol: Date<Utc>) -> bool {
     let days_until = eol.signed_duration_since(current).num_days();
-    days_until >= 0 && days_until <= 30
+    (0..=30).contains(&days_until)
 }
 
 fn ymd_to_utc(y: i32, m: u32, d: u32) -> Date<Utc> {

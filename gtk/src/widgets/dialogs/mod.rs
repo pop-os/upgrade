@@ -12,7 +12,7 @@ fn dialog_template<F: FnOnce(&gtk::Box)>(
     accept_style: &'static str,
     func: F,
 ) -> gtk::Dialog {
-    let cancel = gtk::Button::with_label("Cancel".into());
+    let cancel = gtk::Button::with_label("Cancel");
 
     let accept = cascade! {
         gtk::Button::with_label(accept);

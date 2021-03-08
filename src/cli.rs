@@ -472,29 +472,27 @@ impl Client {
 /// If the next release's timestamp is less than the install time.
 fn installed_after_release(next: &str) -> bool {
     match pop_upgrade::install::time() {
-        Ok(install_time) => match next.find('.') {
-            Some(pos) => {
+        Ok(install_time) => {
+            if let Some(pos) = next.find('.') {
                 let (major, mut minor) = next.split_at(pos);
                 minor = &minor[1..];
 
-                match (major.parse::<u8>(), minor.parse::<u8>()) {
-                    (Ok(major), Ok(minor)) => {
-                        match Codename::try_from(UbuntuVersion { major, minor, patch: 0 }) {
-                            Ok(codename) => {
-                                return codename.release_timestamp() < install_time as u64
-                            }
-                            Err(()) => log::error!("version {} is invalid", next),
-                        }
+                if let (Ok(major), Ok(minor)) = (major.parse::<u8>(), minor.parse::<u8>()) {
+                    match Codename::try_from(UbuntuVersion { major, minor, patch: 0 }) {
+                        Ok(codename) => return codename.release_timestamp() < install_time as u64,
+                        Err(()) => log::error!("version {} is invalid", next),
                     }
-                    _ => log::error!(
+                } else {
+                    log::error!(
                         "major ({}) and minor({}) version failed to parse as u8",
                         major,
                         minor
-                    ),
+                    )
                 }
+            } else {
+                log::error!("version {} is invalid", next)
             }
-            None => log::error!("version {} is invalid", next),
-        },
+        }
         Err(why) => log::error!("failed to get install time: {}", why),
     }
 

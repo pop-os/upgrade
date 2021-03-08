@@ -155,8 +155,8 @@ impl From<UpgradeEvent> for &'static str {
 
 impl DaemonRuntime {
     /// Get a list of APT URIs to fetch for this operation, and then fetch them.
-    pub async fn apt_fetch<'a>(
-        self: &'a mut Self,
+    pub async fn apt_fetch(
+        &mut self,
         uris: HashSet<AptRequest>,
         func: Arc<dyn Fn(FetchEvent) + Send + Sync>,
     ) -> RelResult<()> {
@@ -460,7 +460,7 @@ impl DaemonRuntime {
 
         // Update the source lists to the new release,
         // then fetch the packages required for the upgrade.
-        let _ = self.fetch_new_release_packages(logger, fetch, from, to).await?;
+        self.fetch_new_release_packages(logger, fetch, from, to).await?;
 
         if let Err(why) = crate::gnome_extensions::disable() {
             log::error!(
@@ -530,7 +530,7 @@ impl DaemonRuntime {
     }
 
     async fn attempt_fetch<'a>(
-        self: &'a mut Self,
+        &'a mut self,
         logger: &'a dyn Fn(UpgradeEvent),
         fetch: Arc<dyn Fn(FetchEvent) + Send + Sync>,
     ) -> RelResult<()> {
@@ -655,7 +655,7 @@ enum LoaderEntry {
 ///
 /// It will be up to the recovery partition to revert this change once it has completed its job.
 fn set_recovery_as_default_boot_option(option: &str) -> RelResult<bool> {
-    systemd_boot_loader_swap(LoaderEntry::Recovery, "recovery partition")?;
+    systemd_boot_loader_swap(&LoaderEntry::Recovery, "recovery partition")?;
 
     EnvFile::new(Path::new("/recovery/recovery.conf"))
         .map_err(ReleaseError::RecoveryConfOpen)?
@@ -667,7 +667,7 @@ fn set_recovery_as_default_boot_option(option: &str) -> RelResult<bool> {
 }
 
 fn unset_recovery_as_default_boot_option(option: &str) -> RelResult<bool> {
-    systemd_boot_loader_swap(LoaderEntry::Current, "os partition")?;
+    systemd_boot_loader_swap(&LoaderEntry::Current, "os partition")?;
 
     let mut envfile = EnvFile::new(Path::new("/recovery/recovery.conf"))
         .map_err(ReleaseError::RecoveryConfOpen)?;
@@ -679,7 +679,7 @@ fn unset_recovery_as_default_boot_option(option: &str) -> RelResult<bool> {
     Ok(false)
 }
 
-fn systemd_boot_loader_swap(loader: LoaderEntry, description: &str) -> RelResult<()> {
+fn systemd_boot_loader_swap(loader: &LoaderEntry, description: &str) -> RelResult<()> {
     log::info!("gathering systemd-boot configuration information");
 
     let mut systemd_boot_conf =
@@ -715,7 +715,7 @@ pub async fn cleanup() {
 
     let _ = AptMark::new().unhold(&["pop-upgrade"]).await;
 
-    for &file in [RELEASE_FETCH_FILE, STARTUP_UPGRADE_FILE].iter() {
+    for file in &[RELEASE_FETCH_FILE, STARTUP_UPGRADE_FILE] {
         if Path::new(file).exists() {
             log::info!("cleaning up after failed upgrade");
 

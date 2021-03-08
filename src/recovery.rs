@@ -2,7 +2,7 @@ mod errors;
 mod version;
 
 use anyhow::anyhow;
-use as_result::*;
+use as_result::MapResult;
 use async_process::Command;
 use bitflags::bitflags;
 use cascade::cascade;

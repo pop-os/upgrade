@@ -1,6 +1,6 @@
 //! All code responsible for validating and repair the /etc/fstab file.
 
-use self::FileSystem::*;
+use self::FileSystem::{Fat16, Fat32};
 use crate::system_environment::SystemEnvironment;
 use as_result::MapResult;
 use disk_types::{BlockDeviceExt, FileSystem, PartitionExt};
@@ -74,7 +74,7 @@ pub enum FstabError {
 
 /// Performs the following Pop-specific actions:
 ///
-/// - Ensures that `/boot/efi` and `/recovery` are mounted by PartUUID.
+/// - Ensures that `/boot/efi` and `/recovery` are mounted by `PartUUID`.
 /// - If the `/recovery` mount is missing, find it.
 /// - If the `/recovery` partition is not mounted, mount it.
 pub fn repair() -> Result<(), FstabError> {
@@ -130,7 +130,7 @@ pub fn repair() -> Result<(), FstabError> {
                 let root_mount = mtab
                     .flat_map(Result::ok)
                     .find(|e| e.dest == Path::new("/"))
-                    .ok_or_else(|| FstabError::RootNotMounted)?;
+                    .ok_or(FstabError::RootNotMounted)?;
 
                 root_mount.fstype
             } else {
@@ -143,7 +143,7 @@ pub fn repair() -> Result<(), FstabError> {
                 fstype,
                 // The findmnt command from util-linux errors if root is not set to 1
                 pass: 1,
-                ..Default::default()
+                ..MountInfo::default()
             };
 
             fstab_insert(mount_tab, target, info)?;
@@ -208,7 +208,7 @@ fn fstab_check_root(root: Option<&MountInfo>) -> Result<Option<PartitionID>, Fst
     Ok(None)
 }
 
-/// Ensure that a mount in the fstab is mounted by PartUUID.
+/// Ensure that a mount in the fstab is mounted by `PartUUID`.
 ///
 /// Returns `Ok(false)` if the mount was not found.
 fn fstab_fix_source(mount: Option<&MountInfo>) -> Result<(bool, Option<PartitionID>), FstabError> {
@@ -274,7 +274,7 @@ where
                 source: PathBuf::from(format!("{}", id)),
                 dest: expected_at.to_path_buf(),
                 fstype: fs.into(),
-                ..Default::default()
+                ..MountInfo::default()
             };
 
             fstab_insert(buffer, expected_at, mount_info)
