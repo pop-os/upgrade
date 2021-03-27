@@ -1,4 +1,4 @@
-mod colors;
+pub mod colors;
 
 use self::colors::*;
 use crate::notify::notify;

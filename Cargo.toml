@@ -74,6 +74,7 @@ cascade = "1.0.0"
 async-process = "=0.1.1"
 smolscale = "0.1.0"
 users = "0.11.0"
+structopt = "0.3.21"
 
 [patch.crates-io]
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
