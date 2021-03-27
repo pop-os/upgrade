@@ -8,7 +8,10 @@ pub fn disable() -> anyhow::Result<()> {
         if user.uid() > uid_min && user.uid() < uid_max {
             let name = user.name();
 
-            info!("disabling gnome-shell extensions for {}", name.to_str().unwrap_or("<unkown>"));
+            log::info!(
+                "disabling gnome-shell extensions for {}",
+                name.to_str().unwrap_or("<unkown>")
+            );
 
             disable_for(name);
         }
@@ -26,7 +29,7 @@ fn disable_for(user: &std::ffi::OsStr) {
         .map_result();
 
     if let Err(why) = result {
-        error!(
+        log::error!(
             "failed to disable gnome-shell extensions for {}: {}",
             user.to_str().unwrap_or("<unknown>"),
             why

@@ -33,7 +33,9 @@ use dbus::{
     tree::{Factory, Signal},
     BusType, Connection, Message, NameFlag,
 };
+use enclose::enclose;
 use flume::{bounded, Receiver, Sender};
+use fomat_macros::fomat;
 use futures::prelude::*;
 use logind_dbus::LoginManager;
 use num_traits::FromPrimitive;
@@ -138,7 +140,7 @@ impl Daemon {
                 let mut logind = match LoginManager::new() {
                     Ok(logind) => Some(logind),
                     Err(why) => {
-                        error!("failed to connect to logind: {}", why);
+                        log::error!("failed to connect to logind: {}", why);
                         None
                     }
                 };
@@ -174,7 +176,7 @@ impl Daemon {
                         {
                             Ok(lock) => Some(lock),
                             Err(why) => {
-                                error!("failed to inhibit suspension: {}", why);
+                                log::error!("failed to inhibit suspension: {}", why);
                                 None
                             }
                         }
@@ -189,12 +191,12 @@ impl Daemon {
                         }
 
                         Event::FetchUpdates { apt_uris, download_only } => {
-                            info!("fetching packages for {:?}", apt_uris);
+                            log::info!("fetching packages for {:?}", apt_uris);
                             let npackages = apt_uris.len() as u32;
                             prog_state.store((0, u64::from(npackages)), Ordering::SeqCst);
 
                             let result = runtime.apt_fetch(apt_uris, fetch_closure.clone()).await;
-                            info!("fetched");
+                            log::info!("fetched");
 
 
                             prog_state.store((0, 0), Ordering::SeqCst);
@@ -205,7 +207,7 @@ impl Daemon {
                                         Ok(())
                                     } else {
                                         (async {
-                                            info!("performing upgrade");
+                                            log::info!("performing upgrade");
                                             let (mut child, events) = AptGet::new()
                                                 .noninteractive()
                                                 .allow_downgrades()
@@ -220,7 +222,7 @@ impl Daemon {
                                                 let _ = dbus_tx.send(SignalEvent::Upgrade(event));
                                             }
 
-                                            info!("completed apt upgrade");
+                                            log::info!("completed apt upgrade");
 
                                             child.status().await.map_result().map_err(ReleaseError::Upgrade)
                                         }).await
@@ -233,7 +235,7 @@ impl Daemon {
                         }
 
                         Event::PackageUpgrade => {
-                            info!("upgrading packages");
+                            log::info!("upgrading packages");
                             let _ = runtime.package_upgrade(|event| {
                                 let _ = dbus_tx.send(SignalEvent::Upgrade(event));
                             });
@@ -241,7 +243,7 @@ impl Daemon {
 
                         Event::RecoveryUpgrade(action) => {
                             processing = true;
-                            info!("attempting recovery upgrade with {:?}", action);
+                            log::info!("attempting recovery upgrade with {:?}", action);
                             let result = recovery::recovery(
                                 &|| (*cancel_process)(),
                                 &action,
@@ -262,7 +264,7 @@ impl Daemon {
                         }
 
                         Event::ReleaseUpgrade { how, from, to } => {
-                            info!(
+                            log::info!(
                                 "attempting release upgrade, using a {}",
                                 <&'static str>::from(how)
                             );
@@ -296,7 +298,7 @@ impl Daemon {
 
                     cancel.store(false, Ordering::SeqCst);
                     status.store(DaemonStatus::Inactive, Ordering::SeqCst);
-                    info!("event processed");
+                    log::info!("event processed");
                 }
             })),
         );
@@ -317,7 +319,7 @@ impl Daemon {
     }
 
     pub fn init() -> Result<(), DaemonError> {
-        info!("initializing daemon");
+        log::info!("initializing daemon");
         fs::create_dir_all(crate::VAR_LIB_DIR)
             .map_err(|why| DaemonError::VarLibDirectory(crate::VAR_LIB_DIR, why))?;
 
@@ -438,7 +440,7 @@ impl Daemon {
 
         connection.add_handler(tree);
 
-        info!("daemon registered -- listening for new events");
+        log::info!("daemon registered -- listening for new events");
 
         async_io::block_on(async move {
             release::cleanup().await;
@@ -463,17 +465,17 @@ impl Daemon {
                 }
 
                 if let Some(status) = sighandler::status() {
-                    info!("received a '{}' signal", status);
+                    log::info!("received a '{}' signal", status);
 
                     use sighandler::Signal::*;
 
                     match status {
                         Terminate => {
-                            info!("terminating daemon");
+                            log::info!("terminating daemon");
                             break Ok(());
                         }
                         TermStop => {
-                            info!("stopping daemon");
+                            log::info!("stopping daemon");
                             break Ok(());
                         }
                         _ => (),
@@ -484,7 +486,7 @@ impl Daemon {
                     match fg_event {
                         FgEvent::SetUpgradeState(result, action, from, to) => {
                             if result.is_ok() {
-                                info!("setting release upgrade state");
+                                log::info!("setting release upgrade state");
                                 let state = ReleaseUpgradeState { action, from, to };
                                 daemon.borrow_mut().release_upgrade = Some(state);
                             }
@@ -502,7 +504,7 @@ impl Daemon {
                             | SignalEvent::RecoveryUpgradeEvent(_)
                             | SignalEvent::RecoveryUpgradeResult(_)
                             | SignalEvent::ReleaseUpgradeEvent(_)
-                            | SignalEvent::Upgrade(_) => info!("{}", dbus_event),
+                            | SignalEvent::Upgrade(_) => log::info!("{}", dbus_event),
                             _ => (),
                         }
 
@@ -578,7 +580,7 @@ impl Daemon {
         additional_packages: &'a [String],
         download_only: bool,
     ) -> anyhow::Result<(bool, u32)> {
-        info!("fetching updates for the system, including {:?}", additional_packages);
+        log::info!("fetching updates for the system, including {:?}", additional_packages);
 
         let mut borrows = Vec::with_capacity(additional_packages.len());
         borrows.extend(additional_packages.into_iter().map(String::as_str));
@@ -586,7 +588,7 @@ impl Daemon {
         let apt_uris = crate::fetch::apt::fetch_uris(Some(&borrows)).await?;
 
         if apt_uris.is_empty() {
-            info!("no updates available to fetch");
+            log::info!("no updates available to fetch");
             return Ok((false, 0));
         }
 
@@ -598,20 +600,20 @@ impl Daemon {
     }
 
     fn package_upgrade(&mut self) -> anyhow::Result<()> {
-        info!("upgrading packages for the release");
+        log::info!("upgrading packages for the release");
 
         self.submit_event(Event::PackageUpgrade)?;
         Ok(())
     }
 
     fn cancel(&mut self) {
-        info!("cancelling a process which is in progress");
+        log::info!("cancelling a process which is in progress");
 
         self.cancel.store(true, Ordering::SeqCst);
     }
 
     fn recovery_upgrade_file(&mut self, path: &str) -> anyhow::Result<()> {
-        info!("using {} to upgrade the recovery partition", path);
+        log::info!("using {} to upgrade the recovery partition", path);
 
         let event = Event::RecoveryUpgrade(RecoveryUpgradeMethod::FromFile(PathBuf::from(path)));
 
@@ -624,7 +626,7 @@ impl Daemon {
         arch: &str,
         flags: u8,
     ) -> anyhow::Result<()> {
-        info!("upgrading the recovery partition to {}-{}", version, arch);
+        log::info!("upgrading the recovery partition to {}-{}", version, arch);
 
         let event = Event::RecoveryUpgrade(RecoveryUpgradeMethod::FromRelease {
             version: if version.is_empty() { None } else { Some(version.into()) },
@@ -636,25 +638,25 @@ impl Daemon {
     }
 
     fn recovery_version(&mut self) -> Result<RecoveryVersion, String> {
-        info!("checking recovery version");
+        log::info!("checking recovery version");
         let version = crate::recovery::version().map_err(|ref why| format_error(why))?;
-        info!("{:?}", version);
+        log::info!("{:?}", version);
         Ok(version)
     }
 
     fn refresh_os(&mut self, flag: RefreshOp) -> Result<bool, String> {
-        info!("preparing to refresh OS");
+        log::info!("preparing to refresh OS");
         crate::release::refresh_os(flag).map_err(|ref why| format_error(why))
     }
 
     fn release_check(&self, development: bool) -> Result<ReleaseStatus, String> {
-        info!("performing a release check");
+        log::info!("performing a release check");
 
         let status = release::check::next(development).map_err(|ref why| format_error(why))?;
 
         let mut buffer = String::new();
 
-        info!(
+        log::info!(
             "Release {{ current: \"{}\", lts: \"{}\",  next: \"{}\", available: {} }}",
             status.current,
             status.is_lts(),
@@ -666,7 +668,7 @@ impl Daemon {
     }
 
     fn release_upgrade(&mut self, how: u8, from: &str, to: &str) -> anyhow::Result<()> {
-        info!("upgrading release from {} to {}, with {}", from, to, how);
+        log::info!("upgrading release from {} to {}, with {}", from, to, how);
 
         let how = ReleaseUpgradeMethod::from_u8(how)
             .context("provided upgrade `how` value is out of range")?;
@@ -694,7 +696,7 @@ impl Daemon {
     }
 
     async fn reset(&mut self) -> Result<(), String> {
-        info!("resetting daemon");
+        log::info!("resetting daemon");
 
         self.status.store(DaemonStatus::Inactive, Ordering::SeqCst);
         self.sub_status.store(0, Ordering::SeqCst);
@@ -708,7 +710,7 @@ impl Daemon {
 
     fn send_signal_message(connection: &Connection, message: Message) {
         if let Err(()) = connection.send(message) {
-            error!("failed to send dbus signal message");
+            log::error!("failed to send dbus signal message");
         }
     }
 
@@ -734,7 +736,7 @@ impl Daemon {
         let desc = "too many requests sent -- refusing additional requests";
 
         if self.event_tx.is_full() {
-            warn!("{}", desc);
+            log::warn!("{}", desc);
             return Err(anyhow::anyhow!("{}", desc));
         }
 
@@ -743,12 +745,14 @@ impl Daemon {
     }
 
     async fn update_and_restart(&mut self) -> u8 {
-        info!("updating apt sources");
+        log::info!("updating apt sources");
         let _ = AptGet::new().update().await;
 
         if let Ok(true) = upgrade_required().await {
             if async_fs::File::create(RESTART_SCHEDULED).await.is_ok() {
-                info!("installing latest version of `pop-upgrade`, which will restart the daemon");
+                log::info!(
+                    "installing latest version of `pop-upgrade`, which will restart the daemon"
+                );
                 self.perform_upgrade = true;
                 return 1;
             }

@@ -2,27 +2,6 @@
 #![allow(clippy::new_ret_no_self)]
 #![allow(clippy::useless_attribute)]
 
-#[macro_use]
-extern crate anyhow;
-
-#[macro_use]
-extern crate bitflags;
-
-#[macro_use]
-extern crate cascade;
-
-#[macro_use]
-extern crate enclose;
-
-#[macro_use]
-extern crate fomat_macros;
-
-#[macro_use]
-extern crate log;
-
-#[macro_use]
-extern crate num_derive;
-
 /// Changelogs for each Pop!_OS release
 pub mod changelogs;
 

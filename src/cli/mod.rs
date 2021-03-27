@@ -2,10 +2,10 @@ mod colors;
 
 use self::colors::*;
 use crate::notify::notify;
-
 use apt_cmd::AptUpgradeEvent;
 use chrono::{TimeZone, Utc};
 use clap::ArgMatches;
+use fomat_macros::{fomat, pintln};
 use num_traits::FromPrimitive;
 use pop_upgrade::{
     client,
@@ -38,7 +38,7 @@ const UPGRADE_RESULT_STR: &str = "Release upgrade status";
 const UPGRADE_RESULT_SUCCESS: &str = "systems are go for launch: reboot now";
 const UPGRADE_RESULT_ERROR: &str = "release upgrade aborted";
 
-#[derive(Shrinkwrap)]
+#[derive(shrinkwraprs::Shrinkwrap)]
 pub struct Client(client::Client);
 
 impl Client {
@@ -235,7 +235,7 @@ impl Client {
     /// Check if the release has been dismissed by timestamp, or can be.
     fn dismiss_by_timestamp(&self, next: &str) -> Result<bool, client::Error> {
         if !Path::new(INSTALL_DATE).exists() && installed_after_release(next) {
-            info!("dismissing notification for the latest release automatically");
+            log::info!("dismissing notification for the latest release automatically");
             let _ = self.dismiss_notification(DismissEvent::ByTimestamp)?;
             Ok(true)
         } else {
@@ -294,7 +294,7 @@ impl Client {
                         if let Ok(event) = AptUpgradeEvent::from_dbus_map(event.into_iter()) {
                             write_apt_event(event);
                         } else {
-                            error!("failed to unpack the upgrade event");
+                            log::error!("failed to unpack the upgrade event");
                         }
                     }
                     _ => (),
@@ -412,7 +412,9 @@ impl Client {
                     client::Signal::PackageUpgrade(event) => {
                         match AptUpgradeEvent::from_dbus_map(event.clone().into_iter()) {
                             Ok(event) => write_apt_event(event),
-                            Err(()) => error!("failed to unpack the upgrade event: {:?}", event),
+                            Err(()) => {
+                                log::error!("failed to unpack the upgrade event: {:?}", event)
+                            }
                         }
                     }
                     client::Signal::ReleaseResult(status) => {
@@ -481,18 +483,19 @@ fn installed_after_release(next: &str) -> bool {
                             Ok(codename) => {
                                 return codename.release_timestamp() < install_time as u64
                             }
-                            Err(()) => error!("version {} is invalid", next),
+                            Err(()) => log::error!("version {} is invalid", next),
                         }
                     }
-                    _ => error!(
+                    _ => log::error!(
                         "major ({}) and minor({}) version failed to parse as u8",
-                        major, minor
+                        major,
+                        minor
                     ),
                 }
             }
-            None => error!("version {} is invalid", next),
+            None => log::error!("version {} is invalid", next),
         },
-        Err(why) => error!("failed to get install time: {}", why),
+        Err(why) => log::error!("failed to get install time: {}", why),
     }
 
     false
@@ -525,7 +528,7 @@ fn notification_message(current: &str, next: &str) -> (String, String) {
             }
             EolStatus::Ok => (),
         },
-        Err(why) => error!("failed to fetch EOL date: {}", why),
+        Err(why) => log::error!("failed to fetch EOL date: {}", why),
     }
 
     ("Upgrade Available".into(), fomat!("Pop!_OS " (next) " is available to download"))
