@@ -1,9 +1,13 @@
 mod errors;
 mod version;
 
+use anyhow::anyhow;
 use as_result::*;
 use async_process::Command;
+use bitflags::bitflags;
+use cascade::cascade;
 use futures::prelude::*;
+use num_derive::FromPrimitive;
 use std::{
     io::SeekFrom,
     path::{Path, PathBuf},
@@ -124,7 +128,7 @@ async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     recovery_path: P,
 ) -> RecResult<Option<(Box<str>, u16)>> {
     let recovery_path = recovery_path.as_ref();
-    info!("fetching ISO to upgrade recovery partition at {}", recovery_path.display());
+    log::info!("fetching ISO to upgrade recovery partition at {}", recovery_path.display());
     (*event)(RecoveryEvent::Fetching);
 
     if !recovery_path.exists() {
@@ -156,7 +160,7 @@ async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
             cancellation_check(&cancel)?;
 
             if verify(&version, build) {
-                info!("recovery partition is already upgraded to {}b{}", version, build);
+                log::info!("recovery partition is already upgraded to {}b{}", version, build);
                 return Ok(None);
             }
 
@@ -252,7 +256,7 @@ async fn from_remote<'a, F: Fn(u64, u64) + 'static + Send + Sync>(
     url: &'a str,
     checksum: &'a str,
 ) -> RecResult<PathBuf> {
-    info!("downloading ISO from remote at {}", url);
+    log::info!("downloading ISO from remote at {}", url);
     let temp = tempdir().map_err(RecoveryError::TempDir)?;
     let path = temp.path().join("new.iso");
 

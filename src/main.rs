@@ -1,15 +1,3 @@
-#[macro_use]
-extern crate fomat_macros;
-
-#[macro_use]
-extern crate log;
-
-#[macro_use]
-extern crate shrinkwraprs;
-
-#[macro_use]
-extern crate thiserror;
-
 mod cli;
 mod logging;
 mod notify;
@@ -24,7 +12,7 @@ pub mod error {
     };
     use std::io;
 
-    #[derive(Debug, Error)]
+    #[derive(Debug, thiserror::Error)]
     pub enum Error {
         #[error("dbus client error")]
         Client(#[from] ClientError),
@@ -42,7 +30,7 @@ pub mod error {
         Init(#[from] InitError),
     }
 
-    #[derive(Debug, Error)]
+    #[derive(Debug, thiserror::Error)]
     pub enum InitError {
         #[error("failure to create /var/cache/apt/archives/partial directories")]
         AptCacheDirectories(#[source] io::Error),
