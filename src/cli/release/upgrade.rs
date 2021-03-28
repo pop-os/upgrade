@@ -19,6 +19,7 @@ const UPGRADE_RESULT_STR: &str = "Release upgrade status";
 const UPGRADE_RESULT_SUCCESS: &str = "systems are go for launch: reboot now";
 const UPGRADE_RESULT_ERROR: &str = "release upgrade aborted";
 
+/// update the system, and fetch the packages for the next release
 #[derive(Debug, Clap)]
 pub struct Upgrade {
     /// Attempt to upgrade to the next release, even if it is not \

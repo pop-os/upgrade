@@ -32,13 +32,8 @@ pub enum Release {
     Dismiss,
 
     Update(Update),
-
     Refresh(Refresh),
-
-    /// search for issues in the system, and repair them
     Repair(Repair),
-
-    /// update the system, and fetch the packages for the next release
     Upgrade(Upgrade),
 }
 
