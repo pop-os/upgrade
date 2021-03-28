@@ -5,7 +5,6 @@ use pop_upgrade::{client::Client, daemon::Daemon};
 mod color;
 mod recovery;
 mod release;
-mod status;
 mod util;
 
 /// Pop!_OS Upgrade Utility
@@ -18,7 +17,8 @@ pub enum Command {
     Daemon,
     Recovery(recovery::Command),
     Release(release::Command),
-    Status(status::Command),
+    /// get the status of the pop upgrade daemon
+    Status,
 }
 
 impl Command {
@@ -34,10 +34,7 @@ impl Command {
                 let client = update_and_restart()?;
                 command.run(&client)?;
             }
-            Self::Status(command) => {
-                update_and_restart()?;
-                command.run()?;
-            }
+            Self::Status => unimplemented!(),
         };
 
         Ok(())
@@ -59,7 +56,7 @@ fn update_and_restart() -> Result<Client, Error> {
         std::thread::sleep(std::time::Duration::from_secs(1));
 
         println!("reconnecting to pop-upgrade daemon");
-        client = Client::new()?;
+        client.reinitialize_dbus_connection()?;
     }
     Ok(client)
 }

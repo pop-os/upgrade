@@ -5,7 +5,6 @@ use crate::{
 use clap::Clap;
 use pop_upgrade::{client::Client, daemon::DaemonStatus, recovery::ReleaseFlags};
 use std::io::Write;
-use yansi::Paint;
 
 const RESULT_STR: &str = "Recovery upgrade status";
 const RESULT_SUCCESS: &str = "recovery partition refueled and ready to go";
