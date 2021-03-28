@@ -1,4 +1,7 @@
-use crate::{cli::color, Error};
+use crate::{
+    cli::{color, util::log_result},
+    Error,
+};
 use clap::Clap;
 use pop_upgrade::{client::Client, daemon::DaemonStatus, recovery::ReleaseFlags};
 use std::io::Write;
@@ -130,26 +133,4 @@ fn event_listen_upgrade(client: &Client) -> Result<(), pop_upgrade::client::Erro
             Ok(pop_upgrade::client::Continue(true))
         },
     )
-}
-
-fn log_result(
-    status: u8,
-    event: &'static str,
-    success: &'static str,
-    error: &'static str,
-    why: &str,
-) {
-    let inner: String;
-
-    println!(
-        "{}: {}",
-        color::info(event),
-        if status == 0 {
-            color::primary(success)
-        } else {
-            inner = format!("{}: {}", color::error(error), color::error_desc(why));
-
-            Paint::wrapping(inner.as_str())
-        }
-    );
 }
