@@ -1,5 +1,6 @@
 use crate::cli::{
     color,
+    release::{FETCH_RESULT_ERROR, FETCH_RESULT_STR, FETCH_RESULT_SUCCESS},
     util::{log_result, write_apt_event},
 };
 use apt_cmd::AptUpgradeEvent;
@@ -8,10 +9,6 @@ use pop_upgrade::{
     client::{Client, Error as ClientError},
     daemon::DaemonStatus,
 };
-
-const FETCH_RESULT_STR: &str = "Package fetch status";
-const FETCH_RESULT_SUCCESS: &str = "cargo has been loaded successfully";
-const FETCH_RESULT_ERROR: &str = "package-fetching aborted";
 
 /// fetch the latest updates for the current release
 #[derive(Debug, Clap)]

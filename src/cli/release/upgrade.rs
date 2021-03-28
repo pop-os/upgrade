@@ -1,5 +1,6 @@
 use crate::cli::{
     color,
+    release::{FETCH_RESULT_ERROR, FETCH_RESULT_STR, FETCH_RESULT_SUCCESS},
     util::{log_result, write_apt_event},
 };
 use apt_cmd::AptUpgradeEvent;
@@ -18,10 +19,6 @@ const UPGRADE_RESULT_STR: &str = "Release upgrade status";
 const UPGRADE_RESULT_SUCCESS: &str = "systems are go for launch: reboot now";
 const UPGRADE_RESULT_ERROR: &str = "release upgrade aborted";
 
-const FETCH_RESULT_STR: &str = "Package fetch status";
-const FETCH_RESULT_SUCCESS: &str = "cargo has been loaded successfully";
-const FETCH_RESULT_ERROR: &str = "package-fetching aborted";
-
 #[derive(Debug, Clap)]
 pub struct Upgrade {
     /// Attempt to upgrade to the next release, even if it is not \
@@ -36,11 +33,10 @@ impl Upgrade {
         let info = client.release_check(forcing)?;
 
         if atty::is(atty::Stream::Stdout) {
-            let mut buffer = String::new();
             pintln!(
                 (color::primary("Current Release")) ": " (color::secondary(&info.current)) "\n"
                 (color::primary("Upgrading to")) ": " (color::secondary(&info.next)) "\n"
-                (color::primary("New version available")) ": " (color::secondary(misc::format_build_number(info.build, &mut buffer)))
+                (color::primary("New version available")) ": " (color::secondary(misc::format_build_number(info.build, &mut String::new())))
             );
         }
 

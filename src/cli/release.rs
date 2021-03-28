@@ -18,6 +18,10 @@ use repair::Repair;
 mod upgrade;
 use upgrade::Upgrade;
 
+const FETCH_RESULT_STR: &str = "Package fetch status";
+const FETCH_RESULT_SUCCESS: &str = "cargo has been loaded successfully";
+const FETCH_RESULT_ERROR: &str = "package-fetching aborted";
+
 /// check for new distribution releases, or upgrade to a new release
 #[derive(Debug, Clap)]
 pub enum Release {
