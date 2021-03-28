@@ -6,7 +6,7 @@ use pop_upgrade::{
 
 /// refresh the existing OS (requires recovery partition)
 #[derive(Debug, Clap)]
-pub struct Refresh {
+pub struct Command {
     #[clap(subcommand)]
     action: Option<Action>,
 }
@@ -17,7 +17,7 @@ pub enum Action {
     Disable,
 }
 
-impl Refresh {
+impl Command {
     pub fn run(&self, client: &Client) -> Result<(), ClientError> {
         match self.action {
             Some(Action::Enable) => client.refresh_os(RefreshOp::Enable)?,

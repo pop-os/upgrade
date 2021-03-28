@@ -12,13 +12,13 @@ use pop_upgrade::{
 
 /// fetch the latest updates for the current release
 #[derive(Debug, Clap)]
-pub struct Update {
+pub struct Command {
     /// instruct the daemon to fetch updates, without installing them
     #[clap(short, long)]
     download_only: bool,
 }
 
-impl Update {
+impl Command {
     pub fn run(&self, client: &Client) -> Result<(), ClientError> {
         let updates = client.fetch_updates(Vec::new(), self.download_only)?;
 

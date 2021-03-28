@@ -8,15 +8,11 @@ use std::{convert::TryFrom, fs, path::Path};
 use ubuntu_version::{Codename, Version as UbuntuVersion};
 
 mod check;
-mod update;
-use update::Update;
 mod dismiss;
 mod refresh;
-use refresh::Refresh;
 mod repair;
-use repair::Repair;
+mod update;
 mod upgrade;
-use upgrade::Upgrade;
 
 const FETCH_RESULT_STR: &str = "Package fetch status";
 const FETCH_RESULT_SUCCESS: &str = "cargo has been loaded successfully";
@@ -24,28 +20,28 @@ const FETCH_RESULT_ERROR: &str = "package-fetching aborted";
 
 /// check for new distribution releases, or upgrade to a new release
 #[derive(Debug, Clap)]
-pub enum Release {
+pub enum Command {
     /// check for a new distribution release
     Check,
 
     /// dismiss the current release notification (LTS only)
     Dismiss,
 
-    Update(Update),
-    Refresh(Refresh),
-    Repair(Repair),
-    Upgrade(Upgrade),
+    Update(update::Command),
+    Refresh(refresh::Command),
+    Repair(repair::Command),
+    Upgrade(upgrade::Command),
 }
 
-impl Release {
+impl Command {
     pub fn run(&self, client: &Client) -> Result<(), Error> {
         match self {
             Self::Check => check::run(client)?,
             Self::Dismiss => dismiss::run(client)?,
-            Self::Update(update) => update.run(client)?,
-            Self::Refresh(refresh) => refresh.run(client)?,
-            Self::Repair(repair) => repair.run(client)?,
-            Self::Upgrade(upgrade) => upgrade.run(client)?,
+            Self::Update(command) => command.run(client)?,
+            Self::Refresh(command) => command.run(client)?,
+            Self::Repair(command) => command.run(client)?,
+            Self::Upgrade(command) => command.run(client)?,
         };
 
         Ok(())

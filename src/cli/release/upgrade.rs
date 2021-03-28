@@ -21,14 +21,14 @@ const UPGRADE_RESULT_ERROR: &str = "release upgrade aborted";
 
 /// update the system, and fetch the packages for the next release
 #[derive(Debug, Clap)]
-pub struct Upgrade {
+pub struct Command {
     /// Attempt to upgrade to the next release, even if it is not \
     // released
     #[clap(long)]
     force_next: bool,
 }
 
-impl Upgrade {
+impl Command {
     pub fn run(&self, client: &Client) -> Result<(), ClientError> {
         let forcing = self.force_next || pop_upgrade::development_releases_enabled();
         let info = client.release_check(forcing)?;

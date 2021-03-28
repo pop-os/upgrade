@@ -10,24 +10,18 @@ mod release;
 mod status;
 mod util;
 
-use cancel::Cancel;
-use daemon::Daemon;
-use recovery::Recovery;
-use release::Release;
-use status::Status;
-
 /// Pop!_OS Upgrade Utility
 #[derive(Debug, Clap)]
 #[clap(global_setting(AppSettings::ColoredHelp))]
-pub enum Cli {
-    Cancel(Cancel),
-    Daemon(Daemon),
-    Recovery(Recovery),
-    Release(Release),
-    Status(Status),
+pub enum Command {
+    Cancel(cancel::Command),
+    Daemon(daemon::Command),
+    Recovery(recovery::Command),
+    Release(release::Command),
+    Status(status::Command),
 }
 
-impl Cli {
+impl Command {
     pub fn run(&self) -> Result<(), Error> {
         match self {
             Self::Cancel(cancel) => cancel.run()?,

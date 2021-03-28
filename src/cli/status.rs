@@ -3,8 +3,8 @@ use clap::Clap;
 
 /// get the status of the pop upgrade daemon
 #[derive(Debug, Clap)]
-pub struct Status {}
+pub struct Command {}
 
-impl Status {
+impl Command {
     pub fn run(&self) -> Result<(), Error> { unimplemented!() }
 }

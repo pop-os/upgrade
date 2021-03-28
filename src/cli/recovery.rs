@@ -10,7 +10,7 @@ const RESULT_ERROR: &str = "recovery upgrade aborted";
 
 /// tools for managing the recovery partition
 #[derive(Debug, Clap)]
-pub enum Recovery {
+pub enum Command {
     /// set the recovery partition as the default boot target
     DefaultBoot {
         /// immediately reboot the system into the recovery partition
@@ -21,7 +21,7 @@ pub enum Recovery {
     Upgrade(Upgrade),
 }
 
-impl Recovery {
+impl Command {
     pub fn run(&self, client: &Client) -> Result<(), Error> {
         match self {
             Self::DefaultBoot { reboot: _ } => unimplemented!(),
