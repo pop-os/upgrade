@@ -5,6 +5,7 @@ use pop_upgrade::{client::Client, daemon::Daemon};
 mod color;
 mod recovery;
 mod release;
+mod status;
 mod util;
 
 /// Pop!_OS Upgrade Utility
@@ -34,7 +35,10 @@ impl Command {
                 let client = update_and_restart()?;
                 command.run(&client)?;
             }
-            Self::Status => unimplemented!(),
+            Self::Status => {
+                let client = update_and_restart()?;
+                status::run(&client)?
+            }
         };
 
         Ok(())
