@@ -1,14 +1,10 @@
-use crate::{notify::notify, Error};
+use crate::notify::notify;
 use chrono::{offset::TimeZone, Utc};
 use pop_upgrade::{
-    client::{Client, Error as ClientError, ReleaseInfo},
-    daemon::{DismissEvent, DISMISSED, INSTALL_DATE},
+    client::{Client, Error as ClientError},
     misc,
     release::eol::{EolDate, EolStatus},
 };
-use std::{convert::TryFrom, fs, path::Path};
-use structopt::StructOpt;
-use ubuntu_version::{Codename, Version as UbuntuVersion};
 
 pub fn run(client: &Client) -> Result<(), ClientError> {
     let mut buffer = String::new();

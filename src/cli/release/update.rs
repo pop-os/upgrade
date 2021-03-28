@@ -1,26 +1,23 @@
-use crate::{cli::colors::*, notify::notify, Error};
-use apt_cmd::AptUpgradeEvent;
-use chrono::{offset::TimeZone, Utc};
-use pop_upgrade::{
-    client::{Client, Error as ClientError, ReleaseInfo},
-    daemon::{DaemonStatus, DismissEvent, DISMISSED, INSTALL_DATE},
-    misc,
-    release::eol::{EolDate, EolStatus},
+use crate::cli::{
+    colors::*,
+    util::{log_result, write_apt_event},
 };
-use std::{convert::TryFrom, fs, path::Path};
-use structopt::StructOpt;
-use ubuntu_version::{Codename, Version as UbuntuVersion};
-use yansi::Paint;
+use apt_cmd::AptUpgradeEvent;
+use clap::Clap;
+use pop_upgrade::{
+    client::{Client, Error as ClientError},
+    daemon::DaemonStatus,
+};
 
 const FETCH_RESULT_STR: &str = "Package fetch status";
 const FETCH_RESULT_SUCCESS: &str = "cargo has been loaded successfully";
 const FETCH_RESULT_ERROR: &str = "package-fetching aborted";
 
 /// fetch the latest updates for the current release
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Clap)]
 pub struct Update {
     /// instruct the daemon to fetch updates, without installing them
-    #[structopt(short, long)]
+    #[clap(short, long)]
     download_only: bool,
 }
 
@@ -92,56 +89,4 @@ fn event_listen_fetch_updates(client: &Client) -> Result<(), ClientError> {
             Ok(pop_upgrade::client::Continue(true))
         },
     )
-}
-
-fn write_apt_event(event: AptUpgradeEvent) {
-    match event {
-        AptUpgradeEvent::Processing { package } => {
-            println!("{} for {}", color_primary("Processing triggers"), color_secondary(package));
-        }
-        AptUpgradeEvent::Progress { percent } => {
-            println!("{}: {}%", color_primary("Progress"), color_info(percent));
-        }
-        AptUpgradeEvent::SettingUp { package } => {
-            println!("{} {}", color_primary("Setting up"), color_secondary(package));
-        }
-        AptUpgradeEvent::Unpacking { package, version, over } => {
-            println!(
-                "{} {} ({}) over ({})",
-                color_primary("Unpacking"),
-                color_secondary(package),
-                color_info(version),
-                color_info(over)
-            );
-        }
-        AptUpgradeEvent::WaitingOnLock => {
-            println!(
-                "{} {}",
-                color_primary("Waiting"),
-                color_secondary("on a process holding an apt/dpkg lock file")
-            );
-        }
-    }
-}
-
-fn log_result(
-    status: u8,
-    event: &'static str,
-    success: &'static str,
-    error: &'static str,
-    why: &str,
-) {
-    let inner: String;
-
-    println!(
-        "{}: {}",
-        color_info(event),
-        if status == 0 {
-            color_primary(success)
-        } else {
-            inner = format!("{}: {}", color_error(error), color_error_desc(why));
-
-            Paint::wrapping(inner.as_str())
-        }
-    );
 }

@@ -1,11 +1,13 @@
+#![deny(clippy::all)]
+#![warn(clippy::pedantic)]
+
 mod cli;
-mod cli2;
 mod logging;
 mod notify;
-use structopt::StructOpt;
+use clap::Clap;
 
-use crate::{cli::Client, logging::setup_logging};
-use pop_upgrade::{daemon::Daemon, sighandler};
+use crate::logging::setup_logging;
+use pop_upgrade::sighandler;
 
 pub mod error {
     use pop_upgrade::{
@@ -39,7 +41,6 @@ pub mod error {
     }
 }
 
-use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use std::{error::Error as _, process::exit};
 
 use self::error::{Error, InitError};
@@ -177,7 +178,7 @@ pub fn main() {
 }
 
 fn main_() -> Result<(), Error> {
-    let app = cli2::Cli::from_args();
+    let app = cli::Cli::parse();
     init()?;
     app.run()
 

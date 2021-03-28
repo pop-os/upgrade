@@ -1,7 +1,7 @@
 use crate::{cli::colors::*, Error};
+use clap::Clap;
 use pop_upgrade::{client::Client, daemon::DaemonStatus, recovery::ReleaseFlags};
 use std::io::Write;
-use structopt::StructOpt;
 use yansi::Paint;
 
 const RESULT_STR: &str = "Recovery upgrade status";
@@ -9,12 +9,12 @@ const RESULT_SUCCESS: &str = "recovery partition refueled and ready to go";
 const RESULT_ERROR: &str = "recovery upgrade aborted";
 
 /// tools for managing the recovery partition
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Clap)]
 pub enum Recovery {
     /// set the recovery partition as the default boot target
     DefaultBoot {
         /// immediately reboot the system into the recovery partition
-        #[structopt(long)]
+        #[clap(long)]
         reboot: bool,
     },
 
@@ -24,7 +24,7 @@ pub enum Recovery {
 impl Recovery {
     pub fn run(&self, client: &Client) -> Result<(), Error> {
         match self {
-            Self::DefaultBoot { reboot } => unimplemented!(),
+            Self::DefaultBoot { reboot: _ } => unimplemented!(),
             Self::Upgrade(upgrade) => upgrade.run(client)?,
         };
 
@@ -34,7 +34,7 @@ impl Recovery {
 }
 
 /// upgrade the recovery partition
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Clap)]
 pub enum Upgrade {
     FromRelease(FromRelease),
 }
@@ -48,18 +48,18 @@ impl Upgrade {
 }
 
 /// update the recovery partition using a the Pop release API
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Clap)]
 pub struct FromRelease {
     /// release version to fetch. IE: `18.04`
-    #[structopt(default_value)]
+    #[clap(default_value)]
     version: String,
 
     /// release arch to fetch: IE: `nvidia` or `intel`
-    #[structopt(default_value)]
+    #[clap(default_value)]
     architecture: String,
 
     /// fetches the next release's ISO if VERSION is not set
-    #[structopt(long)]
+    #[clap(long)]
     next: bool,
 }
 
@@ -81,7 +81,7 @@ fn event_listen_upgrade(client: &Client) -> Result<(), pop_upgrade::client::Erro
         |new_status| {
             log_result(new_status.status, RESULT_STR, RESULT_SUCCESS, RESULT_ERROR, &new_status.why)
         },
-        move |client, signal| {
+        move |_client, signal| {
             match signal {
                 pop_upgrade::client::Signal::RecoveryDownloadProgress(progress) => {
                     print!(

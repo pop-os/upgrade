@@ -1,22 +1,25 @@
-use crate::{notify::notify, Error};
-use chrono::{offset::TimeZone, Utc};
+use crate::Error;
+use clap::Clap;
 use pop_upgrade::{
-    client::{Client, Error as ClientError, ReleaseInfo},
+    client::{Client, Error as ClientError},
     daemon::{DismissEvent, DISMISSED, INSTALL_DATE},
-    misc,
-    release::eol::{EolDate, EolStatus},
 };
 use std::{convert::TryFrom, fs, path::Path};
-use structopt::StructOpt;
 use ubuntu_version::{Codename, Version as UbuntuVersion};
 
 mod check;
 mod update;
 use update::Update;
 mod dismiss;
+mod refresh;
+use refresh::Refresh;
+mod repair;
+use repair::Repair;
+mod upgrade;
+use upgrade::Upgrade;
 
 /// check for new distribution releases, or upgrade to a new release
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Clap)]
 pub enum Release {
     /// check for a new distribution release
     Check,
@@ -29,14 +32,10 @@ pub enum Release {
     Refresh(Refresh),
 
     /// search for issues in the system, and repair them
-    Repair {
-        /// Attempt to upgrade to the next release, even if it is not released
-        #[structopt(short, long)]
-        force_next: bool,
-    },
+    Repair(Repair),
 
     /// update the system, and fetch the packages for the next release
-    Upgrade,
+    Upgrade(Upgrade),
 }
 
 impl Release {
@@ -45,18 +44,13 @@ impl Release {
             Self::Check => check::run(client)?,
             Self::Dismiss => dismiss::run(client)?,
             Self::Update(update) => update.run(client)?,
-            _ => todo!(),
+            Self::Refresh(refresh) => refresh.run(client)?,
+            Self::Repair(repair) => repair.run(client)?,
+            Self::Upgrade(upgrade) => upgrade.run(client)?,
         };
 
         Ok(())
     }
-}
-
-/// refresh the existing OS (requires recovery partition)
-#[derive(Debug, StructOpt)]
-pub enum Refresh {
-    Enable,
-    Disable,
 }
 
 /// Check if the release has been dismissed by timestamp, or can be.
@@ -68,39 +62,6 @@ fn dismiss_by_timestamp(client: &Client, next: &str) -> Result<bool, ClientError
     } else {
         Ok(false)
     }
-}
-
-fn notification_message(current: &str, next: &str) -> (String, String) {
-    match EolDate::fetch() {
-        Ok(eol) => match eol.status() {
-            EolStatus::Exceeded => {
-                return (
-                    fomat!("Support for Pop!_OS " (current) " has ended"),
-                    fomat!(
-                        "Security and application updates are no longer provided for Pop!_OS "
-                        (current) ". Upgrade to Pop!_OS " (next) " to keep your computer secure."
-                    ),
-                );
-            }
-            EolStatus::Imminent => {
-                let (y, m, d) = eol.ymd;
-                return (
-                    fomat!(
-                        "Support for Pop!_OS " (current) " ends "
-                        (Utc.ymd(y as i32, m, d).format("%B %-d, %Y"))
-                    ),
-                    fomat!(
-                        "This computer will soon stop receiving updates"
-                        ". Upgrade to Pop!_OS " (next) " to keep your computer secure."
-                    ),
-                );
-            }
-            EolStatus::Ok => (),
-        },
-        Err(why) => error!("failed to fetch EOL date: {}", why),
-    }
-
-    ("Upgrade Available".into(), fomat!("Pop!_OS " (next) " is available to download"))
 }
 
 /// If the next release's timestamp is less than the install time.

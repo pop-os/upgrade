@@ -1,8 +1,8 @@
 use crate::Error;
-use structopt::StructOpt;
+use clap::Clap;
 
 /// get the status of the pop upgrade daemon
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Clap)]
 pub struct Status {}
 
 impl Status {
