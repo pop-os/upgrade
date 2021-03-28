@@ -2,6 +2,7 @@
 #![warn(clippy::pedantic)]
 
 mod cli;
+use cli::Cli;
 mod logging;
 mod notify;
 use clap::Clap;
@@ -62,7 +63,7 @@ pub fn main() {
 }
 
 fn main_() -> Result<(), Error> {
-    let app = cli::Cli::parse();
+    let app = Cli::parse();
     init()?;
     app.run()
 }

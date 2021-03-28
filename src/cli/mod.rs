@@ -1,5 +1,6 @@
 use crate::Error;
 use clap::{AppSettings, Clap};
+use pop_upgrade::client::Client;
 
 mod cancel;
 mod color;
@@ -11,7 +12,6 @@ mod util;
 
 use cancel::Cancel;
 use daemon::Daemon;
-use pop_upgrade::client::Client;
 use recovery::Recovery;
 use release::Release;
 use status::Status;
