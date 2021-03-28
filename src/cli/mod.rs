@@ -1,10 +1,8 @@
 use crate::Error;
 use clap::{AppSettings, Clap};
-use pop_upgrade::client::Client;
+use pop_upgrade::{client::Client, daemon::Daemon};
 
-mod cancel;
 mod color;
-mod daemon;
 mod recovery;
 mod release;
 mod status;
@@ -14,8 +12,10 @@ mod util;
 #[derive(Debug, Clap)]
 #[clap(global_setting(AppSettings::ColoredHelp))]
 pub enum Command {
-    Cancel(cancel::Command),
-    Daemon(daemon::Command),
+    /// cancels any process which is currently in progress
+    Cancel,
+    /// launch a daemon for integration with control centers like GNOME's
+    Daemon,
     Recovery(recovery::Command),
     Release(release::Command),
     Status(status::Command),
@@ -24,19 +24,19 @@ pub enum Command {
 impl Command {
     pub fn run(&self) -> Result<(), Error> {
         match self {
-            Self::Cancel(cancel) => cancel.run()?,
-            Self::Daemon(daemon) => daemon.run()?,
-            Self::Recovery(recovery) => {
+            Self::Cancel => Client::new()?.cancel()?,
+            Self::Daemon => Daemon::init()?,
+            Self::Recovery(command) => {
                 let client = update_and_restart()?;
-                recovery.run(&client)?;
+                command.run(&client)?;
             }
-            Self::Release(release) => {
+            Self::Release(command) => {
                 let client = update_and_restart()?;
-                release.run(&client)?;
+                command.run(&client)?;
             }
-            Self::Status(status) => {
+            Self::Status(command) => {
                 update_and_restart()?;
-                status.run()?;
+                command.run()?;
             }
         };
 
