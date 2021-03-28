@@ -2,7 +2,7 @@ use crate::Error;
 use clap::{AppSettings, Clap};
 
 mod cancel;
-mod colors;
+mod color;
 mod daemon;
 mod recovery;
 mod release;

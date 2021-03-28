@@ -1,4 +1,4 @@
-use crate::{cli::colors::*, Error};
+use crate::{cli::color, Error};
 use clap::Clap;
 use pop_upgrade::{client::Client, daemon::DaemonStatus, recovery::ReleaseFlags};
 use std::io::Write;
@@ -86,10 +86,10 @@ fn event_listen_upgrade(client: &Client) -> Result<(), pop_upgrade::client::Erro
                 pop_upgrade::client::Signal::RecoveryDownloadProgress(progress) => {
                     print!(
                         "\r{} {}/{} {}",
-                        color_primary("Fetched"),
-                        color_info(progress.progress / 1024),
-                        color_info(progress.total / 1024),
-                        color_primary("MiB")
+                        color::primary("Fetched"),
+                        color::info(progress.progress / 1024),
+                        color::info(progress.total / 1024),
+                        color::primary("MiB")
                     );
 
                     let _ = std::io::stdout().flush();
@@ -104,7 +104,7 @@ fn event_listen_upgrade(client: &Client) -> Result<(), pop_upgrade::client::Erro
 
                     println!(
                         "{}: {}",
-                        color_primary("Recovery event"),
+                        color::primary("Recovery event"),
                         <&'static str>::from(event)
                     );
                 }
@@ -143,11 +143,11 @@ fn log_result(
 
     println!(
         "{}: {}",
-        color_info(event),
+        color::info(event),
         if status == 0 {
-            color_primary(success)
+            color::primary(success)
         } else {
-            inner = format!("{}: {}", color_error(error), color_error_desc(why));
+            inner = format!("{}: {}", color::error(error), color::error_desc(why));
 
             Paint::wrapping(inner.as_str())
         }

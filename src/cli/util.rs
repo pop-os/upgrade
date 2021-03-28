@@ -1,32 +1,32 @@
-use crate::cli::colors::*;
+use crate::cli::color;
 use apt_cmd::AptUpgradeEvent;
 use yansi::Paint;
 
 pub fn write_apt_event(event: AptUpgradeEvent) {
     match event {
         AptUpgradeEvent::Processing { package } => {
-            println!("{} for {}", color_primary("Processing triggers"), color_secondary(package));
+            println!("{} for {}", color::primary("Processing triggers"), color::secondary(package));
         }
         AptUpgradeEvent::Progress { percent } => {
-            println!("{}: {}%", color_primary("Progress"), color_info(percent));
+            println!("{}: {}%", color::primary("Progress"), color::info(percent));
         }
         AptUpgradeEvent::SettingUp { package } => {
-            println!("{} {}", color_primary("Setting up"), color_secondary(package));
+            println!("{} {}", color::primary("Setting up"), color::secondary(package));
         }
         AptUpgradeEvent::Unpacking { package, version, over } => {
             println!(
                 "{} {} ({}) over ({})",
-                color_primary("Unpacking"),
-                color_secondary(package),
-                color_info(version),
-                color_info(over)
+                color::primary("Unpacking"),
+                color::secondary(package),
+                color::info(version),
+                color::info(over)
             );
         }
         AptUpgradeEvent::WaitingOnLock => {
             println!(
                 "{} {}",
-                color_primary("Waiting"),
-                color_secondary("on a process holding an apt/dpkg lock file")
+                color::primary("Waiting"),
+                color::secondary("on a process holding an apt/dpkg lock file")
             );
         }
     }
@@ -43,11 +43,11 @@ pub fn log_result(
 
     println!(
         "{}: {}",
-        color_info(event),
+        color::info(event),
         if status == 0 {
-            color_primary(success)
+            color::primary(success)
         } else {
-            inner = format!("{}: {}", color_error(error), color_error_desc(why));
+            inner = format!("{}: {}", color::error(error), color::error_desc(why));
 
             Paint::wrapping(inner.as_str())
         }

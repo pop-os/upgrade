@@ -1,5 +1,5 @@
 use crate::cli::{
-    colors::*,
+    color,
     util::{log_result, write_apt_event},
 };
 use apt_cmd::AptUpgradeEvent;
@@ -38,9 +38,9 @@ impl Upgrade {
         if atty::is(atty::Stream::Stdout) {
             let mut buffer = String::new();
             pintln!(
-                (color_primary("Current Release")) ": " (color_secondary(&info.current)) "\n"
-                (color_primary("Upgrading to")) ": " (color_secondary(&info.next)) "\n"
-                (color_primary("New version available")) ": " (color_secondary(misc::format_build_number(info.build, &mut buffer)))
+                (color::primary("Current Release")) ": " (color::secondary(&info.current)) "\n"
+                (color::primary("Upgrading to")) ": " (color::secondary(&info.next)) "\n"
+                (color::primary("New version available")) ": " (color::secondary(misc::format_build_number(info.build, &mut buffer)))
             );
         }
 
@@ -56,8 +56,8 @@ impl Upgrade {
             while recall {
                 println!(
                     "{}: {}",
-                    color_primary("Event"),
-                    color_secondary("attempting to perform upgrade again")
+                    color::primary("Event"),
+                    color::secondary("attempting to perform upgrade again")
                 );
                 client.release_upgrade(
                     pop_upgrade::release::UpgradeMethod::Offline,
@@ -106,14 +106,14 @@ fn event_listen_upgrade(client: &Client) -> Result<bool, ClientError> {
                 Signal::PackageFetched(package) => {
                     println!(
                         "{} ({}/{}): {}",
-                        color_primary("Fetched"),
-                        color_info(package.completed),
-                        color_info(package.total),
-                        color_secondary(&package.package)
+                        color::primary("Fetched"),
+                        color::info(package.completed),
+                        color::info(package.total),
+                        color::secondary(&package.package)
                     );
                 }
                 Signal::PackageFetching(package) => {
-                    println!("{} {}", color_primary("Fetching"), color_secondary(&package));
+                    println!("{} {}", color::primary("Fetching"), color::secondary(&package));
                 }
                 Signal::PackageUpgrade(event) => {
                     match AptUpgradeEvent::from_dbus_map(event.clone().into_iter()) {
@@ -137,20 +137,20 @@ fn event_listen_upgrade(client: &Client) -> Result<bool, ClientError> {
                 Signal::ReleaseEvent(event) => {
                     println!(
                         "{}: {}",
-                        color_primary("Event"),
-                        color_secondary(<&'static str>::from(event))
+                        color::primary("Event"),
+                        color::secondary(<&'static str>::from(event))
                     );
                 }
                 Signal::NoConnection => {
                     println!(
                         "{}",
-                        color_error(
+                        color::error(
                             "Failed to connect to an apt repository. You may not be connected to \
                              the Internet."
                         )
                     );
 
-                    let prompt = format!("    {} y/N", color_primary("Try again?"));
+                    let prompt = format!("    {} y/N", color::primary("Try again?"));
 
                     if prompt_message(&prompt, false) {
                         *recall = true;

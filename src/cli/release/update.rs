@@ -1,5 +1,5 @@
 use crate::cli::{
-    colors::*,
+    color,
     util::{log_result, write_apt_event},
 };
 use apt_cmd::AptUpgradeEvent;
@@ -67,14 +67,14 @@ fn event_listen_fetch_updates(client: &Client) -> Result<(), ClientError> {
                 pop_upgrade::client::Signal::PackageFetched(status) => {
                     println!(
                         "{} ({}/{}) {}",
-                        color_primary("Fetched"),
-                        color_info(status.completed),
-                        color_info(status.total),
-                        color_secondary(status.package)
+                        color::primary("Fetched"),
+                        color::info(status.completed),
+                        color::info(status.total),
+                        color::secondary(status.package)
                     );
                 }
                 pop_upgrade::client::Signal::PackageFetching(package) => {
-                    println!("{} {}", color_primary("Fetching"), color_secondary(package));
+                    println!("{} {}", color::primary("Fetching"), color::secondary(package));
                 }
                 pop_upgrade::client::Signal::PackageUpgrade(event) => {
                     if let Ok(event) = AptUpgradeEvent::from_dbus_map(event.into_iter()) {
