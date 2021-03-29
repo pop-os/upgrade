@@ -97,7 +97,7 @@ pub fn release_str(major: u8, minor: u8) -> &'static str {
 
 fn next_(
     current: Version,
-    _development: bool,
+    development: bool,
     release_check: impl Fn(&str) -> BuildStatus,
 ) -> ReleaseStatus {
     let next: &str;
@@ -121,11 +121,15 @@ fn next_(
             ReleaseStatus { build: release_check(next), current: "20.04", is_lts: true, next }
         }
 
-        (20, 10) => ReleaseStatus {
-            build:   BuildStatus::Blacklisted,
-            current: "20.10",
-            is_lts:  false,
-            next:    "21.04",
+        (20, 10) => {
+            next = "21.04";
+
+            ReleaseStatus {
+                build:   if development { release_check(next) } else { BuildStatus::Blacklisted },
+                current: "20.10",
+                is_lts:  false,
+                next,
+            }
         },
 
         (21, 4) => ReleaseStatus {
