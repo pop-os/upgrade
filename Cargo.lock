@@ -2046,7 +2046,6 @@ dependencies = [
  "atomic",
  "atty",
  "bitflags 1.2.1",
- "cascade 1.0.0",
  "chrono",
  "clap",
  "dbus 0.6.5",

@@ -5,7 +5,6 @@ use anyhow::anyhow;
 use as_result::*;
 use async_process::Command;
 use bitflags::bitflags;
-use cascade::cascade;
 use futures::prelude::*;
 use num_derive::FromPrimitive;
 use std::{
@@ -194,23 +193,21 @@ async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     let casper_vmlinuz = recovery_path.join([&casper, "/vmlinuz.efi"].concat());
     let recovery_str = recovery_path.to_str().unwrap();
 
-    let mut cmd = cascade! {
-        Command::new("rsync");
-        ..args(&[&disk, &dists, &pool]);
-        ..arg(recovery_str);
-        ..args(&["-KLavc", "--inplace", "--delete"]);
-    };
+    Command::new("rsync")
+        .args(&[&disk, &dists, &pool])
+        .arg(recovery_str)
+        .args(&["-KLavc", "--inplace", "--delete"])
+        .status()
+        .await
+        .map_result()?;
 
-    cmd.status().await.map_result()?;
-
-    let mut cmd = cascade! {
-        Command::new("rsync");
-        ..args(&[&casper_p]);
-        ..arg(&[recovery_str, "/", &casper].concat());
-        ..args(&["-KLavc", "--inplace", "--delete"]);
-    };
-
-    cmd.status().await.map_result()?;
+    Command::new("rsync")
+        .args(&[&casper_p])
+        .arg(&[recovery_str, "/", &casper].concat())
+        .args(&["-KLavc", "--inplace", "--delete"])
+        .status()
+        .await
+        .map_result()?;
 
     let cp1 = crate::misc::cp(&casper_initrd, &efi_initrd);
     let cp2 = crate::misc::cp(&casper_vmlinuz, &efi_vmlinuz);
