@@ -2165,6 +2165,7 @@ dependencies = [
  "sysfs-class",
  "systemd-boot-conf",
  "tempfile",
+ "test-case",
  "thiserror",
  "twoway",
  "ubuntu-version",
@@ -2874,7 +2875,7 @@ dependencies = [
 [[package]]
 name = "sysfs-class"
 version = "0.1.3"
-source = "git+https://github.com/pop-os/sysfs-class#c3b86e07c36feb9b705b8c24af1498cbd396de4e"
+source = "git+https://github.com/pop-os/sysfs-class#ab63e7f638aadfaf896a02e53cf330343d331337"
 dependencies = [
  "numtoa",
 ]
@@ -2944,6 +2945,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "411c5bf740737c7918b8b1fe232dca4dc9f8e754b8ad5e20966814001ed0ac6b"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "test-case"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "956044ef122917dde830c19dec5f76d0670329fde4104836d62ebcb14f4865f1"
+dependencies = [
+ "cfg-if 1.0.0",
+ "proc-macro2 1.0.24",
+ "quote 1.0.9",
+ "syn 1.0.60",
+ "version_check",
 ]
 
 [[package]]

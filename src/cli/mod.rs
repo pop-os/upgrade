@@ -1,4 +1,5 @@
 mod colors;
+mod prompt;
 
 use self::colors::*;
 use crate::notify::notify;
@@ -21,7 +22,7 @@ use pop_upgrade::{
 use std::{
     convert::TryFrom,
     fs,
-    io::{self, BufRead, Write},
+    io::{self, Write},
     path::Path,
 };
 use ubuntu_version::{Codename, Version as UbuntuVersion};
@@ -461,7 +462,7 @@ impl Client {
 
                         let prompt = format!("    {} y/N", color_primary("Try again?"));
 
-                        if prompt_message(&prompt, false) {
+                        if prompt::get_bool(&prompt, false) {
                             *recall = true;
                         } else {
                             return Ok(client::Continue(false));
@@ -596,50 +597,6 @@ fn log_result(
             Paint::wrapping(inner.as_str())
         }
     );
-}
-
-// Write a prompt to the terminal, and wait for an answer.
-fn prompt_message(message: &str, default: bool) -> bool {
-    let stdin = io::stdin();
-    let mut stdin = stdin.lock();
-
-    let stdout = io::stdout();
-    let mut stdout = stdout.lock();
-
-    let answer = &mut String::with_capacity(16);
-
-    enum Answer {
-        Continue,
-        Break(bool),
-    }
-
-    let mut display_prompt = move || -> io::Result<Answer> {
-        answer.clear();
-
-        stdout.write_all(message.as_bytes())?;
-        stdout.flush()?;
-
-        stdin.read_line(answer)?;
-
-        if answer.is_empty() {
-            return Ok(Answer::Break(default));
-        } else if answer.starts_with('y') || answer.starts_with('Y') || answer == "true" {
-            return Ok(Answer::Break(true));
-        } else if answer.starts_with('n') || answer.starts_with('N') || answer == "false" {
-            return Ok(Answer::Break(false));
-        }
-
-        stdout.write_all(b"The answer must be either `y` or `n`.\n")?;
-        Ok(Answer::Continue)
-    };
-
-    loop {
-        match display_prompt() {
-            Ok(Answer::Continue) => continue,
-            Ok(Answer::Break(answer)) => break answer,
-            Err(_why) => break default,
-        }
-    }
 }
 
 pub fn root_required() -> anyhow::Result<()> {
