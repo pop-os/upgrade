@@ -125,12 +125,12 @@ fn next_(
             next = "21.04";
 
             ReleaseStatus {
-                build:   if development { release_check(next) } else { BuildStatus::Blacklisted },
+                build: if development { release_check(next) } else { BuildStatus::Blacklisted },
                 current: "20.10",
-                is_lts:  false,
+                is_lts: false,
                 next,
             }
-        },
+        }
 
         (21, 4) => ReleaseStatus {
             build:   BuildStatus::Blacklisted,
