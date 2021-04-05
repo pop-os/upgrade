@@ -422,11 +422,19 @@ fn error(state: &mut State, widgets: &EventWidgets, why: UiError) {
         error_message.push_str(format!("{}", source).as_str());
     });
 
-    (state.callback_error.borrow())(
-        [GENERIC, format!("\n\nOriginating error cause:\n\n{}", error_message).as_str()]
-            .concat()
-            .as_str(),
-    );
+    if let UiError::Recovery(ref why) = why {
+        (state.callback_error.borrow())(
+            format!("Recovery update failed:\n\n{}", why).as_str()
+        );
+    } else {
+        (state.callback_error.borrow())(
+            [GENERIC, format!("\n\nOriginating error cause:\n\n{}", error_message).as_str()]
+                .concat()
+                .as_str(),
+        );
+    }
+
+
 
     error!("{}", error_message);
 

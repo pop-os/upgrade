@@ -70,7 +70,7 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
                                 || (rinfo.build as u16) < urgent
                         }) || rinfo.version != info.current;
                     }
-                    Err(why) => {
+                    Err(_) => {
                         urgent = info.urgent.unwrap_or(0) > 0;
                     }
                 }
