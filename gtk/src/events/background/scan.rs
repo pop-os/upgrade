@@ -71,7 +71,7 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
                         }) || rinfo.version != info.current;
                     }
                     Err(why) => {
-                        error!("failed to retrieve recovery version: {}", why);
+                        urgent = info.urgent.unwrap_or(0) > 0;
                     }
                 }
 

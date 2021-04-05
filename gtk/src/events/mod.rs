@@ -536,7 +536,7 @@ fn scan_event(state: &mut State, widgets: &EventWidgets, event: ScanEvent) {
             state.refresh_found = refresh;
 
             if let Some(release) = current.take() {
-                state.recovery_urgent = dbg!(urgent);
+                state.recovery_urgent = urgent;
                 state.current = release;
             }
 

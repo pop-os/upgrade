@@ -26,14 +26,15 @@ pub struct RawRelease {
     pub sha_sum: String,
     pub channel: String,
     pub build:   String,
+    pub urgent:  bool
 }
 
 impl RawRelease {
     fn into_release(self) -> Result<Release, ApiError> {
-        let RawRelease { version, url, size, sha_sum, channel, build } = self;
+        let RawRelease { version, url, size, sha_sum, channel, build, urgent } = self;
         let build = build.parse::<u16>().map_err(|_| ApiError::BuildNaN(build))?;
 
-        Ok(Release { version, url, size, sha_sum, channel, build })
+        Ok(Release { version, url, size, sha_sum, channel, build, urgent })
     }
 }
 
@@ -45,6 +46,7 @@ pub struct Release {
     pub sha_sum: String,
     pub channel: String,
     pub build:   u16,
+    pub urgent:  bool,
 }
 
 impl Release {

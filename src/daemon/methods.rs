@@ -227,19 +227,20 @@ pub fn release_check(
     daemon: Rc<RefCell<Daemon>>,
     dbus_factory: &DbusFactory,
 ) -> Method<MTFn<()>, ()> {
-    fn hardcoded_urgent_build(os: &str) -> i16 {
-        match os {
-            "18.04" => 58,
-            "19.10" => 11,
-            _ => -1,
-        }
-    }
-
     let method = dbus_factory.method(RELEASE_CHECK, move |message| {
         let development = message.read1().map_err(|ref why| format_error(why))?;
         daemon.borrow_mut().release_check(development).map(|status| {
             let is_lts = status.is_lts();
-            let urgent = hardcoded_urgent_build(&status.current);
+            let mut urgent = -1;
+
+            if let Ok(release) = crate::release_api::Release::get_release(status.current, "nvidia") {
+                urgent = release.build as i16;
+            }
+
+            if status.current == "20.10" {
+                urgent = urgent.max(14);
+            }
+
             vec![
                 String::from(status.current).into(),
                 String::from(status.next).into(),
