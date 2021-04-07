@@ -7,7 +7,7 @@ use pop_upgrade::{
 /// refresh the existing OS (requires recovery partition)
 #[derive(Debug, Clap)]
 pub struct Command {
-    #[clap(subcommand)]
+    #[clap(arg_enum)]
     action: Option<Action>,
 }
 
