@@ -73,6 +73,8 @@ pub fn next(development: bool) -> Result<ReleaseStatus, VersionError> {
 }
 
 pub fn current(version: Option<&str>) -> Option<(Box<str>, u16)> {
+    info!("Checking for current release of {:?}", version);
+
     if let Some(version) = version {
         let build = Release::build_exists(version, "intel").ok()?;
         return Some((version.into(), build));
