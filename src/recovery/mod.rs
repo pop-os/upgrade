@@ -2,7 +2,6 @@ mod errors;
 mod version;
 
 use anyhow::Context;
-use as_result::*;
 use async_process::Command;
 use futures::prelude::*;
 use std::{
@@ -189,7 +188,7 @@ async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     let dists = tempdir.path().join("dists");
     let pool = tempdir.path().join("pool");
     let casper_p = tempdir.path().join("casper/");
-    
+
     let efi_initrd = efi_recovery.join("initrd.gz");
     let efi_vmlinuz = efi_recovery.join("vmlinuz.efi");
     let casper_initrd = recovery_path.join([&casper, "/initrd.gz"].concat());
