@@ -1,4 +1,5 @@
 use crate::release_api::{ApiError, Release};
+use anyhow::Context;
 use ubuntu_version::{Version, VersionError};
 
 #[derive(Debug)]
@@ -72,18 +73,23 @@ pub fn next(development: bool) -> Result<ReleaseStatus, VersionError> {
     })
 }
 
-pub fn current(version: Option<&str>) -> Option<(Box<str>, u16)> {
+pub fn current(version: Option<&str>) -> anyhow::Result<(Box<str>, u16)> {
     info!("Checking for current release of {:?}", version);
 
     if let Some(version) = version {
-        let build = Release::build_exists(version, "intel").ok()?;
-        return Some((version.into(), build));
+        let build = Release::build_exists(version, "intel")
+            .with_context(|| fomat!("failed to find build for "(version)))?;
+
+        return Ok((version.into(), build));
     }
 
-    let current = Version::detect().ok()?;
+    let current = Version::detect().context("cannot detect current version of Pop")?;
     let release_str = release_str(current.major, current.minor);
 
-    Some((release_str.into(), Release::build_exists(release_str, "intel").ok()?))
+    let build = Release::build_exists(release_str, "intel")
+        .with_context(|| fomat!("failed to find build for "(release_str)))?;
+
+    Ok((release_str.into(), build))
 }
 
 pub fn release_str(major: u8, minor: u8) -> &'static str {
@@ -127,12 +133,12 @@ fn next_(
             next = "21.04";
 
             ReleaseStatus {
-                build:   if development { release_check(next) } else { BuildStatus::Blacklisted },
+                build: if development { release_check(next) } else { BuildStatus::Blacklisted },
                 current: "20.10",
-                is_lts:  false,
+                is_lts: false,
                 next,
             }
-        },
+        }
 
         (21, 4) => ReleaseStatus {
             build:   BuildStatus::Blacklisted,

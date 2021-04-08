@@ -136,17 +136,15 @@ async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
         return Err(RecoveryError::EfiNotFound);
     }
 
-    let recovery_uuid = findmnt_uuid(recovery_path)
-        .await
-        .context("cannot find UUID of recover partition")?;
+    let recovery_uuid =
+        findmnt_uuid(recovery_path).await.context("cannot find UUID of recover partition")?;
 
     let casper = ["casper-", &recovery_uuid].concat();
     let recovery = ["Recovery-", &recovery_uuid].concat();
     let efi_recovery = efi_path.join(&recovery);
 
     // TODO: Create recovery entry if it is missing
-    std::fs::create_dir_all(&efi_recovery)
-        .context("failed to create recovery entry directory")?;
+    std::fs::create_dir_all(&efi_recovery).context("failed to create recovery entry directory")?;
 
     let mut temp_iso_dir = None;
     let (build, version, iso) = match action {
@@ -155,7 +153,7 @@ async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
             let arch = arch.as_ref().map(String::as_str);
 
             let (version, build) =
-                crate::release::check::current(version_).ok_or(RecoveryError::NoBuildAvailable)?;
+                crate::release::check::current(version_).context("no build available")?;
 
             cancellation_check(&cancel)?;
 
@@ -216,8 +214,7 @@ async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     let cp1 = crate::misc::cp(&casper_initrd, &efi_initrd);
     let cp2 = crate::misc::cp(&casper_vmlinuz, &efi_vmlinuz);
 
-    futures::try_join!(cp1, cp2)
-        .context("failed to copy kernel to recovery")?;
+    futures::try_join!(cp1, cp2).context("failed to copy kernel to recovery")?;
 
     (*event)(RecoveryEvent::Complete);
 
@@ -327,7 +324,9 @@ async fn from_remote<'a, F: Fn(u64, u64) + 'static + Send + Sync>(
     async {
         file.flush().await?;
         file.seek(SeekFrom::Start(0)).await
-    }.await.context("failed to write recovery ISO")?;
+    }
+    .await
+    .context("failed to write recovery ISO")?;
 
     validate_checksum(&mut file, checksum)
         .await
