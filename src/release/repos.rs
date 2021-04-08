@@ -55,7 +55,7 @@ pub fn backup(release: &str) -> anyhow::Result<()> {
         let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
         iter_files(dir, |entry| {
             let src_path = entry.path();
-            if src_path.extension().map_or(false, |e| e == "list") {
+            if src_path.extension().map_or(false, |e| e == "list" || e == "sources") {
                 let dst_path_buf = [&*(src_path.to_bytes()), b".save"].concat();
                 let dst_path_str = OsStr::from_bytes(&dst_path_buf).unwrap();
                 let dst_path = Path::new(&dst_path_str);
@@ -288,8 +288,8 @@ X-Repolib-Default-Mirror: http://us.archive.ubuntu.com/ubuntu/
 
 pub fn new_sources_file() -> String {
     format!(
-        r#"## This file is deprecated in Pop!_OS. 
-        ## See `man deb822` and /etc/apt/sources.list.d/system.sources.
+        r#"## This file is deprecated in Pop!_OS.
+## See `man deb822` and /etc/apt/sources.list.d/system.sources.
 "#
     )
 }
@@ -298,9 +298,9 @@ pub fn pop_apps_source(release: &str) -> String {
     format!(
         r#"X-Repolib-Name: Pop_OS Apps
 Enabled: yes
-Types: deb 
+Types: deb
 URIs: http://apt.pop-os.org/proprietary
-Suites: {0} 
+Suites: {0}
 Components: main
 "#,
         release
