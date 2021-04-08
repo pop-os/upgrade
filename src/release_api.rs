@@ -26,7 +26,7 @@ pub struct RawRelease {
     pub sha_sum: String,
     pub channel: String,
     pub build:   String,
-    pub urgent:  String
+    pub urgent:  String,
 }
 
 impl RawRelease {
