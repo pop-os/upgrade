@@ -10,7 +10,7 @@ pub fn disable() -> anyhow::Result<()> {
 
             log::info!(
                 "disabling gnome-shell extensions for {}",
-                name.to_str().unwrap_or("<unkown>")
+                name.to_str().unwrap_or("<unknown>")
             );
 
             disable_for(name);
