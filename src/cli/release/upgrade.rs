@@ -34,7 +34,7 @@ impl Command {
         let info = client.release_check(forcing)?;
 
         if atty::is(atty::Stream::Stdout) {
-            pintln!(
+            fomat_macros::pintln!(
                 (color::primary("Current Release")) ": " (color::secondary(&info.current)) "\n"
                 (color::primary("Upgrading to")) ": " (color::secondary(&info.next)) "\n"
                 (color::primary("New version available")) ": " (color::secondary(misc::format_build_number(info.build, &mut String::new())))
@@ -115,7 +115,7 @@ fn event_listen_upgrade(client: &Client) -> Result<bool, ClientError> {
                 Signal::PackageUpgrade(event) => {
                     match AptUpgradeEvent::from_dbus_map(event.clone().into_iter()) {
                         Ok(event) => write_apt_event(event),
-                        Err(()) => error!("failed to unpack the upgrade event: {:?}", event),
+                        Err(()) => log::error!("failed to unpack the upgrade event: {:?}", event),
                     }
                 }
                 Signal::ReleaseResult(status) => {

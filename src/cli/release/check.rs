@@ -1,5 +1,6 @@
 use crate::notify::notify;
-use chrono::{offset::TimeZone, Utc};
+use chrono::{TimeZone, Utc};
+use fomat_macros::fomat;
 use pop_upgrade::{
     client::{Client, Error as ClientError},
     misc,
@@ -63,7 +64,7 @@ fn notification_message(current: &str, next: &str) -> (String, String) {
             }
             EolStatus::Ok => (),
         },
-        Err(why) => error!("failed to fetch EOL date: {}", why),
+        Err(why) => log::error!("failed to fetch EOL date: {}", why),
     }
 
     ("Upgrade Available".into(), fomat!("Pop!_OS " (next) " is available to download"))

@@ -77,7 +77,7 @@ fn event_listen_fetch_updates(client: &Client) -> Result<(), ClientError> {
                     if let Ok(event) = AptUpgradeEvent::from_dbus_map(event.into_iter()) {
                         write_apt_event(event);
                     } else {
-                        error!("failed to unpack the upgrade event");
+                        log::error!("failed to unpack the upgrade event");
                     }
                 }
                 _ => (),

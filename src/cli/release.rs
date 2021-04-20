@@ -51,7 +51,7 @@ impl Command {
 /// Check if the release has been dismissed by timestamp, or can be.
 fn dismiss_by_timestamp(client: &Client, next: &str) -> Result<bool, ClientError> {
     if !Path::new(INSTALL_DATE).exists() && installed_after_release(next) {
-        info!("dismissing notification for the latest release automatically");
+        log::error!("dismissing notification for the latest release automatically");
         let _ = client.dismiss_notification(DismissEvent::ByTimestamp)?;
         Ok(true)
     } else {
@@ -73,18 +73,19 @@ fn installed_after_release(next: &str) -> bool {
                             Ok(codename) => {
                                 return codename.release_timestamp() < install_time as u64
                             }
-                            Err(()) => error!("version {} is invalid", next),
+                            Err(()) => log::error!("version {} is invalid", next),
                         }
                     }
-                    _ => error!(
+                    _ => log::error!(
                         "major ({}) and minor({}) version failed to parse as u8",
-                        major, minor
+                        major,
+                        minor
                     ),
                 }
             }
-            None => error!("version {} is invalid", next),
+            None => log::error!("version {} is invalid", next),
         },
-        Err(why) => error!("failed to get install time: {}", why),
+        Err(why) => log::error!("failed to get install time: {}", why),
     }
 
     false
