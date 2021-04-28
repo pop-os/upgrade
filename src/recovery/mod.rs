@@ -271,7 +271,11 @@ async fn from_remote<'a, F: Fn(u64, u64) + 'static + Send + Sync>(
     let mut total = 0;
 
     (async {
-        let req = isahc::get_async(url).await?;
+        let req = isahc::HttpClient::builder()
+            .build()
+            .expect("failed to build HTTP client")
+            .get_async(url)
+            .await?;
 
         let status = req.status();
         if !status.is_success() {
