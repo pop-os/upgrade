@@ -10,7 +10,7 @@ pub const APP_ID: &str = "com.system76.UpgradeManager";
 fn main() {
     better_panic::install();
     glib::set_program_name(APP_ID.into());
-    
+
     let _ = install_logging(LevelFilter::Debug);
 
     let application = Application::new(Some(APP_ID), ApplicationFlags::empty())

@@ -3,7 +3,7 @@
 use self::FileSystem::*;
 use crate::system_environment::SystemEnvironment;
 use as_result::MapResult;
-use distinst_disks::{Disks, BlockDeviceExt, FileSystem, PartitionExt, PartitionInfo};
+use distinst_disks::{BlockDeviceExt, Disks, FileSystem, PartitionExt, PartitionInfo};
 use partition_identity::{PartitionID, PartitionSource};
 use proc_mounts::{MountInfo, MountIter, MountTab};
 use std::{

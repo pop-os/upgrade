@@ -104,7 +104,7 @@ pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
 
             recovery::mode_set("refresh", conf.default_boot())
                 .map_err(|why| ReleaseError::RecoveryConf(why.into()))?;
-                
+
             conf.set_default_boot_variant(LoaderEntry::Recovery)
                 .map_err(ReleaseError::SystemdBoot)?;
 

@@ -21,7 +21,7 @@ pub enum RecoveryVersionError {
     Codename(#[from] ubuntu_version::CodenameParseError),
 
     #[error("recovery partition is corrupt")]
-    Unknown
+    Unknown,
 }
 
 #[derive(Debug, Clone)]
@@ -59,8 +59,8 @@ pub fn version() -> Result<RecoveryVersion, RecoveryVersionError> {
                 if let Some(codename) = line.split_ascii_whitespace().nth(1) {
                     return Ok(RecoveryVersion {
                         version: Version::from(Codename::from_str(codename)?).to_string(),
-                        build: 0
-                    })
+                        build:   0,
+                    });
                 }
             }
         }
