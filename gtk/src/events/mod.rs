@@ -166,11 +166,13 @@ pub fn attach(gui_receiver: flume::Receiver<UiEvent>, widgets: EventWidgets, mut
                         widgets.loading_label.set_label("Checking for updates");
                         widgets.stack.set_visible_child_name("loading");
                         widgets.recovery.options[RECOVERY_PARTITION].reset_progress();
+                        widgets.upgrade.options[RECOVERY_PARTITION].hide_widgets();
                     }
 
                     InitiatedEvent::Recovery => {
                         widgets.recovery.options[RECOVERY_PARTITION]
                             .label("Downloading the recovery partition update")
+                            .sublabel(None)
                             .progress_exact(0)
                             .show_progress();
                     }
@@ -422,6 +424,10 @@ fn error(state: &mut State, widgets: &EventWidgets, why: UiError) {
     });
 
     if let UiError::Recovery(ref why) = why {
+        widgets.recovery.options[RECOVERY_PARTITION]
+            .label("Failed to download recovery update")
+            .sublabel("Try again later".into())
+            .hide_widgets();
         (state.callback_error.borrow())(format!("Recovery update failed:\n\n{}", why).as_str());
     } else {
         (state.callback_error.borrow())(
@@ -635,12 +641,9 @@ mod recovery {
 
             false
         } else if upgrading {
-            if let Some(sender) = state.gui_sender.upgrade() {
-                let _ = sender.send(UiEvent::Initiated(InitiatedEvent::Recovery));
-            }
-
             widgets.upgrade.options[0].sensitive(false);
             widgets.recovery.options[REFRESH_OS].sensitive(false);
+
             true
         } else if status_failed {
             recovery_option
