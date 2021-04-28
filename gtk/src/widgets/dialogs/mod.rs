@@ -1,8 +1,7 @@
 mod refresh;
-mod repository;
 mod upgrade;
 
-pub use self::{refresh::RefreshDialog, repository::RepositoryDialog, upgrade::UpgradeDialog};
+pub use self::{refresh::RefreshDialog, upgrade::UpgradeDialog};
 
 use gtk::prelude::*;
 

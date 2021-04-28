@@ -66,7 +66,6 @@ pub enum OsUpgradeEvent {
 pub enum OsRecoveryEvent {
     Event(RecoveryEvent),
     Refresh,
-    Reset,
     Update,
 }
 
@@ -236,8 +235,6 @@ pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut 
                         widgets.recovery.options[REFRESH_OS].show_button();
                     }
                 }
-
-                OsRecoveryEvent::Reset => unimplemented!(),
 
                 OsRecoveryEvent::Update => recovery::clicked(&mut state, &widgets),
             },

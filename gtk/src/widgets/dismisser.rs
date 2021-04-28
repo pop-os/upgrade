@@ -1,4 +1,3 @@
-use glib::SignalHandlerId;
 use gtk::prelude::*;
 
 #[derive(Shrinkwrap)]
@@ -7,11 +6,10 @@ pub struct Dismisser {
     container: gtk::Widget,
 
     pub button:    gtk::Button,
-    button_signal: SignalHandlerId,
 }
 
 impl Dismisser {
-    pub fn new<F: Fn() + 'static>(release: &str, dismiss_action: F) -> Self {
+    pub fn new<F: Fn() + 'static>(release: &str, _dismiss_action: F) -> Self {
         let button = gtk::ButtonBuilder::new().label("Dismiss").valign(gtk::Align::Center).build();
 
         let title = gtk::LabelBuilder::new().label("Notifications").xalign(0.0).build();
@@ -42,10 +40,6 @@ impl Dismisser {
         };
 
         Self {
-            button_signal: button.connect_clicked(move |button: &gtk::Button| {
-                button.set_sensitive(false);
-                dismiss_action();
-            }),
             container: grid.upcast::<gtk::Widget>(),
             button,
         }
