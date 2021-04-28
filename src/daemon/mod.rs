@@ -240,7 +240,6 @@ impl Daemon {
                         }
 
                         Event::RecoveryUpgrade(action) => {
-                            processing = true;
                             info!("attempting recovery upgrade with {:?}", action);
                             let result = recovery::recovery(
                                 &|| (*cancel_process)(),

@@ -5,6 +5,7 @@ use std::{
     ffi::OsStr,
     fs::{self, DirEntry, ReadDir},
     io,
+    os::unix::ffi::OsStrExt,
     path::Path,
 };
 use ubuntu_version::Codename;
@@ -56,8 +57,8 @@ pub fn backup(release: &str) -> anyhow::Result<()> {
         iter_files(dir, |entry| {
             let src_path = entry.path();
             if src_path.extension().map_or(false, |e| e == "list" || e == "sources") {
-                let dst_path_buf = [&*(src_path.to_bytes()), b".save"].concat();
-                let dst_path_str = OsStr::from_bytes(&dst_path_buf).unwrap();
+                let dst_path_buf = [&*(src_path.to_raw_bytes()), b".save"].concat();
+                let dst_path_str = OsStr::from_bytes(&dst_path_buf);
                 let dst_path = Path::new(&dst_path_str);
 
                 info!("creating backup of {} to {}", src_path.display(), dst_path.display());
@@ -93,7 +94,7 @@ pub fn disable_third_parties(release: &str) -> anyhow::Result<()> {
         if path.extension().map_or(false, |e| e == "list") {
             if let Some(fname) = path.file_name() {
                 const POP_PPA: &[u8] = b"system76-ubuntu-pop";
-                if fname.to_bytes().windows(POP_PPA.len()).any(|w| w == POP_PPA) {
+                if fname.to_raw_bytes().windows(POP_PPA.len()).any(|w| w == POP_PPA) {
                     fs::remove_file(&path).context("failed to remove the old Pop PPA file")?;
                     return Ok(());
                 }
@@ -167,10 +168,10 @@ pub fn restore(release: &str) -> anyhow::Result<()> {
     let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
     iter_files(dir, |entry| {
         let src_path = entry.path();
-        let src_bytes = src_path.to_bytes();
+        let src_bytes = src_path.to_raw_bytes();
         if src_bytes.ends_with(b".save") {
             let dst_bytes = &src_bytes[..src_bytes.len() - 5];
-            let dst_str = OsStr::from_bytes(dst_bytes).unwrap();
+            let dst_str = OsStr::from_bytes(dst_bytes);
             let dst = Path::new(&dst_str);
 
             info!("restoring source list at {}", dst.display());
