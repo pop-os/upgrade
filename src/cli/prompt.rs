@@ -14,7 +14,7 @@ pub fn get_bool(message: &str, default: bool) -> bool {
     let mut prompt = || -> io::Result<Option<bool>> {
         let response = get_input(&mut std_in_lock, &mut std_out_lock, message)
             .map(|input| parse_bool(&input, Some(default)))?;
-            
+
         if response.is_none() {
             writeln!(std_out_lock, "The answer must be either `y` or `n`.")?;
         }

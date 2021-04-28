@@ -233,7 +233,8 @@ pub fn release_check(
             let is_lts = status.is_lts();
             let mut urgent = -1;
 
-            if let Ok(release) = crate::release_api::Release::get_release(status.current, "nvidia") {
+            if let Ok(release) = crate::release_api::Release::get_release(status.current, "nvidia")
+            {
                 urgent = release.build as i16;
             }
 

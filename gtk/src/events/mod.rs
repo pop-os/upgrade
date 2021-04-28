@@ -106,8 +106,8 @@ pub struct EventWidgets {
     pub stack:         gtk::Stack,
     pub loading_label: gtk::Label,
 
-    pub recovery:   Section,
-    pub upgrade: Section,
+    pub recovery: Section,
+    pub upgrade:  Section,
 }
 
 impl EventWidgets {
@@ -420,9 +420,7 @@ fn error(state: &mut State, widgets: &EventWidgets, why: UiError) {
     });
 
     if let UiError::Recovery(ref why) = why {
-        (state.callback_error.borrow())(
-            format!("Recovery update failed:\n\n{}", why).as_str()
-        );
+        (state.callback_error.borrow())(format!("Recovery update failed:\n\n{}", why).as_str());
     } else {
         (state.callback_error.borrow())(
             [GENERIC, format!("\n\nOriginating error cause:\n\n{}", error_message).as_str()]
@@ -430,8 +428,6 @@ fn error(state: &mut State, widgets: &EventWidgets, why: UiError) {
                 .as_str(),
         );
     }
-
-
 
     error!("{}", error_message);
 

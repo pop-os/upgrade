@@ -5,7 +5,7 @@ pub struct Dismisser {
     #[shrinkwrap(main_field)]
     container: gtk::Widget,
 
-    pub button:    gtk::Button,
+    pub button: gtk::Button,
 }
 
 impl Dismisser {
@@ -39,10 +39,7 @@ impl Dismisser {
             ..attach(&button, 1, 0, 1, 2);
         };
 
-        Self {
-            container: grid.upcast::<gtk::Widget>(),
-            button,
-        }
+        Self { container: grid.upcast::<gtk::Widget>(), button }
     }
 
     pub fn set_dismissed(&self, dismissed: bool) { self.button.set_sensitive(!dismissed) }

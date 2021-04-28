@@ -109,8 +109,9 @@ pub enum ReleaseError {
     #[error("failed to modify systemd-boot configuration: {}", _0)]
     SystemdBoot(anyhow::Error),
 
-    #[error("attempted recovery-based upgrade method, but the systemd efi loader path \
-        was not found")]
+    #[error(
+        "attempted recovery-based upgrade method, but the systemd efi loader path was not found"
+    )]
     SystemdBootEfiPathNotFound,
 
     #[error("attempted recovery-based upgrade method, but the systemd boot loader was not found")]
