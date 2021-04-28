@@ -271,7 +271,10 @@ async fn from_remote<'a, F: Fn(u64, u64) + 'static + Send + Sync>(
     let mut total = 0;
 
     (async {
+        use isahc::config::Configurable;
+
         let req = isahc::HttpClient::builder()
+            .low_speed_timeout(1024, std::time::Duration::from_secs(5))
             .build()
             .expect("failed to build HTTP client")
             .get_async(url)
