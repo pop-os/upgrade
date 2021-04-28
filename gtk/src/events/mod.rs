@@ -428,7 +428,7 @@ fn error(state: &mut State, widgets: &EventWidgets, why: UiError) {
             .label("Failed to download recovery update")
             .sublabel("Try again later".into())
             .hide_widgets();
-        (state.callback_error.borrow())(format!("Recovery update failed:\n\n{}", why).as_str());
+        (state.callback_error.borrow())(format!("Recovery update failed:\n\n{:#?}", why).as_str());
     } else {
         (state.callback_error.borrow())(
             [GENERIC, format!("\n\nOriginating error cause:\n\n{}", error_message).as_str()]

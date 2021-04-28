@@ -185,12 +185,8 @@ impl Client {
             // automatically switch to the refresh view.
             ("refresh", Some(matches)) => {
                 let action = match matches.subcommand() {
-                    ("enable", _) => RefreshOp::Enable,
                     ("disable", _) => RefreshOp::Disable,
-                    _ => {
-                        self.refresh_os(RefreshOp::Status)?;
-                        return Ok(());
-                    }
+                    _ => RefreshOp::Enable,
                 };
 
                 self.refresh_os(action)?;
