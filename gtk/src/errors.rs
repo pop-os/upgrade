@@ -13,8 +13,6 @@ pub enum UiError {
     Recovery(#[source] UnderlyingError),
     #[error("failed to set up OS refresh")]
     Refresh(#[source] UnderlyingError),
-    #[error("failed to modify repos")]
-    Repos(#[source] UnderlyingError),
     #[error("failed to update system")]
     Updates(#[source] UnderlyingError),
     #[error("failed to upgrade OS")]
