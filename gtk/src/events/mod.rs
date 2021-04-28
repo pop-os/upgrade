@@ -119,164 +119,166 @@ impl EventWidgets {
     }
 }
 
-pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut state: State) {
-    gui_receiver.attach(None, move |event| {
-        debug!("{:?}", event);
-        match event {
-            UiEvent::Progress(event) => match event {
-                ProgressEvent::Fetching(progress, total) => {
-                    let progress = state.calculate_fetching_progress(progress, total);
-                    widgets.upgrade.options[0].progress_exact(progress as u8).show_progress();
-                }
-
-                ProgressEvent::Recovery(progress, total) => {
-                    widgets.recovery.options[RECOVERY_PARTITION]
-                        .label(&fomat!(
-                            "Downloading the recovery partition update ("
-                            (progress / 1024) " of " (total / 1024) " MiB)"
-                        ))
-                        .sublabel(None)
-                        .progress(progress, total)
-                        .show_progress();
-                }
-
-                ProgressEvent::Updates(percent) => {
-                    widgets.upgrade.options[0].progress_exact(percent / 4 + 25).show_progress();
-                }
-            },
-
-            // Signals that a process in the background has begun.
-            UiEvent::Initiated(event) => match event {
-                InitiatedEvent::Download(version) => {
-                    widgets.upgrade.options[0]
-                        .label(&*["Downloading Pop!_OS ", &version].concat())
-                        .reset_progress()
-                        .show_progress();
-
-                    state.upgrading_to = version;
-                }
-
-                InitiatedEvent::Refresh => {
-                    get_upgrade_row(&widgets.upgrade.list).hide();
-                }
-
-                InitiatedEvent::Scanning => {
-                    widgets.upgrade.options[0].reset_progress();
-                    widgets.loading_label.set_label("Checking for updates");
-                    widgets.stack.set_visible_child_name("loading");
-                    widgets.recovery.options[RECOVERY_PARTITION].reset_progress();
-                }
-
-                InitiatedEvent::Recovery => {
-                    widgets.recovery.options[RECOVERY_PARTITION]
-                        .label("Downloading the recovery partition update")
-                        .progress_exact(0)
-                        .show_progress();
-                }
-            },
-
-            // Events pertaining to the upgrade section
-            UiEvent::Upgrade(event) => match event {
-                OsUpgradeEvent::Cancelled => cancelled_upgrade(&mut state, &widgets),
-
-                OsUpgradeEvent::Dialog => release_upgrade_dialog(&mut state, &widgets),
-
-                OsUpgradeEvent::Dismissed(dismissed) => {
-                    info!("{} release", if dismissed { "dismissed" } else { "un-dismissed" });
-                    if let Some(dismisser) = state.dismisser.as_mut() {
-                        dismisser.set_dismissed(dismissed);
+pub fn attach(gui_receiver: flume::Receiver<UiEvent>, widgets: EventWidgets, mut state: State) {
+    let event_handler = async move {
+        while let Ok(event) = gui_receiver.recv_async().await {
+            debug!("{:?}", event);
+            match event {
+                UiEvent::Progress(event) => match event {
+                    ProgressEvent::Fetching(progress, total) => {
+                        let progress = state.calculate_fetching_progress(progress, total);
+                        widgets.upgrade.options[0].progress_exact(progress as u8).show_progress();
                     }
-                }
 
-                OsUpgradeEvent::Event(UpgradeEvent::UpgradingPackages) => {
-                    widgets.upgrade.options[0].progress_exact(25);
-                }
-
-                OsUpgradeEvent::Event(UpgradeEvent::UpdatingSourceLists) => {
-                    widgets.upgrade.options[0].progress_exact(50);
-                    state.fetching_release = true;
-                }
-
-                OsUpgradeEvent::Event(_) => (),
-
-                OsUpgradeEvent::Notification => (state.callback_ready.borrow())(),
-
-                OsUpgradeEvent::Upgrade => upgrade_clicked(&mut state, &widgets),
-            },
-
-            UiEvent::Updating => {
-                widgets.loading_label.set_label("Updating the upgrade service");
-                widgets.stack.set_visible_child_name("loading");
-            }
-
-            UiEvent::Updated => {
-                widgets.stack.set_visible_child_name("updated");
-            }
-
-            // Events pertaining to the recovery section
-            UiEvent::Recovery(event) => match event {
-                OsRecoveryEvent::Event(event) => match event {
-                    RecoveryEvent::Verifying => {
+                    ProgressEvent::Recovery(progress, total) => {
                         widgets.recovery.options[RECOVERY_PARTITION]
-                            .label("Verifying the fetched recovery image")
-                            .hide_widgets();
+                            .label(&fomat!(
+                                "Downloading the recovery partition update ("
+                                (progress / 1024) " of " (total / 1024) " MiB)"
+                            ))
+                            .sublabel(None)
+                            .progress(progress, total)
+                            .show_progress();
                     }
-                    RecoveryEvent::Syncing => {
-                        widgets.recovery.options[RECOVERY_PARTITION]
-                            .label("Syncing recovery image to disk");
+
+                    ProgressEvent::Updates(percent) => {
+                        widgets.upgrade.options[0].progress_exact(percent / 4 + 25).show_progress();
                     }
-                    _ => (),
                 },
 
-                OsRecoveryEvent::Refresh => {
-                    if gtk::ResponseType::Accept == RefreshDialog::new().run() {
-                        let _ = state.sender.send(BackgroundEvent::RefreshOS);
-                    } else {
-                        widgets.recovery.options[REFRESH_OS].show_button();
+                // Signals that a process in the background has begun.
+                UiEvent::Initiated(event) => match event {
+                    InitiatedEvent::Download(version) => {
+                        widgets.upgrade.options[0]
+                            .label(&*["Downloading Pop!_OS ", &version].concat())
+                            .reset_progress()
+                            .show_progress();
+
+                        state.upgrading_to = version;
                     }
+
+                    InitiatedEvent::Refresh => {
+                        get_upgrade_row(&widgets.upgrade.list).hide();
+                    }
+
+                    InitiatedEvent::Scanning => {
+                        widgets.upgrade.options[0].reset_progress();
+                        widgets.loading_label.set_label("Checking for updates");
+                        widgets.stack.set_visible_child_name("loading");
+                        widgets.recovery.options[RECOVERY_PARTITION].reset_progress();
+                    }
+
+                    InitiatedEvent::Recovery => {
+                        widgets.recovery.options[RECOVERY_PARTITION]
+                            .label("Downloading the recovery partition update")
+                            .progress_exact(0)
+                            .show_progress();
+                    }
+                },
+
+                // Events pertaining to the upgrade section
+                UiEvent::Upgrade(event) => match event {
+                    OsUpgradeEvent::Cancelled => cancelled_upgrade(&mut state, &widgets),
+
+                    OsUpgradeEvent::Dialog => release_upgrade_dialog(&mut state, &widgets),
+
+                    OsUpgradeEvent::Dismissed(dismissed) => {
+                        info!("{} release", if dismissed { "dismissed" } else { "un-dismissed" });
+                        if let Some(dismisser) = state.dismisser.as_mut() {
+                            dismisser.set_dismissed(dismissed);
+                        }
+                    }
+
+                    OsUpgradeEvent::Event(UpgradeEvent::UpgradingPackages) => {
+                        widgets.upgrade.options[0].progress_exact(25);
+                    }
+
+                    OsUpgradeEvent::Event(UpgradeEvent::UpdatingSourceLists) => {
+                        widgets.upgrade.options[0].progress_exact(50);
+                        state.fetching_release = true;
+                    }
+
+                    OsUpgradeEvent::Event(_) => (),
+
+                    OsUpgradeEvent::Notification => (state.callback_ready.borrow())(),
+
+                    OsUpgradeEvent::Upgrade => upgrade_clicked(&mut state, &widgets),
+                },
+
+                UiEvent::Updating => {
+                    widgets.loading_label.set_label("Updating the upgrade service");
+                    widgets.stack.set_visible_child_name("loading");
                 }
 
-                OsRecoveryEvent::Update => recovery::clicked(&mut state, &widgets),
-            },
-
-            UiEvent::Completed(event) => match event {
-                CompletedEvent::Download => {
-                    download_complete(&mut state, &widgets);
-                }
-
-                CompletedEvent::Recovery => {
-                    widgets.upgrade.options[0].sensitive(true);
-                    widgets.recovery.options[REFRESH_OS].sensitive(true);
-                    widgets.recovery.options[RECOVERY_PARTITION]
-                        .label("Recovery Partition")
-                        .sublabel(Some(
-                            "You have the most current version of the recovery partition",
-                        ))
-                        .hide_widgets();
-                }
-
-                CompletedEvent::Refresh => reboot(),
-
-                CompletedEvent::Scan(event) => {
+                UiEvent::Updated => {
                     widgets.stack.set_visible_child_name("updated");
-                    scan_event(&mut state, &widgets, event);
                 }
-            },
 
-            UiEvent::StatusChanged(from, to, why) => {
-                warn!("status changed from {} to {}: {}", from, to, why);
-                let _ = state.sender.send(BackgroundEvent::GetStatus(from));
+                // Events pertaining to the recovery section
+                UiEvent::Recovery(event) => match event {
+                    OsRecoveryEvent::Event(event) => match event {
+                        RecoveryEvent::Verifying => {
+                            widgets.recovery.options[RECOVERY_PARTITION]
+                                .label("Verifying the fetched recovery image")
+                                .hide_widgets();
+                        }
+                        RecoveryEvent::Syncing => {
+                            widgets.recovery.options[RECOVERY_PARTITION]
+                                .label("Syncing recovery image to disk");
+                        }
+                        _ => (),
+                    },
+
+                    OsRecoveryEvent::Refresh => {
+                        if gtk::ResponseType::Accept == RefreshDialog::new().run() {
+                            let _ = state.sender.send(BackgroundEvent::RefreshOS);
+                        } else {
+                            widgets.recovery.options[REFRESH_OS].show_button();
+                        }
+                    }
+
+                    OsRecoveryEvent::Update => recovery::clicked(&mut state, &widgets),
+                },
+
+                UiEvent::Completed(event) => match event {
+                    CompletedEvent::Download => {
+                        download_complete(&mut state, &widgets);
+                    }
+
+                    CompletedEvent::Recovery => {
+                        widgets.upgrade.options[0].sensitive(true);
+                        widgets.recovery.options[REFRESH_OS].sensitive(true);
+                        widgets.recovery.options[RECOVERY_PARTITION]
+                            .label("Recovery Partition")
+                            .sublabel(Some(
+                                "You have the most current version of the recovery partition",
+                            ))
+                            .hide_widgets();
+                    }
+
+                    CompletedEvent::Refresh => reboot(),
+
+                    CompletedEvent::Scan(event) => {
+                        widgets.stack.set_visible_child_name("updated");
+                        scan_event(&mut state, &widgets, event);
+                    }
+                },
+
+                UiEvent::StatusChanged(from, to, why) => {
+                    warn!("status changed from {} to {}: {}", from, to, why);
+                    let _ = state.sender.send(BackgroundEvent::GetStatus(from));
+                }
+
+                UiEvent::Error(why) => error(&mut state, &widgets, why),
+
+                UiEvent::WaitingOnLock => (),
+
+                UiEvent::Shutdown => return,
             }
-
-            UiEvent::Error(why) => error(&mut state, &widgets, why),
-
-            UiEvent::WaitingOnLock => (),
-
-            UiEvent::Shutdown => return glib::Continue(false),
         }
+    };
 
-        glib::Continue(true)
-    });
+    glib::MainContext::default().spawn_local(event_handler);
 }
 
 /// On a cancelled upgrade, reset the widget to its pre-upgrade status.
@@ -363,7 +365,7 @@ fn connect_upgrade(state: &mut State, widgets: &EventWidgets, is_lts: bool, rebo
 }
 
 /// Creates the download signal for the upgrade button.
-fn download_action(sender: sync::Weak<glib::Sender<UiEvent>>) -> (&'static str, Box<dyn Fn()>) {
+fn download_action(sender: sync::Weak<flume::Sender<UiEvent>>) -> (&'static str, Box<dyn Fn()>) {
     let action: Box<dyn Fn()> = Box::new(move || {
         if let Some(sender) = sender.upgrade() {
             let _ = sender.send(UiEvent::Upgrade(OsUpgradeEvent::Upgrade));
@@ -563,7 +565,7 @@ fn scan_event(state: &mut State, widgets: &EventWidgets, event: ScanEvent) {
 }
 
 /// Creates the upgrade signal for the upgrade button.
-fn upgrade_action(sender: sync::Weak<glib::Sender<UiEvent>>) -> (&'static str, Box<dyn Fn()>) {
+fn upgrade_action(sender: sync::Weak<flume::Sender<UiEvent>>) -> (&'static str, Box<dyn Fn()>) {
     let action: Box<dyn Fn()> = Box::new(move || {
         if let Some(sender) = sender.upgrade() {
             let _ = sender.send(UiEvent::Upgrade(OsUpgradeEvent::Dialog));

@@ -2166,6 +2166,7 @@ dependencies = [
  "derive_more",
  "enclose",
  "fern",
+ "flume",
  "fomat-macros",
  "gio",
  "glib",

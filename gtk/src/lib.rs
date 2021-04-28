@@ -54,7 +54,7 @@ pub struct UpgradeWidget {
 impl UpgradeWidget {
     pub fn new() -> Self {
         let (bg_sender, bg_receiver) = mpsc::sync_channel(5);
-        let (gui_sender, gui_receiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+        let (gui_sender, gui_receiver) = flume::unbounded();
         let gui_sender = Arc::new(gui_sender);
 
         thread::spawn(enclose!((gui_sender) move || {
