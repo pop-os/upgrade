@@ -22,6 +22,10 @@ pub fn upgrade(client: &Client, send: &dyn Fn(UiEvent), version: &str) -> bool {
         return false;
     }
 
+    upgrade_listen(client, send)
+}
+
+pub fn upgrade_listen(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
     let error = &mut None;
 
     let _ = client.event_listen(
@@ -29,12 +33,11 @@ pub fn upgrade(client: &Client, send: &dyn Fn(UiEvent), version: &str) -> bool {
         Client::recovery_upgrade_release_status,
         |status| status_changed(send, status, DaemonStatus::RecoveryUpgrade),
         |_client, signal| {
+            use pop_upgrade::client::Progress;
             match signal {
-                Signal::RecoveryDownloadProgress(progress) => {
-                    send(UiEvent::Progress(ProgressEvent::Recovery(
-                        progress.progress,
-                        progress.total,
-                    )));
+                Signal::RecoveryDownloadProgress(Progress { progress, total }) => {
+                    println!("Progress {}/{}", progress, total);
+                    send(UiEvent::Progress(ProgressEvent::Recovery(progress, total)));
                 }
                 Signal::RecoveryEvent(event) => {
                     send(UiEvent::Recovery(OsRecoveryEvent::Event(event)));

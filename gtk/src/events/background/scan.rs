@@ -120,4 +120,8 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
         upgrading_recovery,
         urgent,
     })));
+
+    if upgrading_recovery {
+        super::recovery::upgrade_listen(client, send);
+    }
 }
