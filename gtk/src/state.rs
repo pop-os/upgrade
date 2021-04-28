@@ -32,7 +32,7 @@ pub struct State {
     pub upgrade_version: Option<ReleaseInfo>,
 
     pub sender:     SyncSender<BackgroundEvent>,
-    pub gui_sender: sync::Weak<glib::Sender<UiEvent>>,
+    pub gui_sender: sync::Weak<flume::Sender<UiEvent>>,
 
     pub callback_error: ErrorCallback,
     pub callback_event: EventCallback,
