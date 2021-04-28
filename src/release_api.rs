@@ -74,6 +74,6 @@ impl Release {
 
 #[test]
 pub fn release_exists() {
-    let result = Release::get_release("18.10", "intel");
+    let result = Release::get_release("20.04", "intel");
     assert!(result.is_ok());
 }
