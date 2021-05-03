@@ -114,7 +114,7 @@ pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
             info!("Checking status of refresh OS");
 
             recovery::mode_is("refresh")
-        },
+        }
     }
 }
 

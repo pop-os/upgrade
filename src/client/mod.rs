@@ -6,7 +6,9 @@ use crate::{
 };
 
 use dbus::{
-    self, BusType, Connection, ConnectionItem, Message, MessageItem, MessageItemArray, Signature,
+    arg::messageitem::{MessageItem, MessageItemArray},
+    ffidisp::{Connection, ConnectionItem},
+    Message, Signature,
 };
 
 use num_traits::FromPrimitive;
@@ -132,7 +134,7 @@ impl Client {
             Ok(())
         }
 
-        Connection::get_private(BusType::System).map_err(Error::Connection).and_then(|bus| {
+        Connection::new_system().map_err(Error::Connection).and_then(|bus| {
             {
                 let bus = &bus;
                 add_match(bus, signals::NO_CONNECTION)?;
@@ -176,7 +178,7 @@ impl Client {
     ) -> Result<Fetched, Error> {
         let packages = MessageItemArray::new(
             additional_packages.into_iter().map(MessageItem::from).collect(),
-            Signature::from_slice(b"as\0").unwrap(),
+            Signature::from_slice("as\0").unwrap(),
         )
         .unwrap();
 

@@ -20,8 +20,7 @@ atty = "0.2"
 bitflags = "1.2"
 chrono = "0.4"
 clap = "2"
-# TODO: Update this
-dbus = "0.6"
+dbus = "0.9"
 digest = "0.9"
 # TODO: Remove this
 distinst-disks = { git = "https://github.com/pop-os/distinst/" }
@@ -69,6 +68,7 @@ cascade = "1.0.0"
 async-process = "1.1"
 smolscale = "0.2"
 users = "0.11.0"
+dbus-crossroads = "0.3.0"
 
 [patch.crates-io]
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
