@@ -19,10 +19,13 @@ mod battery;
 mod errors;
 mod events;
 mod gtk_utils;
+mod localize;
 mod notify;
 mod state;
 mod users;
 mod widgets;
+
+pub use localize::localizer;
 
 use self::{events::*, state::State, widgets::Section};
 use gtk::prelude::*;
@@ -67,8 +70,8 @@ impl UpgradeWidget {
         let option_sg = gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
         let sublab_sg = gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
 
-        let mut upgrade = Section::new("<b>OS Upgrade</b>");
-        let mut recovery = Section::new("<b>OS Recovery</b>");
+        let mut upgrade = Section::new(&fomat!("<b>" (fl!("os-upgrade")) "</b>"));
+        let mut recovery = Section::new(&fomat!("<b>" (fl!("os-recovery")) "</b>"));
 
         upgrade.add_option(&option_sg, &button_sg, &sublab_sg, |option| {
             option.button_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION);
@@ -78,14 +81,14 @@ impl UpgradeWidget {
             .add_option(&option_sg, &button_sg, &sublab_sg, |option| {
                 option
                     .button_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION)
-                    .label("Recovery Partition")
-                    .sublabel(Some("Checking for updates ..."));
+                    .label(&fl!("recovery-header"))
+                    .sublabel(Some(&fl!("checking-for-updates")));
             })
             .add_option(&option_sg, &button_sg, &sublab_sg, |option| {
                 option
-                    .button_label("Refresh")
-                    .label("Refresh OS")
-                    .sublabel(Some("Reinstall while keeping user accounts and files"));
+                    .button_label(&fl!("button-refresh"))
+                    .label(&fl!("refresh-header"))
+                    .sublabel(Some(&fl!("refresh-description")));
             });
 
         let dismisser = gtk::ListBoxRow::new();

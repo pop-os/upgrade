@@ -114,7 +114,7 @@ impl UpgradeOption {
     /// Programs the click signal of the button.
     ///
     /// This automatically hides the button on click.
-    pub fn button_signal<F: Fn() + 'static>(&self, action: Option<(&str, F)>) -> &Self {
+    pub fn button_signal<F: Fn() + 'static>(&self, action: Option<(String, F)>) -> &Self {
         let mut button_signal = self.button_signal.borrow_mut();
 
         if let Some(id) = button_signal.take() {
@@ -123,7 +123,7 @@ impl UpgradeOption {
 
         match action {
             Some((label, func)) => {
-                self.button_label(label);
+                self.button_label(&label);
                 self.show_button();
                 let id = self.button.connect_clicked(move |button| {
                     button.hide();

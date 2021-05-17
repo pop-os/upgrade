@@ -1,3 +1,4 @@
+use crate::fl;
 use gtk::prelude::*;
 
 #[derive(Shrinkwrap)]
@@ -18,7 +19,7 @@ impl PermissionDenied {
             );
             ..add(&cascade! {
                 gtk::LabelBuilder::new()
-                    .label("Permission Required\n\nOnly administrator accounts may upgrade the OS.")
+                    .label(&fl!("permission-denied"))
                     .wrap(true)
                     .xalign(0.0)
                     .yalign(0.0)

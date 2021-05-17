@@ -6,10 +6,6 @@ edition = "2018"
 description = "build tools used by this project"
 
 [[bin]]
-name = "desktop-entry"
-path = "src/desktop_entry.rs"
-
-[[bin]]
 name = "notify-gen"
 path = "src/notify.rs"
 

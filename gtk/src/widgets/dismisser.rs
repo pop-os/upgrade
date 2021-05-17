@@ -1,3 +1,4 @@
+use crate::fl;
 use gtk::prelude::*;
 
 #[derive(Shrinkwrap)]
@@ -10,19 +11,21 @@ pub struct Dismisser {
 
 impl Dismisser {
     pub fn new<F: Fn() + 'static>(release: &str, _dismiss_action: F) -> Self {
-        let button = gtk::ButtonBuilder::new().label("Dismiss").valign(gtk::Align::Center).build();
+        let button = gtk::ButtonBuilder::new()
+            .label(&fl!("button-dismiss"))
+            .valign(gtk::Align::Center)
+            .build();
 
-        let title = gtk::LabelBuilder::new().label("Notifications").xalign(0.0).build();
+        let title =
+            gtk::LabelBuilder::new().label(&fl!("notification-dismiss-label")).xalign(0.0).build();
 
-        let label_text = &[
-            "Dismiss upgrade notifications for Pop!_OS ",
-            release,
-            " until the next upgrade is available",
-        ]
-        .concat();
-
-        let label =
-            gtk::LabelBuilder::new().label(label_text).xalign(0.0).hexpand(true).wrap(true).build();
+        let label_text = fl!("notification-dismiss-description", version = release);
+        let label = gtk::LabelBuilder::new()
+            .label(&label_text)
+            .xalign(0.0)
+            .hexpand(true)
+            .wrap(true)
+            .build();
 
         label.get_style_context().add_class("dim-label");
 
