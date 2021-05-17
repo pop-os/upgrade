@@ -4,7 +4,7 @@ pub use self::background::{scan::ScanEvent, BackgroundEvent};
 
 use crate::{
     errors::UiError,
-    get_dismiss_row, get_upgrade_row, notify, reboot,
+    fl, get_dismiss_row, get_upgrade_row, notify, reboot,
     state::State,
     widgets::{
         dialogs::{RefreshDialog, UpgradeDialog},
@@ -113,9 +113,12 @@ pub struct EventWidgets {
 impl EventWidgets {
     /// Sets the upgrade frame to display a permission denied widget.
     fn permission_denied(&self) {
-        self.upgrade.frame.remove(&self.upgrade.list);
-        self.upgrade.frame.add(PermissionDenied::new().as_ref());
-        self.upgrade.frame.show_all();
+        cascade! {
+            &self.upgrade.frame;
+            ..remove(&self.upgrade.list);
+            ..add(PermissionDenied::new().as_ref());
+            ..show_all();
+        };
     }
 }
 
@@ -132,9 +135,10 @@ pub fn attach(gui_receiver: flume::Receiver<UiEvent>, widgets: EventWidgets, mut
 
                     ProgressEvent::Recovery(progress, total) => {
                         widgets.recovery.options[RECOVERY_PARTITION]
-                            .label(&fomat!(
-                                "Downloading the recovery partition update ("
-                                (progress / 1024) " of " (total / 1024) " MiB)"
+                            .label(&fl!(
+                                "recovery-progress",
+                                current = (progress / 1024),
+                                total = (total / 1024)
                             ))
                             .sublabel(None)
                             .progress(progress, total)
@@ -150,7 +154,7 @@ pub fn attach(gui_receiver: flume::Receiver<UiEvent>, widgets: EventWidgets, mut
                 UiEvent::Initiated(event) => match event {
                     InitiatedEvent::Download(version) => {
                         widgets.upgrade.options[0]
-                            .label(&*["Downloading Pop!_OS ", &version].concat())
+                            .label(&fl!("download-os", version = (&*version)))
                             .reset_progress()
                             .show_progress();
 
@@ -163,7 +167,7 @@ pub fn attach(gui_receiver: flume::Receiver<UiEvent>, widgets: EventWidgets, mut
 
                     InitiatedEvent::Scanning => {
                         widgets.upgrade.options[0].reset_progress();
-                        widgets.loading_label.set_label("Checking for updates");
+                        widgets.loading_label.set_label(&fl!("checking-for-updates"));
                         widgets.stack.set_visible_child_name("loading");
                         widgets.recovery.options[RECOVERY_PARTITION].reset_progress();
                         widgets.upgrade.options[RECOVERY_PARTITION].hide_widgets();
@@ -171,7 +175,7 @@ pub fn attach(gui_receiver: flume::Receiver<UiEvent>, widgets: EventWidgets, mut
 
                     InitiatedEvent::Recovery => {
                         widgets.recovery.options[RECOVERY_PARTITION]
-                            .label("Downloading the recovery partition update")
+                            .label(&fl!("recovery-downloading"))
                             .sublabel(None)
                             .progress_exact(0)
                             .show_progress();
@@ -208,7 +212,7 @@ pub fn attach(gui_receiver: flume::Receiver<UiEvent>, widgets: EventWidgets, mut
                 },
 
                 UiEvent::Updating => {
-                    widgets.loading_label.set_label("Updating the upgrade service");
+                    widgets.loading_label.set_label(&fl!("daemon-updating"));
                     widgets.stack.set_visible_child_name("loading");
                 }
 
@@ -221,12 +225,12 @@ pub fn attach(gui_receiver: flume::Receiver<UiEvent>, widgets: EventWidgets, mut
                     OsRecoveryEvent::Event(event) => match event {
                         RecoveryEvent::Verifying => {
                             widgets.recovery.options[RECOVERY_PARTITION]
-                                .label("Verifying the fetched recovery image")
+                                .label(&fl!("recovery-verify"))
                                 .hide_widgets();
                         }
                         RecoveryEvent::Syncing => {
                             widgets.recovery.options[RECOVERY_PARTITION]
-                                .label("Syncing recovery image to disk");
+                                .label(&fl!("recovery-sync"));
                         }
                         _ => (),
                     },
@@ -251,10 +255,8 @@ pub fn attach(gui_receiver: flume::Receiver<UiEvent>, widgets: EventWidgets, mut
                         widgets.upgrade.options[0].sensitive(true);
                         widgets.recovery.options[REFRESH_OS].sensitive(true);
                         widgets.recovery.options[RECOVERY_PARTITION]
-                            .label("Recovery Partition")
-                            .sublabel(Some(
-                                "You have the most current version of the recovery partition",
-                            ))
+                            .label(&fl!("recovery-header"))
+                            .sublabel(Some(&fl!("most-current-recovery")))
                             .hide_widgets();
                     }
 
@@ -303,7 +305,9 @@ fn connect_refresh(state: &State, widgets: &EventWidgets) {
         }
     });
 
-    widgets.recovery.options[REFRESH_OS].button_signal(Some(("Refresh", action))).show();
+    widgets.recovery.options[REFRESH_OS]
+        .button_signal(Some((fl!("button-refresh"), action)))
+        .show();
 }
 
 /// Programs the upgrade button, and optionally enables the dismissal widget.
@@ -312,21 +316,21 @@ fn connect_upgrade(state: &mut State, widgets: &EventWidgets, is_lts: bool, rebo
         Ok(eol) => {
             let (y, m, d) = eol.ymd;
             match eol.status() {
-                EolStatus::Exceeded => Some(fomat!(
-                    "Support for Pop!_OS " (eol.version) " has ended. "
-                    "Security and application updates are no longer provided for Pop!_OS " (eol.version) ". "
-                    "Upgrade to Pop!_OS " (eol.version.next_release()) " to keep your computer secure."
+                EolStatus::Exceeded => Some(fl!(
+                    "eol-exceeded",
+                    current = fomat!((eol.version)),
+                    next = fomat!((eol.version.next_release()))
                 )),
-                EolStatus::Imminent => Some(fomat!(
-                    "Support for Pop!_OS " (eol.version) " ends "
-                    (Utc.ymd(y as i32, m, d).format("%B %-d, %Y")) ". "
-                    "Upgrade for security and application updates."
+                EolStatus::Imminent => Some(fl!(
+                    "eol-imminent",
+                    current = fomat!((eol.version)),
+                    date = fomat!((Utc.ymd(y as i32, m, d).format("%B %-d, %Y")))
                 )),
                 EolStatus::Ok => None,
             }
         }
         Err(why) => {
-            error!("failed to fetch EOL date: {}", why);
+            error!("{}: {}", fl!("eol-error"), why);
             None
         }
     };
@@ -367,23 +371,23 @@ fn connect_upgrade(state: &mut State, widgets: &EventWidgets, is_lts: bool, rebo
 }
 
 /// Creates the download signal for the upgrade button.
-fn download_action(sender: sync::Weak<flume::Sender<UiEvent>>) -> (&'static str, Box<dyn Fn()>) {
+fn download_action(sender: sync::Weak<flume::Sender<UiEvent>>) -> (String, Box<dyn Fn()>) {
     let action: Box<dyn Fn()> = Box::new(move || {
         if let Some(sender) = sender.upgrade() {
             let _ = sender.send(UiEvent::Upgrade(OsUpgradeEvent::Upgrade));
         }
     });
 
-    ("Download", action)
+    (fl!("button-download"), action)
 }
 
 /// Notify that OS release updates have been downloaded, and are ready to commence.
 fn download_complete(state: &mut State, widgets: &EventWidgets) {
     state.upgrade_downloaded = true;
 
-    let description = format!("Pop!_OS is ready to upgrade to {}", state.upgrading_to);
+    let description = fl!("notification-description", version = (&*state.upgrading_to));
     thread::spawn(enclose!((state.gui_sender => sender) move || {
-        notify::notify("distributor-logo", "Upgrade Ready", &description, || {
+        notify::notify("distributor-logo", &fl!("notification-title"), &description, || {
             if let Some(sender) = sender.upgrade() {
                 let _ = sender.send(UiEvent::Upgrade(OsUpgradeEvent::Notification));
             }
@@ -394,26 +398,28 @@ fn download_complete(state: &mut State, widgets: &EventWidgets) {
 
     widgets.upgrade.options[0]
         .show_button()
-        .button_label("Upgrade")
-        .label(&format!("Pop!_OS {} download complete", &*state.upgrading_to));
+        .button_label(&fl!("button-upgrade"))
+        .label(&fl!("download-os-complete", version = (&*state.upgrading_to)));
 }
 
-const GENERIC: &str = r#"Looks like we've encountered an issue! No worries, these are a list of files which may have been changed:
+use once_cell::sync::Lazy;
 
-* /etc/apt/sources.list
-* /etc/apt/sources.list.d/
-* /etc/fstab
-
-If you are a System76 customer, please run the System76 Driver tool to collect logs and contact support with the logs.
-
-If you are seeing package manager issues, please run the following commands and send them to support in your support ticket:
-
-sudo apt clean
-sudo apt update -m
-sudo dpkg --configure -a
-sudo apt install -f
-sudo apt dist-upgrade
-sudo apt autoremove --purge"#;
+const GENERIC: Lazy<String> = Lazy::new(|| {
+    fomat!(
+        (fl!("error-header")) "\n\n"
+        "* /etc/apt/sources.list\n"
+        "* /etc/apt/sources.list.d/\n"
+        "* /etc/fstab\n\n"
+        (fl!("error-collect-logs")) "\n\n"
+        (fl!("error-package-manager")) "\n\n"
+        "sudo apt clean\n"
+        "sudo apt update -m\n"
+        "sudo dpkg --configure -a\n"
+        "sudo apt install -f\n"
+        "sudo apt dist-upgrade\n"
+        "sudo apt autoremove --purge\n"
+    )
+});
 
 /// Formats error messages for display on the console, and in the UI.
 fn error(state: &mut State, widgets: &EventWidgets, why: UiError) {
@@ -425,15 +431,15 @@ fn error(state: &mut State, widgets: &EventWidgets, why: UiError) {
 
     if let UiError::Recovery(ref why) = why {
         widgets.recovery.options[RECOVERY_PARTITION]
-            .label("Failed to download recovery update")
-            .sublabel("Try again later".into())
+            .label(&fl!("error-recovery-download"))
+            .sublabel(Some(&fl!("error-try-again")))
             .hide_widgets();
-        (state.callback_error.borrow())(format!("Recovery update failed:\n\n{:#?}", why).as_str());
+        (state.callback_error.borrow())(
+            format!("{}:\n\n{:#?}", fl!("error-recovery-update"), why).as_str(),
+        );
     } else {
         (state.callback_error.borrow())(
-            [GENERIC, format!("\n\nOriginating error cause:\n\n{}", error_message).as_str()]
-                .concat()
-                .as_str(),
+            &fomat!((&*GENERIC) "\n\n" (fl!("error-originating-cause")) "\n\n" (error_message)),
         );
     }
 
@@ -473,7 +479,7 @@ fn release_upgrade_dialog(state: &mut State, widgets: &EventWidgets) {
     } else {
         // Send upgrading event to prevent closing
         (state.callback_event.borrow())(Event::Upgrading);
-        widgets.upgrade.options[0].label("Canceling upgrade");
+        widgets.upgrade.options[0].label(&fl!("upgrade-canceling"));
         let _ = state.sender.send(BackgroundEvent::Reset);
     }
 }
@@ -550,9 +556,9 @@ fn scan_event(state: &mut State, widgets: &EventWidgets, event: ScanEvent) {
             }
 
             if is_current {
-                widgets.upgrade.disable(0, "You are running the most current Pop!_OS version");
+                widgets.upgrade.disable(0, &fl!("release-current"));
             } else if status_failed {
-                widgets.upgrade.disable(0, "Failed to check for upgrade status");
+                widgets.upgrade.disable(0, &fl!("error-upgrade-status"));
             } else {
                 connect_upgrade(state, widgets, is_lts, reboot_ready);
             }
@@ -571,14 +577,14 @@ fn scan_event(state: &mut State, widgets: &EventWidgets, event: ScanEvent) {
 }
 
 /// Creates the upgrade signal for the upgrade button.
-fn upgrade_action(sender: sync::Weak<flume::Sender<UiEvent>>) -> (&'static str, Box<dyn Fn()>) {
+fn upgrade_action(sender: sync::Weak<flume::Sender<UiEvent>>) -> (String, Box<dyn Fn()>) {
     let action: Box<dyn Fn()> = Box::new(move || {
         if let Some(sender) = sender.upgrade() {
             let _ = sender.send(UiEvent::Upgrade(OsUpgradeEvent::Dialog));
         }
     });
 
-    ("Upgrade", action)
+    (fl!("button-upgrade"), action)
 }
 
 /// Triggers on clicking the upgrade button
@@ -591,7 +597,7 @@ fn upgrade_clicked(state: &mut State, widgets: &EventWidgets) {
     if let Some(info) = state.upgrade_version.clone() {
         (state.callback_event.borrow())(Event::Upgrading);
 
-        widgets.upgrade.options[0].label("Preparing Upgrade").show_progress();
+        widgets.upgrade.options[0].label(&fl!("upgrade-preparing")).show_progress();
 
         widgets.recovery.options[RECOVERY_PARTITION].sensitive(false);
         widgets.recovery.options[REFRESH_OS].sensitive(false);
@@ -626,7 +632,7 @@ mod recovery {
 
         let allow_refresh = if state.recovery_urgent {
             let signal = Some((
-                "Update",
+                fl!("button-update"),
                 Box::new(enclose!((state.gui_sender => sender) move || {
                     if let Some(sender) = sender.upgrade() {
                         let _ = sender.send(UiEvent::Recovery(OsRecoveryEvent::Update));
@@ -635,7 +641,7 @@ mod recovery {
             ));
 
             recovery_option
-                .label("Recovery partition update is available")
+                .label(&fl!("recovery-update-found"))
                 .sublabel(None)
                 .button_signal(signal);
 
@@ -647,14 +653,14 @@ mod recovery {
             true
         } else if status_failed {
             recovery_option
-                .label("Recovery Partition")
-                .sublabel(Some("Failed to check for recovery updates"))
+                .label(&fl!("recovery-header"))
+                .sublabel(Some(&fl!("error-recovery-check")))
                 .hide_widgets();
             true
         } else {
             recovery_option
-                .label("Recovery Partition")
-                .sublabel(Some("You have the most current version of the recovery partition"))
+                .label(&fl!("recovery-header"))
+                .sublabel(Some(&fl!("most-current-recovery")))
                 .hide_widgets();
             true
         };

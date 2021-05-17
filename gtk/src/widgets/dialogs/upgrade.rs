@@ -1,5 +1,5 @@
 use super::DialogTemplate;
-use crate::battery;
+use crate::{battery, fl};
 use gtk::prelude::*;
 use pop_upgrade::changelogs;
 
@@ -15,10 +15,13 @@ pub struct UpgradeDialog {
 impl UpgradeDialog {
     pub fn new(since: &str, version: &str) -> Self {
         let title = gtk::LabelBuilder::new()
-            .label(
-                &["Pop!_OS ", version, " is available. ", battery_label(), "New features include:"]
-                    .concat(),
-            )
+            .label(&fomat!(
+                (fl!("upgrade-available", version = version)) " "
+                if battery::active() {
+                    (fl!("battery-notice")) " "
+                }
+                (fl!("new-features-include"))
+            ))
             .use_markup(true)
             .xalign(0.0)
             .build();
@@ -43,14 +46,14 @@ impl UpgradeDialog {
                 }
             }
             None => {
-                add_changelog(&changelog_list, "No changelog found");
+                add_changelog(&changelog_list, &fl!("error-no-changelog-found"));
             }
         }
 
         let dialog = DialogTemplate::new(
             "distributor-logo",
-            "Upgrade",
-            "Reboot & Upgrade",
+            &fl!("button-upgrade"),
+            &fl!("button-perform-upgrade"),
             &gtk::STYLE_CLASS_DESTRUCTIVE_ACTION,
             |content| {
                 content.add(&title);
@@ -81,12 +84,4 @@ fn add_version(changelogs: &gtk::Box, version: &str) {
     let upgrade_label =
         gtk::LabelBuilder::new().label(&["Pop!_OS ", version].concat()).xalign(0.0).build();
     changelogs.add(&upgrade_label);
-}
-
-fn battery_label() -> &'static str {
-    if battery::active() {
-        "<b>Plug into power</b> before you begin. "
-    } else {
-        ""
-    }
 }

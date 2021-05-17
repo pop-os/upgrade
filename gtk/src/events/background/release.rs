@@ -127,7 +127,6 @@ pub fn update(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
 
         let error = &mut None;
 
-        debug!("listening for package fetching signals");
         let _ = client.event_listen(
             DaemonStatus::FetchingPackages,
             Client::fetch_updates_status,

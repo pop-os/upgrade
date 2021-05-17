@@ -1,7 +1,7 @@
 use gtk::prelude::*;
 
 use super::DialogTemplate;
-use crate::battery;
+use crate::{battery, fl};
 
 #[derive(AsRef, Deref)]
 #[as_ref]
@@ -13,8 +13,8 @@ impl RefreshDialog {
         Self(cascade! {
             DialogTemplate::new(
                 "view-refresh",
-                "Refresh OS Install",
-                "Reboot & Refresh",
+                &fl!("dialog-refresh-title"),
+                &fl!("button-perform-refresh"),
                 &gtk::STYLE_CLASS_DESTRUCTIVE_ACTION,
                 |content| {
                     if battery::active() {
@@ -31,27 +31,13 @@ impl RefreshDialog {
 }
 
 fn battery_notice() -> gtk::Label {
-    gtk::LabelBuilder::new()
-        .label("<b>Plug into power</b> before you begin.")
-        .use_markup(true)
-        .xalign(0.0)
-        .build()
+    gtk::LabelBuilder::new().label(&fl!("battery-notice")).use_markup(true).xalign(0.0).build()
 }
 
 fn refresh_description() -> gtk::Label {
-    const DESCRIPTION: &str = r#"When you refresh the OS:
-
-* All user accounts and files in the /home directory will be kept
-* Users and user groups will be retained
-* All applications installed by the user will be removed
-* All files outside of the /home directory in the OS partition will be lost
-* All system-wide configuration changes will be lost, with the exception of:
-    - The system timezone
-    - The system language
-    - The system keyboard layout
-    - Network configurations managed by NetworkManager
-
-Please be sure to save all of your work before clicking to reboot."#;
-
-    gtk::LabelBuilder::new().label(DESCRIPTION).wrap(true).xalign(0.0).build()
+    gtk::LabelBuilder::new()
+        .label(&fl!("dialog-refresh-description"))
+        .wrap(true)
+        .xalign(0.0)
+        .build()
 }

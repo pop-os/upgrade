@@ -4,7 +4,7 @@ bindir = $(prefix)/bin
 includedir = $(prefix)/include
 libdir = $(prefix)/lib
 
-SRC = Makefile Cargo.lock Cargo.toml $(shell find src -type f -wholename '*src/*.rs')
+SRC = Cargo.lock Cargo.toml $(shell find src -type f -wholename '*src/*.rs')
 LIB_SRC = $(SRC) gtk/Cargo.toml gtk/ffi/Cargo.toml $(shell find gtk -type f -wholename '*src/*.rs')
 
 PACKAGE=pop_upgrade_gtk
@@ -77,19 +77,13 @@ $(BINARY): $(SRC) extract-vendor
 $(LIBRARY): $(LIB_SRC) extract-vendor
 	cargo build $(ARGS) -p pop-upgrade-gtk-ffi
 
-target/$(NOTIFY).service: Makefile tools/src/notify.rs extract-vendor
+target/$(NOTIFY).service: tools/src/notify.rs extract-vendor
 	env prefix=$(prefix) cargo run -p tools --bin notify-gen $(ARGS)
 
-notify-desktop target/$(STARTUP_DESKTOP): Makefile tools/src/desktop_entry.rs extract-vendor
-	cargo run -p tools --bin desktop-entry $(ARGS) -- \
-		--appid $(NOTIFY_APPID) \
-		--name "Pop!_OS Release Check" \
-		--icon distributor-logo-upgrade-symbolic \
-		--comment "Check for a new OS release, and display notification if found" \
-		--categories System \
-		--binary pop-upgrade \
-		--args "release check" \
-		--prefix $(prefix)
+notify-desktop: target/$(STARTUP_DESKTOP)
+
+target/$(STARTUP_DESKTOP):
+	sed "s#{{exec}}#$(prefix)/pop-upgrade release check#g" data/$(STARTUP_DESKTOP) > "$@"
 
 $(PKGCONFIG):
 	echo "libdir=$(libdir)" > "$@.partial"

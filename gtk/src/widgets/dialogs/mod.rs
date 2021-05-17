@@ -3,6 +3,7 @@ mod upgrade;
 
 pub use self::{refresh::RefreshDialog, upgrade::UpgradeDialog};
 
+use crate::fl;
 use gtk::prelude::*;
 
 #[derive(AsRef, Deref)]
@@ -18,7 +19,7 @@ impl DialogTemplate {
         accept_style: &'static str,
         func: F,
     ) -> Self {
-        let cancel = gtk::Button::with_label("Cancel".into());
+        let cancel = gtk::Button::with_label(&fl!("button-cancel"));
 
         let accept = cascade! {
             gtk::Button::with_label(accept);
