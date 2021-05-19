@@ -5,7 +5,7 @@ export DEBIAN_FRONTEND="noninteractive"
 # Prevent apt sources from being reverted once this script launches
 rm -rf /pop-upgrade /pop_preparing_release_upgrade
 
-PREINST=(zlib1g)
+PREINST=(zlib1g libc6:i386 libmount1:i386)
 
 message () {
     plymouth message --text="system-updates"
@@ -106,11 +106,15 @@ apt_full_upgrade () {
 
 apt_install_prereq () {
     message -i "Installing Prerequisites"
-    env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
-        -o Dpkg::Options::="--force-confdef" \
-        -o Dpkg::Options::="--force-confold" \
-        install -y --allow-downgrades --show-progress \
-        --no-download --ignore-missing ${PREINST[@]}
+    for package in ${PREINST[@]}; do
+      if [[ $(dpkg -s $package | wc -l) > 0 ]]; then
+        env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
+          -o Dpkg::Options::="--force-confdef" \
+          -o Dpkg::Options::="--force-confold" \
+          install -y --allow-downgrades --show-progress \
+          --no-download --ignore-missing $package
+      fi
+    done
 }
 
 upgrade () {
