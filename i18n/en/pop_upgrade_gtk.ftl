@@ -14,13 +14,14 @@ button-upgrade = Upgrade
 checking-for-updates = Checking for updates ...
 
 dialog-refresh-title = Refresh OS Install
-dialog-refresh-description = When you refresh the OS:
+dialog-refresh-description =
+ When you refresh the OS:
  
- * All user accounts and files in the /home directory will be kept
- * Users and user groups will be retained
- * All applications installed by the user will be removed
- * All files outside of the /home directory in the OS partition will be lost
- * All system-wide configuration changes will be lost, with the exception of:
+ {"*"} All user accounts and files in the /home directory will be kept
+ {"*"} Users and user groups will be retained
+ {"*"} All applications installed by the user will be removed
+ {"*"} All files outside of the /home directory in the OS partition will be lost
+ {"*"} All system-wide configuration changes will be lost, with the exception of:
      - The system timezone
      - The system language
      - The system keyboard layout
