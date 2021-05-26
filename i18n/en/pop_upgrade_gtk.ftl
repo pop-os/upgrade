@@ -19,8 +19,8 @@ dialog-refresh-description =
  
  {"*"} All user accounts and files in the /home directory will be kept
  {"*"} Users and user groups will be retained
- {"*"} All applications installed by the user will be removed
- {"*"} All files outside of the /home directory in the OS partition will be lost
+ {"*"} All system applications installed by the user will be removed
+ {"*"} All files in the OS partition outside of the /home directory will be lost
  {"*"} All system-wide configuration changes will be lost, with the exception of:
      - The system timezone
      - The system language
