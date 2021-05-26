@@ -10,11 +10,16 @@ pub struct Dismisser {
 }
 
 impl Dismisser {
-    pub fn new<F: Fn() + 'static>(release: &str, _dismiss_action: F) -> Self {
+    pub fn new<F: Fn() + 'static>(release: &str, dismiss_action: F) -> Self {
         let button = gtk::ButtonBuilder::new()
             .label(&fl!("button-dismiss"))
             .valign(gtk::Align::Center)
             .build();
+
+        button.connect_clicked(move |button| {
+            button.set_sensitive(false);
+            dismiss_action();
+        });
 
         let title =
             gtk::LabelBuilder::new().label(&fl!("notification-dismiss-label")).xalign(0.0).build();
