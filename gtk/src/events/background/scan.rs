@@ -33,7 +33,7 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
             Ok(info) => {
                 is_lts = info.is_lts;
                 if devel || info.build >= 0 {
-                    info!("upgrade from {} to {} is available", info.current, info.next);
+                    log::info!("upgrade from {} to {} is available", info.current, info.next);
 
                     let upgrade_text = Cow::Owned(if reboot_ready {
                         format!("Pop!_OS is ready to upgrade to {}", info.next)
@@ -54,7 +54,7 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
             }
             Err(why) => {
                 status_failed = true;
-                error!("failed to check for updates: {}", why);
+                log::error!("failed to check for updates: {}", why);
                 Cow::Borrowed("Failed to check for updates")
             }
         }

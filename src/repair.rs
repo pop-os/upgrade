@@ -29,7 +29,7 @@ pub enum RepairError {
 }
 
 pub async fn repair() -> Result<(), RepairError> {
-    info!("performing release repair");
+    log::info!("performing release repair");
 
     crypttab::repair().map_err(RepairError::Crypttab)?;
     fstab::repair().map_err(RepairError::Fstab)?;

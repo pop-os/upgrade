@@ -21,6 +21,7 @@ use apt_cmd::{
 };
 use envfile::EnvFile;
 use futures::prelude::*;
+use num_derive::FromPrimitive;
 use std::{
     collections::HashSet,
     convert::TryFrom,
@@ -200,9 +201,9 @@ impl DaemonRuntime {
                 .context("failed to fetch package URIs from apt-get")?;
 
             for package in packages {
-                info!("sending package");
+                log::info!("sending package");
                 let _ = fetch_tx.send_async(Arc::new(package)).await;
-                info!("sending package");
+                log::info!("sending package");
             }
 
             Ok::<(), anyhow::Error>(())
@@ -210,9 +211,9 @@ impl DaemonRuntime {
 
         // The system that handles events received from the package-fetcher
         let receiver = async move {
-            info!("receiving packages");
+            log::info!("receiving packages");
             while let Some(event) = events.next().await {
-                debug!("Package Fetch Event: {:#?}", event);
+                log::debug!("Package Fetch Event: {:#?}", event);
 
                 match event.kind {
                     EventKind::Fetching => {
@@ -255,7 +256,7 @@ impl DaemonRuntime {
         let current = codename_from_version(current);
         let new = codename_from_version(new);
 
-        info!("checking if release can be upgraded from {} to {}", current, new);
+        log::info!("checking if release can be upgraded from {} to {}", current, new);
 
         // In case the system abruptly shuts down after this point, create a file to signal
         // that packages were being fetched for a new release.
@@ -276,10 +277,10 @@ impl DaemonRuntime {
         };
 
         if let Err(why) = update_sources.await {
-            error!("failed to update sources: {}", why);
+            log::error!("failed to update sources: {}", why);
 
             if let Err(why) = repos::restore(current) {
-                error!("failed to restore source lists: {:?}", why);
+                log::error!("failed to restore source lists: {:?}", why);
             }
 
             return Err(why).context("failed to update sources");
@@ -294,7 +295,7 @@ impl DaemonRuntime {
 
         let apt_upgrade = || async {
             apt_lock_wait().await;
-            info!("upgrading packages");
+            log::info!("upgrading packages");
             let (mut child, mut upgrade_events) =
                 AptGet::new().noninteractive().allow_downgrades().force().stream_upgrade().await?;
 
@@ -306,18 +307,18 @@ impl DaemonRuntime {
         };
 
         apt_lock_wait().await;
-        info!("autoremoving packages");
+        log::info!("autoremoving packages");
         let _ =
             AptGet::new().noninteractive().allow_downgrades().force().autoremove().status().await;
 
         // If the first upgrade attempt fails, try to dpkg --configure -a and try again.
         if apt_upgrade().await.is_err() {
             apt_lock_wait().await;
-            info!("dpkg --configure -a");
+            log::info!("dpkg --configure -a");
             let dpkg_configure = Dpkg::new().configure_all().status().await.is_err();
 
             apt_lock_wait().await;
-            info!("checking for broken packages");
+            log::info!("checking for broken packages");
             AptGet::new()
                 .noninteractive()
                 .fix_broken()
@@ -329,7 +330,7 @@ impl DaemonRuntime {
 
             if dpkg_configure {
                 apt_lock_wait().await;
-                info!("dpkg --configure -a");
+                log::info!("dpkg --configure -a");
                 Dpkg::new().configure_all().status().await.map_err(ReleaseError::DpkgConfigure)?
             }
 
@@ -337,7 +338,7 @@ impl DaemonRuntime {
         }
 
         apt_lock_wait().await;
-        info!("autoremoving packages");
+        log::info!("autoremoving packages");
         let _ =
             AptGet::new().noninteractive().force().allow_downgrades().autoremove().status().await;
 
@@ -382,14 +383,14 @@ impl DaemonRuntime {
 
         let version = codename_from_version(from);
 
-        info!("creating backup of source lists");
+        log::info!("creating backup of source lists");
         repos::backup(version).map_err(ReleaseError::BackupPPAs)?;
 
-        info!("disabling third party sources");
+        log::info!("disabling third party sources");
         repos::disable_third_parties(version).map_err(ReleaseError::DisablePPAs)?;
 
         if repos::is_eol(from_codename) && repos::is_old_release(from_codename) {
-            info!("switching to old-releases repositories");
+            log::info!("switching to old-releases repositories");
             repos::replace_with_old_releases().map_err(ReleaseError::OldReleaseSwitch)?;
         }
 
@@ -462,7 +463,7 @@ impl DaemonRuntime {
         let _ = self.fetch_new_release_packages(logger, fetch, from, to).await?;
 
         if let Err(why) = crate::gnome_extensions::disable() {
-            error!(
+            log::error!(
                 "failed to disable gnome-shell extensions: {}",
                 crate::misc::format_error(why.as_ref())
             )
@@ -482,7 +483,7 @@ impl DaemonRuntime {
         let processes = match procfs::process::all_processes() {
             Ok(proc) => proc,
             Err(why) => {
-                warn!("failed to fetch running processes: {}", why);
+                log::warn!("failed to fetch running processes: {}", why);
                 return;
             }
         };
@@ -533,7 +534,7 @@ impl DaemonRuntime {
         logger: &'a dyn Fn(UpgradeEvent),
         fetch: Arc<dyn Fn(FetchEvent) + Send + Sync>,
     ) -> RelResult<()> {
-        info!("fetching packages for the new release");
+        log::info!("fetching packages for the new release");
         (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
 
         let uris = crate::fetch::apt::fetch_uris(None).await.map_err(ReleaseError::AptList)?;
@@ -558,7 +559,7 @@ impl DaemonRuntime {
 
         // Use a closure to capture any early returns due to an error.
         let updated_list_ops = || async {
-            info!("updated the package lists for the new release");
+            log::info!("updated the package lists for the new release");
             apt_lock_wait().await;
             (logger)(UpgradeEvent::UpdatingPackageLists);
             AptGet::new().noninteractive().update().await.map_err(ReleaseError::ReleaseUpdate)?;
@@ -567,7 +568,7 @@ impl DaemonRuntime {
 
             self.attempt_fetch(logger, fetch).await?;
 
-            info!("packages fetched successfully");
+            log::info!("packages fetched successfully");
 
             (*logger)(UpgradeEvent::Simulating);
 
@@ -605,10 +606,10 @@ pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResul
 }
 
 fn rollback(release: &str, why: &(dyn std::error::Error + 'static)) {
-    error!("failed to fetch packages: {}", crate::misc::format_error(why));
-    warn!("attempting to roll back apt release files");
+    log::error!("failed to fetch packages: {}", crate::misc::format_error(why));
+    log::warn!("attempting to roll back apt release files");
     if let Err(why) = repos::restore(release) {
-        error!(
+        log::error!(
             "failed to revert release name changes to source lists in /etc/apt/: {}",
             crate::misc::format_error(why.as_ref())
         );
@@ -679,13 +680,13 @@ fn unset_recovery_as_default_boot_option(option: &str) -> RelResult<bool> {
 }
 
 fn systemd_boot_loader_swap(loader: LoaderEntry, description: &str) -> RelResult<()> {
-    info!("gathering systemd-boot configuration information");
+    log::info!("gathering systemd-boot configuration information");
 
     let mut systemd_boot_conf =
         SystemdBootConf::new("/boot/efi").map_err(ReleaseError::SystemdBootConf)?;
 
     {
-        info!("found the systemd-boot config -- searching for the {}", description);
+        log::info!("found the systemd-boot config -- searching for the {}", description);
         let SystemdBootConf { ref entries, ref mut loader_conf, .. } = systemd_boot_conf;
         let recovery_entry = entries
             .iter()
@@ -698,7 +699,7 @@ fn systemd_boot_loader_swap(loader: LoaderEntry, description: &str) -> RelResult
         loader_conf.default = Some(recovery_entry.id.to_owned());
     }
 
-    info!("found the {} -- setting it as the default boot entry", description);
+    log::info!("found the {} -- setting it as the default boot entry", description);
     systemd_boot_conf.overwrite_loader_conf().map_err(ReleaseError::SystemdBootConfOverwrite)
 }
 
@@ -716,7 +717,7 @@ pub async fn cleanup() {
 
     for &file in [RELEASE_FETCH_FILE, STARTUP_UPGRADE_FILE].iter() {
         if Path::new(file).exists() {
-            info!("cleaning up after failed upgrade");
+            log::info!("cleaning up after failed upgrade");
 
             match Version::detect() {
                 Ok(version) => {
@@ -728,7 +729,7 @@ pub async fn cleanup() {
                     let _ = crate::release::repos::restore(codename);
                 }
                 Err(why) => {
-                    error!("could not detect distro release version: {}", why);
+                    log::error!("could not detect distro release version: {}", why);
                 }
             }
 

@@ -122,33 +122,15 @@ pub struct Client {
 }
 
 impl Client {
-    /// Attempts to create a new dbus connection to the upgrade daemon.
     pub fn new() -> Result<Self, Error> {
-        fn add_match(cbus: &Connection, member: &'static str) -> Result<(), Error> {
-            cbus.add_match(&format!("interface='{}',member='{}'", DBUS_IFACE, member))
-                .map_err(Error::AddMatch)?;
+        let bus = initialize_dbus_connection()?;
+        Ok(Self { bus })
+    }
 
-            Ok(())
-        }
-
-        Connection::get_private(BusType::System).map_err(Error::Connection).and_then(|bus| {
-            {
-                let bus = &bus;
-                add_match(bus, signals::NO_CONNECTION)?;
-                add_match(bus, signals::PACKAGE_FETCH_RESULT)?;
-                add_match(bus, signals::PACKAGE_FETCHED)?;
-                add_match(bus, signals::PACKAGE_FETCHING)?;
-                add_match(bus, signals::PACKAGE_UPGRADE)?;
-                add_match(bus, signals::RECOVERY_DOWNLOAD_PROGRESS)?;
-                add_match(bus, signals::RECOVERY_RESULT)?;
-                add_match(bus, signals::RECOVERY_EVENT)?;
-                add_match(bus, signals::RELEASE_RESULT)?;
-                add_match(bus, signals::RELEASE_EVENT)?;
-                add_match(bus, signals::REPO_COMPAT_ERROR)?;
-            }
-
-            Ok(Client { bus })
-        })
+    /// Attempts to create a new dbus connection to the upgrade daemon.
+    pub fn reinitialize_dbus_connection(&mut self) -> Result<(), Error> {
+        self.bus = initialize_dbus_connection()?;
+        Ok(())
     }
 
     /// Cancel the active process which is in progress
@@ -433,6 +415,34 @@ impl Client {
         let status = PrimaryStatus::from_u8(status.status).ok_or(Error::DaemonStatusOutOfRange)?;
         Ok(status == expected)
     }
+}
+
+fn initialize_dbus_connection() -> Result<Connection, Error> {
+    fn add_match(cbus: &Connection, member: &'static str) -> Result<(), Error> {
+        cbus.add_match(&format!("interface='{}',member='{}'", DBUS_IFACE, member))
+            .map_err(Error::AddMatch)?;
+
+        Ok(())
+    }
+
+    Connection::get_private(BusType::System).map_err(Error::Connection).and_then(|bus| {
+        {
+            let bus = &bus;
+            add_match(bus, signals::NO_CONNECTION)?;
+            add_match(bus, signals::PACKAGE_FETCH_RESULT)?;
+            add_match(bus, signals::PACKAGE_FETCHED)?;
+            add_match(bus, signals::PACKAGE_FETCHING)?;
+            add_match(bus, signals::PACKAGE_UPGRADE)?;
+            add_match(bus, signals::RECOVERY_DOWNLOAD_PROGRESS)?;
+            add_match(bus, signals::RECOVERY_RESULT)?;
+            add_match(bus, signals::RECOVERY_EVENT)?;
+            add_match(bus, signals::RELEASE_RESULT)?;
+            add_match(bus, signals::RELEASE_EVENT)?;
+            add_match(bus, signals::REPO_COMPAT_ERROR)?;
+        }
+
+        Ok(bus)
+    })
 }
 
 fn filter_signal(ci: ConnectionItem) -> Option<Message> {

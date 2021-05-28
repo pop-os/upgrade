@@ -9,6 +9,7 @@ use dbus::{
 };
 
 use crate::misc::format_error;
+use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::atomic::Ordering};
 
@@ -213,7 +214,7 @@ pub fn refresh_os(daemon: Rc<RefCell<Daemon>>, dbus_factory: &DbusFactory) -> Me
             _ => RefreshOp::Status,
         })?;
 
-        info!("responding with value of {}", value);
+        log::info!("responding with value of {}", value);
 
         Ok(vec![value.into()])
     });

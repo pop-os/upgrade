@@ -49,7 +49,7 @@ pub struct Release {
 
 impl Release {
     pub fn get_release(version: &str, channel: &str) -> Result<Release, ApiError> {
-        info!("checking for build {} in channel {}", version, channel);
+        log::info!("checking for build {} in channel {}", version, channel);
         let url = [BASE, "builds/", version, "/", channel].concat();
 
         let response = isahc::get(&url).map_err(ApiError::Get)?;

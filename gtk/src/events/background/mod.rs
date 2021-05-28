@@ -35,7 +35,7 @@ pub fn run(
 ) {
     let send: &dyn Fn(UiEvent) = &send;
     if let Ok(ref mut client) = Client::new() {
-        info!("Checking for updates to daemon");
+        log::info!("Checking for updates to daemon");
         if client.update_and_restart().unwrap_or(false) {
             send(UiEvent::Updating);
             let file = std::path::Path::new(pop_upgrade::RESTART_SCHEDULED);

@@ -26,7 +26,7 @@ impl<'a> DbusFactory<'a> {
                 Ok(vec![mret])
             }
             Err(why) => {
-                error!("{}", why);
+                log::error!("{}", why);
                 Err(MethodErr::failed(&why))
             }
         });

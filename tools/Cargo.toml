@@ -15,5 +15,6 @@ path = "src/notify.rs"
 
 [dependencies]
 markup = "0.3"
-clap = "2.33.0"
+clap = "3.0.0-beta.2"
 freedesktop-desktop-entry = "0.1"
+structopt = "0.3.21"

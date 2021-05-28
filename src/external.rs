@@ -1,9 +1,10 @@
 use async_process::{Command, Stdio};
+use cascade::cascade;
 use futures::{io::BufReader, prelude::*};
 use std::{io, path::Path};
 
 pub async fn findmnt_uuid<P: AsRef<Path>>(path: P) -> io::Result<String> {
-    let mut cmd = cascade::cascade! {
+    let mut cmd = cascade! {
         Command::new("findmnt");
         ..stdout(Stdio::piped());
         ..args(&["-n", "-o", "UUID"]);

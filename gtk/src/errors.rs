@@ -22,7 +22,7 @@ pub enum UiError {
 }
 
 impl UiError {
-    pub fn iter_sources(&self) -> ErrorIter<'_> { ErrorIter { current: self.source() } }
+    pub fn iter_sources(&self) -> ErrorIter { ErrorIter { current: self.source() } }
 }
 
 #[derive(Debug, Error)]

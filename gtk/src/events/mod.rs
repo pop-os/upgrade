@@ -173,7 +173,7 @@ pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut 
             }
 
             UiEvent::Completed(CompletedEvent::Recovery) => {
-                info!("successfully upgraded recovery partition");
+                log::info!("successfully upgraded recovery partition");
             }
 
             UiEvent::Completed(CompletedEvent::Refresh) => reboot(),
@@ -201,14 +201,14 @@ pub fn attach(gui_receiver: glib::Receiver<UiEvent>, widgets: EventWidgets, mut 
             UiEvent::ReleaseUpgradeDialog => release_upgrade_dialog(&mut state, &widgets),
 
             UiEvent::Dismissed(dismissed) => {
-                info!("{} release", if dismissed { "dismissed" } else { "un-dismissed" });
+                log::info!("{} release", if dismissed { "dismissed" } else { "un-dismissed" });
                 if let Some(dismisser) = state.dismisser.as_mut() {
                     dismisser.set_dismissed(dismissed);
                 }
             }
 
             UiEvent::StatusChanged(from, to, why) => {
-                warn!("status changed from {} to {}: {}", from, to, why);
+                log::warn!("status changed from {} to {}: {}", from, to, why);
                 let _ = state.sender.send(BackgroundEvent::GetStatus(from));
             }
 
@@ -267,7 +267,7 @@ fn connect_upgrade(state: &mut State, widgets: &EventWidgets, is_lts: bool, rebo
             }
         }
         Err(why) => {
-            error!("failed to fetch EOL date: {}", why);
+            log::error!("failed to fetch EOL date: {}", why);
             None
         }
     };
@@ -375,7 +375,7 @@ fn error(state: &mut State, widgets: &EventWidgets, why: UiError) {
             .as_str(),
     );
 
-    error!("{}", error_message);
+    log::error!("{}", error_message);
 
     if let UiError::Dismiss(dismissed, _) = why {
         if let Some(dismisser) = state.dismisser.as_mut() {

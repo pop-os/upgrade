@@ -1,5 +1,6 @@
 use super::eol::{EolDate, EolStatus};
 use anyhow::Context;
+use fomat_macros::fomat;
 use os_str_bytes::OsStrBytes;
 use std::{
     ffi::OsStr,
@@ -43,7 +44,7 @@ pub fn backup(release: &str) -> anyhow::Result<()> {
         iter_files(dir, |entry| {
             let path = entry.path();
             if path.extension().map_or(false, |e| e == "save") {
-                info!("removing old backup at {}", path.display());
+                log::info!("removing old backup at {}", path.display());
                 fs::remove_file(&path)
                     .with_context(|| fomat!("failed to remove backup at "(path.display())))?;
             }
@@ -60,7 +61,7 @@ pub fn backup(release: &str) -> anyhow::Result<()> {
                 let dst_path_str = OsStr::from_bytes(&dst_path_buf).unwrap();
                 let dst_path = Path::new(&dst_path_str);
 
-                info!("creating backup of {} to {}", src_path.display(), dst_path.display());
+                log::info!("creating backup of {} to {}", src_path.display(), dst_path.display());
                 fs::copy(&src_path, dst_path).with_context(
                     || fomat!("failed to copy " (src_path.display()) " to " (dst_path.display())),
                 )?;
@@ -72,15 +73,15 @@ pub fn backup(release: &str) -> anyhow::Result<()> {
 
     if Path::new(MAIN_FILE).exists() {
         if Path::new(BACKUP_MAIN_FILE).exists() {
-            info!("removing old backup at {}", BACKUP_MAIN_FILE);
+            log::info!("removing old backup at {}", BACKUP_MAIN_FILE);
             fs::remove_file(BACKUP_MAIN_FILE).context("failed to remove backup of sources.list")?;
         }
-        info!("creating backup of {} to {}", MAIN_FILE, BACKUP_MAIN_FILE);
+        log::info!("creating backup of {} to {}", MAIN_FILE, BACKUP_MAIN_FILE);
         fs::copy(MAIN_FILE, BACKUP_MAIN_FILE)
             .context("failed to copy sources list to backup path")
             .map(|_| ())
     } else {
-        info!("sources list was not found — creating a new one");
+        log::info!("sources list was not found — creating a new one");
         create_new_sources_list(release).context("failed to create new sources.list")
     }
 }
@@ -99,7 +100,7 @@ pub fn disable_third_parties(release: &str) -> anyhow::Result<()> {
                 }
             }
 
-            info!("disabling sources in {}", path.display());
+            log::info!("disabling sources in {}", path.display());
 
             let contents = fs::read_to_string(&path)
                 .with_context(|| fomat!("failed to read "(&path.display())))?;
@@ -162,7 +163,7 @@ pub fn replace_with_old_releases() -> io::Result<()> {
 
 /// Restore a previous backup of the sources lists
 pub fn restore(release: &str) -> anyhow::Result<()> {
-    info!("restoring release files for {}", release);
+    log::info!("restoring release files for {}", release);
 
     let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
     iter_files(dir, |entry| {
@@ -173,7 +174,7 @@ pub fn restore(release: &str) -> anyhow::Result<()> {
             let dst_str = OsStr::from_bytes(dst_bytes).unwrap();
             let dst = Path::new(&dst_str);
 
-            info!("restoring source list at {}", dst.display());
+            log::info!("restoring source list at {}", dst.display());
 
             if dst.exists() {
                 fs::remove_file(dst).with_context(|| fomat!("failed to remove "(dst.display())))?;
@@ -188,7 +189,7 @@ pub fn restore(release: &str) -> anyhow::Result<()> {
     })?;
 
     if Path::new(BACKUP_MAIN_FILE).exists() {
-        info!("restoring system sources list");
+        log::info!("restoring system sources list");
 
         if Path::new(MAIN_FILE).exists() {
             fs::remove_file(MAIN_FILE).context("failed to remove modified system sources.list")?;

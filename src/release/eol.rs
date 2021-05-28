@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use chrono::{Date, NaiveDate, Utc};
 use std::convert::TryFrom;
 use ubuntu_version::{Codename, Version};

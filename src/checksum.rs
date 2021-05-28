@@ -18,7 +18,7 @@ pub enum ValidateError {
 }
 
 pub async fn validate_checksum(file: &mut File, checksum: &str) -> Result<(), ValidateError> {
-    info!("validating checksum of downloaded ISO");
+    log::info!("validating checksum of downloaded ISO");
     let expected = <[u8; 32]>::from_hex(checksum)
         .map(GenericArray::from)
         .map_err(|_| ValidateError::InvalidInput)?;
