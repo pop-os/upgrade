@@ -15,7 +15,7 @@ as-result = "0.2"
 async-fs = "1.5"
 async-io = "1.4.0"
 async-lock = "2.4.0"
-atomic = "0.4"
+atomic = "0.5"
 atty = "0.2"
 bitflags = "1.2"
 chrono = "0.4"
@@ -69,6 +69,9 @@ async-process = "1.1"
 smolscale = "0.2"
 users = "0.11.0"
 dbus-crossroads = "0.3.0"
+
+# TODO: This dependency only exists to fix a compiler error
+spinning_top = "=0.2.2"
 
 [patch.crates-io]
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
