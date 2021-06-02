@@ -1,4 +1,4 @@
-prefix ?= /usr
+export prefix ?= /usr
 sysconfdir ?= /etc
 bindir = $(prefix)/bin
 includedir = $(prefix)/include
@@ -77,13 +77,10 @@ $(BINARY): $(SRC) extract-vendor
 $(LIBRARY): $(LIB_SRC) extract-vendor
 	cargo build $(ARGS) -p pop-upgrade-gtk-ffi
 
-target/$(NOTIFY).service: tools/src/notify.rs extract-vendor
-	env prefix=$(prefix) cargo run -p tools --bin notify-gen $(ARGS)
-
 notify-desktop: target/$(STARTUP_DESKTOP)
 
 target/$(STARTUP_DESKTOP):
-	sed "s#{{exec}}#$(prefix)/pop-upgrade release check#g" data/$(STARTUP_DESKTOP) > "$@"
+	sed "s#{{exec}}#$(prefix)/bin/pop-upgrade release check#g" data/$(STARTUP_DESKTOP) > "$@"
 
 $(PKGCONFIG):
 	echo "libdir=$(libdir)" > "$@.partial"
