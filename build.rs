@@ -33,7 +33,7 @@ fn systemd_timer(description: &str, appid: &str, minutes: u16) -> String {
 }
 
 fn main() {
-    let prefix = env::var("prefix").unwrap();
+    let prefix = env::var("prefix").unwrap_or_else(|_| String::from("/usr"));
 
     let timer_path = ["target/", NOTIFY_SERVICE, ".timer"].concat();
     let service_path = ["target/", NOTIFY_SERVICE, ".service"].concat();
@@ -59,5 +59,4 @@ fn main() {
         .expect("failed to create desktop file for notification service")
         .write_all(desktop.as_bytes())
         .expect("failed to write desktop file for notification service");
-
 }
