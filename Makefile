@@ -77,11 +77,6 @@ $(BINARY): $(SRC) extract-vendor
 $(LIBRARY): $(LIB_SRC) extract-vendor
 	cargo build $(ARGS) -p pop-upgrade-gtk-ffi
 
-notify-desktop: target/$(STARTUP_DESKTOP)
-
-target/$(STARTUP_DESKTOP):
-	sed "s#{{exec}}#$(prefix)/bin/pop-upgrade release check#g" data/$(STARTUP_DESKTOP) > "$@"
-
 $(PKGCONFIG):
 	echo "libdir=$(libdir)" > "$@.partial"
 	echo "includedir=$(includedir)" >> "$@.partial"
