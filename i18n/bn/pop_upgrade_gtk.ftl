@@ -15,19 +15,19 @@ checking-for-updates = হালনাগাদ আছে কিনা দেখ
 
 dialog-refresh-title = রিফ্রেশ ওএস ইন্সটল করো
 dialog-refresh-description =
- When you refresh the OS:
+ যখন তুমি ওএস রিফ্রেশ করবে:
  
- {"*"} All user accounts and files in the /home directory will be kept
- {"*"} Users and user groups will be retained
- {"*"} All system applications installed by the user will be removed
- {"*"} All files in the OS partition outside of the /home directory will be lost
- {"*"} All system-wide configuration changes will be lost, with the exception of:
-     - The system timezone
-     - The system language
-     - The system keyboard layout
-     - Network configurations managed by NetworkManager
+ {"*"} /home শাখার সব অ্যাকাউন্ট ও ফাইল থাকবে
+ {"*"} ব্যবহারকারী ও ব্যবহারকারী দল থাকবে
+ {"*"} ব্যবহারকারীর ইন্সটলকৃত সব সিস্টেম অ্যাপ মুছে যাবে
+ {"*"} ওএস পার্টিশনের মধ্যে /home শাখা ব্যতীত সব তথ্য মুছে যাবে
+ {"*"} সিস্টেমের সব পরিবর্তন(কনফিগ) মুছে যাবে, ব্যতিক্রমগুলো নিম্নরূপ:
+     - সিস্টেমের সময় এলাকা
+     - সিস্টেমের ভাষা
+     - সিস্টেমের কিবোর্ড লেআউট
+     - নেটওয়ার্কম্যানাজার এর নিয়ন্ত্রিত নেটওয়ার্ক পরিবর্তনগুলো
  
- Please be sure to save all of your work before clicking to reboot.
+ Pঅনুগ্রহ করে রিবুট করার আগে তোমার সব কাজের তথ্য সংরক্ষণ করে নাও। 
 
 daemon-checking = ডিমনের হালনাগাদ আছে কিনা দেখা হচ্ছে
 daemon-updating = হালনাগাদের ডিমন হালনাগাদ করা হচ্ছে
@@ -39,16 +39,16 @@ eol-exceeded = {-os} {$current} এর সমর্থন শেষ হয়ে �
 eol-imminent = {-os} {$current} এর সমর্থন {$date} তারিখে শেষ হয়ে যাবে। নিরাপত্তা ও অ্যাপলিকেশন হালনাগাদের জন্য ওএস হালনাগাদ করো।
 eol-error = মেয়াদোত্তীর্ণের তারিখ পেতে ব্যর্থ
 
-error-build-status = Failed to retrieve build status due to an internal error
+error-build-status = অন্তর্বর্তী ত্রুটির জন্য বিল্ড অবস্থা জানতে ব্যর্থ
 error-collect-logs = If you are a System76 customer, please run the System76 Driver tool to collect logs and contact support with the logs.
-error-connection = Connection failed. You may be offline
-error-header = Looks like we've encountered an issue! No worries, these are a list of files which may have been changed:
-error-no-changelog-found = No changelog found
-error-originating-cause = Originating error cause
+error-connection = সংযোগ ব্যর্থ। তুমি হয়তো সংযোগহীন
+error-header = মনে হয় তুমি একটা সমস্যায় পরেছো! চিন্তা করো না, এই ফাইলগুলো পরিবর্তিত হয়ে থাকতে পারে:
+error-no-changelog-found = কোনো পরিবর্তনসূচী পাওয়া যায়নি
+error-originating-cause = ত্রুটির মূল কারণ
 error-package-manager = If you are seeing package manager issues, please run the following commands and send them to support in your support ticket:
 error-recovery-check = Failed to check for recovery updates
 error-recovery-download = Failed to download recovery update
-error-recovery-update = Recovery update failed
+error-recovery-update = উদ্ধার হালনাগাদ ব্যর্থ
 error-try-again = পরে আবার চেষ্টা করো
 error-unknown-status = অজানা অবস্থা পাওয়া গেছে।
 error-update-check = হালনাগাদ দেখতে ব্যর্থ
