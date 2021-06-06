@@ -57,10 +57,10 @@ error-upgrade-status = হালনাগাদ অবস্থা দেখত�
 new-features-include = নতুন বৈশিষ্ট্যে আছে:
 
 notification-dismiss-label = বিজ্ঞপ্তি
-notification-dismiss-description = Dismiss upgrade notifications for {-os} {$version} until the next upgrade is available.
+notification-dismiss-description = পরের হালনাগাদ আসা পর্যন্ত {-os} {$version} এর বিজ্ঞপ্তি বন্ধ করো।
 
 notification-title = হালনাগাদ তৈরি
-notification-description = {-os} is ready to upgrade to {$version}
+notification-description = {-os}, {$version} সংস্করণে হালনাগাদের জন্য প্রস্তুত
 
 most-current-recovery = সবচেয়ে আধুনিক উদ্ধার পার্টিশন তোমার আছে
 
