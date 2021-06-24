@@ -1,5 +1,6 @@
 use glib::object::ObjectType;
 use pop_upgrade_gtk::*;
+use i18n_embed::DesktopLanguageRequester;
 use std::{ffi, ptr};
 
 #[no_mangle]
@@ -17,6 +18,13 @@ pub extern "C" fn pop_upgrade_widget_new() -> *mut PopUpgradeWidget {
     // When used from C, assume that GTK has been initialized.
     unsafe {
         gtk::set_initialized();
+    }
+
+    let localizer = localizer();
+    let requested_languages = DesktopLanguageRequester::requested_languages();
+
+    if let Err(error) = localizer.select(&requested_languages) {
+        eprintln!("Error while loading languages for pop_upgrade_gtk {}", error);
     }
 
     Box::into_raw(Box::new(UpgradeWidget::new())) as *mut _

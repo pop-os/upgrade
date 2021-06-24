@@ -12,6 +12,8 @@ pop-upgrade-gtk = { path = "../" }
 glib = "0.10"
 gtk-sys = "0.10"
 gtk = { version = "0.9", features = [ "v3_22" ] }
+i18n-embed = { version = "0.12.0", features = ["fluent-system", "desktop-requester"] }
+i18n-embed-fl = "0.5.0"
 
 [lib]
 name = "pop_upgrade_gtk"
