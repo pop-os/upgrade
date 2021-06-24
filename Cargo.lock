@@ -2416,6 +2416,8 @@ dependencies = [
  "glib",
  "gtk",
  "gtk-sys",
+ "i18n-embed",
+ "i18n-embed-fl",
  "pop-upgrade-gtk",
 ]
 
