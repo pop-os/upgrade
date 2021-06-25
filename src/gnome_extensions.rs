@@ -1,5 +1,5 @@
-use as_result::MapResult;
-use std::process::Command;
+use anyhow::Context;
+use std::{fs, path::Path};
 
 pub fn disable() -> anyhow::Result<()> {
     let (uid_min, uid_max) = crate::misc::uid_min_max()?;
@@ -7,28 +7,38 @@ pub fn disable() -> anyhow::Result<()> {
     for user in unsafe { users::all_users() } {
         if user.uid() > uid_min && user.uid() < uid_max {
             let name = user.name();
-
-            info!("disabling gnome-shell extensions for {}", name.to_str().unwrap_or("<unkown>"));
-
-            disable_for(name);
+            if let Some(name) = name.to_str() {
+                info!("disabling gnome-shell extensions for {}", name);
+                disable_for(name);
+            }
         }
     }
 
     Ok(())
 }
 
-fn disable_for(user: &std::ffi::OsStr) {
-    let result = Command::new("sudo")
-        .arg("-Hu")
-        .arg(user)
-        .args(&["gsettings", "set", "org.gnome.shell", "disable-user-extensions", "true"])
-        .status()
-        .map_result();
+fn extension_path(user: &str) -> String {
+    ["/home/", user, "/.local/share/gnome-shell/extensions"].concat()
+}
+
+fn disable_for(user: &str) {
+    let path = extension_path(user);
+    let backup = [&path, ".bak"].concat();
+
+    let result = (|| {
+        if Path::new(&backup).exists() {
+            fs::remove_dir_all(&backup)
+                .context("cannot remove extensions backup")?;
+        }
+
+        fs::rename(&path, &backup)
+            .context("cannot backup extensions")
+    })();
 
     if let Err(why) = result {
         error!(
             "failed to disable gnome-shell extensions for {}: {}",
-            user.to_str().unwrap_or("<unknown>"),
+            user,
             why
         );
     };
