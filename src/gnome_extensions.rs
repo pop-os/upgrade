@@ -7,8 +7,7 @@ pub fn disable() -> anyhow::Result<()> {
     let (uid_min, uid_max) = crate::misc::uid_min_max()?;
 
     for user in unsafe { users::all_users() } {
-        info!("found user {:?} with UID {}", user.name().to_str(), user.uid());
-        if user.uid() > uid_min && user.uid() < uid_max {
+        if user.uid() >= uid_min && user.uid() <= uid_max {
             let name = user.name();
             if let Some(name) = name.to_str() {
                 info!("disabling gnome-shell extensions for {}", name);
