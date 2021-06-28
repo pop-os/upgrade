@@ -2,9 +2,12 @@ use anyhow::Context;
 use std::{fs, path::Path};
 
 pub fn disable() -> anyhow::Result<()> {
+    info!("attempting to disable gnome-shell extensions");
+
     let (uid_min, uid_max) = crate::misc::uid_min_max()?;
 
     for user in unsafe { users::all_users() } {
+        info!("found user {:?} with UID {}", user.name().to_str(), user.uid());
         if user.uid() > uid_min && user.uid() < uid_max {
             let name = user.name();
             if let Some(name) = name.to_str() {

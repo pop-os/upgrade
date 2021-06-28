@@ -69,6 +69,7 @@ async-process = "1.1"
 smolscale = "0.2"
 users = "0.11.0"
 dbus-crossroads = "0.3.0"
+whitespace-conf = "1.0"
 
 # TODO: This dependency only exists to fix a compiler error
 spinning_top = "=0.2.2"

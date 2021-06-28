@@ -2369,6 +2369,7 @@ dependencies = [
  "twoway",
  "ubuntu-version",
  "users",
+ "whitespace-conf",
  "yansi",
 ]
 
@@ -3595,6 +3596,12 @@ checksum = "d011071ae14a2f6671d0b74080ae0cd8ebf3a6f8c9589a2cd45f23126fe29724"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "whitespace-conf"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88bce969a15062afb2d34155402d78cd50d1ddeca000a42353ef0c71ddd68995"
 
 [[package]]
 name = "winapi"

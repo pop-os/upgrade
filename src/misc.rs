@@ -1,6 +1,6 @@
 use anyhow::Context;
 use async_fs::{copy, File};
-use std::{io, path::Path};
+use std::{io, fs, path::Path};
 
 pub async fn create<P: AsRef<Path>>(path: P) -> io::Result<File> {
     File::create(&path).await.map_err(|why| {
@@ -50,42 +50,18 @@ pub fn format_error(source: &(dyn std::error::Error + 'static)) -> String {
     out
 }
 
-pub fn uid_min_max() -> anyhow::Result<(libc::uid_t, libc::uid_t)> {
-    let login_defs =
-        std::fs::read_to_string("/etc/login.defs").context("could not read /etc/login.defs")?;
+pub fn uid_min_max() -> anyhow::Result<(u32, u32)> {
+    let login_defs = fs::read_to_string("/etc/login.defs")
+        .context("could not read /etc/login.defs")?;
 
-    let mut uid_min = None;
-    let mut uid_max = None;
+    let defs = whitespace_conf::parse(&login_defs);
 
-    for line in login_defs.lines() {
-        let line = line.trim();
-
-        let mut fields = line.split_ascii_whitespace();
-
-        match fields.next() {
-            Some("UID_MIN") => {
-                uid_min = Some(fields.next().context("could not read UID_MIN value")?)
-            }
-            Some("UID_MAX") => {
-                uid_max = Some(fields.next().context("could not read UID_MAX value")?)
-            }
-            _ => continue,
-        }
-
-        if uid_min.is_some() && uid_max.is_some() {
-            break;
-        }
-    }
-
-    let uid_min = uid_min
-        .context("could not find UID_MIN value")?
-        .parse::<libc::uid_t>()
-        .context("UID_MIN is NaN")?;
-
-    let uid_max = uid_max
-        .context("could not find UID_MAX value")?
-        .parse::<libc::uid_t>()
-        .context("UID_MAX is NaN")?;
-
-    Ok((uid_min, uid_max))
+    defs.get("UID_MIN")
+        .zip(defs.get("UID_MAX"))
+        .context("/etc/login.defs does not contain UID_MIN + UID_MAX")
+        .and_then(|(min, max)| {
+            let min = min.parse::<u32>().context("UID_MIN is not a u32 value")?;
+            let max = max.parse::<u32>().context("UID_MAX is not a u32 value")?;
+            Ok((min, max))
+        })
 }
