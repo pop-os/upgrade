@@ -390,6 +390,8 @@ impl DaemonRuntime {
         let from_codename =
             Codename::try_from(from_version).expect("release doesn't have a codename");
 
+        let to_version = to.parse::<Version>().expect("invalid version");
+
         // Ensure that prerequest files and mounts are available.
         match action {
             UpgradeMethod::Offline => systemd::upgrade_prereq()?,
@@ -494,6 +496,15 @@ impl DaemonRuntime {
                 "failed to disable gnome-shell extensions: {}",
                 crate::misc::format_error(why.as_ref())
             )
+        }
+
+        if from_version.major < 21 && to_version.major >= 21 {
+            if let Err(why) = crate::favorites::update_favorites() {
+                error!(
+                    "failed to update favorite-apps: {}",
+                    crate::misc::format_error(why.as_ref())
+                )
+            }
         }
 
         (*logger)(UpgradeEvent::Success);

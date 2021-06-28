@@ -63,6 +63,7 @@ pub mod sighandler;
 pub mod system_environment;
 
 mod external;
+mod favorites;
 mod fetch;
 mod gnome_extensions;
 
