@@ -1,0 +1,25 @@
+* COSMIC Desktop - Computer Operating System Main Interface Components
+** Pop Shell Launcher is now the default method for opening/switching applications
+** The Activities overview has been split into separate Workspaces and Applications views for clearer navigation
+** Users can now configure their preferred default experience during the initial setup customizing it for their workflow
+** An application dock is now available for easy launching and switching of applications
+** The minimize button is now shown by default
+** Settings for COSMIC Desktop are integrated directly with System Settings, under a new "Desktop" section
+
+* Pop Shell
+** Improvements to Launcher search to better match a wider range of applications and recent files
+** Launcher now displays 7 search results to avoid growing too large on displays with low vertical space
+** Launcher gained plugin support, bringing along support for file navigation, recent document searching, and tab auto-completions
+** Levenshtein distance sorting algorithm added for improving search result quality
+** Right clicking an application in search results now offers a context menu with an option to launch with dedicated graphics
+** Closing the active window in the Launcher with Ctrl + Q
+** Ability to tile and stack windows with the mouse
+** Various minor usability improvements and features
+
+* Recovery Partition Upgrades - Pop!_OS Recovery Partitions can now be upgraded to a newer version of Pop!_OS
+
+* Updated system-level components and packages
+
+* Stability and performance improvements for Pop!_Shop
+
+* Linux Kernel 5.11

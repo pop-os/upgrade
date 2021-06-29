@@ -2308,7 +2308,7 @@ dependencies = [
 
 [[package]]
 name = "pop-upgrade"
-version = "0.1.1"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "apt-cmd",
@@ -2375,7 +2375,7 @@ dependencies = [
 
 [[package]]
 name = "pop-upgrade-gtk"
-version = "0.1.1"
+version = "1.0.0"
 dependencies = [
  "apt-cmd",
  "better-panic",
@@ -2411,7 +2411,7 @@ dependencies = [
 
 [[package]]
 name = "pop-upgrade-gtk-ffi"
-version = "0.1.1"
+version = "1.0.0"
 dependencies = [
  "cdylib-link-lines",
  "glib",
@@ -3351,9 +3351,9 @@ checksum = "879f6906492a7cd215bfa4cf595b600146ccfac0c79bcbd1f3000162af5e8b06"
 
 [[package]]
 name = "ubuntu-version"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d58175db5e44d10eee8dd97bc3a000e79e1ee80bde21df2a1e2d27449ab58178"
+checksum = "aca511290f3e773b5dac97c34d0e3266b3351fac5ec0eb7171044e483d6714fd"
 dependencies = [
  "chrono",
  "os-release",

@@ -1,6 +1,6 @@
 [package]
 name = "pop-upgrade-gtk"
-version = "0.1.1"
+version = "1.0.0"
 authors = ["Michael Aaron Murphy <mmstick@pm.me>"]
 edition = "2018"
 

@@ -92,13 +92,21 @@ pub fn current(version: Option<&str>) -> anyhow::Result<(Box<str>, u16)> {
     Ok((release_str.into(), build))
 }
 
+const BIONIC: &str = "18.04";
+const FOCAL: &str = "20.04";
+const GROOVY: &str = "20.10";
+const HIRSUTE: &str = "21.04";
+const IMPISH: &str = "21.10";
+const UNKNOWN: &str = "22.04";
+
 pub fn release_str(major: u8, minor: u8) -> &'static str {
     match (major, minor) {
-        (18, 4) => "18.04",
-        (19, 10) => "18.10",
-        (20, 4) => "20.04",
-        (20, 10) => "20.10",
-        (21, 4) => "21.04",
+        (18, 4) => BIONIC,
+        (20, 4) => FOCAL,
+        (20, 10) => GROOVY,
+        (21, 4) => HIRSUTE,
+        (21, 10) => IMPISH,
+        (22, 4) => UNKNOWN,
         _ => panic!("this version of pop-upgrade is not supported on this release"),
     }
 }
@@ -108,45 +116,28 @@ fn next_(
     development: bool,
     release_check: impl Fn(&str) -> BuildStatus,
 ) -> ReleaseStatus {
-    let next: &str;
+    // Enables a release upgrade from current to next, if a next ISO exists
+    let available = |is_lts: bool, current: &'static str, next: &'static str| {
+        ReleaseStatus { build: release_check(next), current, is_lts, next }
+    };
+
+    // Disables any form of upgrades from occurring on this release
+    let blacklisted = |is_lts: bool, current: &'static str, next: &'static str| {
+        ReleaseStatus { build: BuildStatus::Blacklisted, current, is_lts, next }
+    };
+
+    // Only permits an upgrade if the development flag is passed
+    let development_enabled = |is_lts: bool, current: &'static str, next: &'static str| {
+        let build = if development { release_check(next) } else { BuildStatus::Blacklisted };
+        ReleaseStatus { build, current, is_lts, next }
+    };
+
     match (current.major, current.minor) {
-        (18, 4) => {
-            // next = if development { "20.10" } else { "20.04" };
-            next = "20.04";
-
-            ReleaseStatus { build: release_check(next), current: "18.04", is_lts: true, next }
-        }
-
-        (19, 10) => {
-            next = "20.04";
-
-            ReleaseStatus { build: release_check(next), current: "19.10", is_lts: false, next }
-        }
-
-        (20, 4) => {
-            next = "20.10";
-
-            ReleaseStatus { build: release_check(next), current: "20.04", is_lts: true, next }
-        }
-
-        (20, 10) => {
-            next = "21.04";
-
-            ReleaseStatus {
-                build: if development { release_check(next) } else { BuildStatus::Blacklisted },
-                current: "20.10",
-                is_lts: false,
-                next,
-            }
-        }
-
-        (21, 4) => ReleaseStatus {
-            build:   BuildStatus::Blacklisted,
-            current: "21.04",
-            is_lts:  false,
-            next:    "21.10",
-        },
-
+        (18, 4) => available(true, BIONIC, FOCAL),
+        (20, 4) => available(true, FOCAL, HIRSUTE),
+        (20, 10) => available(false, GROOVY, HIRSUTE),
+        (21, 4) => development_enabled(false, HIRSUTE, IMPISH),
+        (21, 10) => blacklisted(false, IMPISH, UNKNOWN),
         _ => panic!("this version of pop-upgrade is not supported on this release"),
     }
 }
