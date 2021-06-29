@@ -11,13 +11,14 @@ pub enum EolStatus {
 }
 
 pub struct EolDate {
-    pub version: Version,
-    pub ymd:     (u32, u32, u32),
+    pub codename: Codename,
+    pub version:  Version,
+    pub ymd:      (u32, u32, u32),
 }
 
 impl From<Codename> for EolDate {
     fn from(codename: Codename) -> Self {
-        Self { version: codename.into(), ymd: codename.eol_date() }
+        Self { codename, version: codename.into(), ymd: codename.eol_date() }
     }
 }
 
@@ -30,7 +31,7 @@ impl EolDate {
             Err(()) => return Err(anyhow!("Invalid Ubuntu version: {}", version)),
         };
 
-        Ok(Self { version, ymd: codename.eol_date() })
+        Ok(Self { codename, version, ymd: codename.eol_date() })
     }
 
     #[inline]
@@ -42,7 +43,7 @@ impl EolDate {
 
         if date >= eol {
             EolStatus::Exceeded
-        } else if imminent(date, eol) {
+        } else if imminent(date, eol, self.codename) {
             EolStatus::Imminent
         } else {
             EolStatus::Ok
@@ -51,9 +52,10 @@ impl EolDate {
 }
 
 #[inline]
-fn imminent(current: Date<Utc>, eol: Date<Utc>) -> bool {
+fn imminent(current: Date<Utc>, eol: Date<Utc>, codename: Codename) -> bool {
     let days_until = eol.signed_duration_since(current).num_days();
-    days_until >= 0 && days_until <= 30
+    let days_left = if codename == Codename::Groovy { 7 } else { 30 };
+    days_until >= 0 && days_until <= days_left
 }
 
 fn ymd_to_utc(y: i32, m: u32, d: u32) -> Date<Utc> {
