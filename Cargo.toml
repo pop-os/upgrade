@@ -58,7 +58,7 @@ sha2 = "0.9"
 shrinkwraprs = "0.3"
 sys-mount = "1"
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
-systemd-boot-conf = { git = "https://github.com/pop-os/systemd-boot-conf" }
+systemd-boot-conf = "0.2.2"
 tempfile = "3"
 thiserror = "1"
 twoway = "0.2"
