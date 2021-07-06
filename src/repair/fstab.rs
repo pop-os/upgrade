@@ -1,5 +1,6 @@
 //! All code responsible for validating and repair the /etc/fstab file.
 
+use anyhow::Context;
 use self::FileSystem::*;
 use crate::system_environment::SystemEnvironment;
 use as_result::MapResult;
@@ -38,7 +39,7 @@ pub enum FstabError {
     MissingDirCreation { path: &'static str, source: io::Error },
 
     #[error("failed to mount devices with `mount -a`")]
-    MountFailure(#[source] io::Error),
+    MountFailure(#[source] anyhow::Error),
 
     #[error("failed to parse the fstab file")]
     Parse(#[source] io::Error),
@@ -182,8 +183,23 @@ pub fn repair() -> Result<(), FstabError> {
     mount_all().map_err(FstabError::MountFailure)
 }
 
-fn mount_all() -> io::Result<()> {
-    std::process::Command::new("mount").arg("-a").status().map_result()
+/// Ensure that the necessary mount points are mounted.
+fn mount_all() -> anyhow::Result<()> {
+    for mount_point in &["/", "/boot/efi"] {
+        std::process::Command::new("mount").arg(mount_point)
+            .status()
+            .context("failed to spawn mount command")
+            .and_then(|status| {
+                // 0 means it mounted an unmounted drive.
+                // 32 means it was already mounted.
+                match status.code() {
+                    Some(0) | Some(32) => Ok(()),
+                    _ => Err(anyhow!("failed to mount `{}` partition", mount_point))
+                }
+            })?;
+    }
+
+    Ok(())
 }
 
 fn fstab_check_root(root: Option<&MountInfo>) -> Result<Option<PartitionID>, FstabError> {
