@@ -39,7 +39,7 @@ libc = "0.2"
 log = "0.4"
 logind-dbus = "0.1"
 md-5 = "0.9"
-notify-rust = "4.0"
+notify-rust = { version = "4.0", default-features = false, features = ["dbus"] }
 num-derive = "0.3"
 num-traits = "0.2"
 os_str_bytes = "3.0"
