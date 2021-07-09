@@ -18,6 +18,8 @@ Homepage: https://github.com/pop-os/upgrade
 
 Package: pop-upgrade
 Architecture: amd64
+Breaks: update-manager, update-manager-core, ubuntu-release-upgrader-core
+Replaces: update-manager, update-manager-core, ubuntu-release-upgrader-core
 Depends:
   rsync,
   ${misc:Depends},
