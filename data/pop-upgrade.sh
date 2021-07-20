@@ -1,5 +1,6 @@
 #!/bin/bash
 
+export LANG=C
 export DEBIAN_FRONTEND="noninteractive"
 
 # Prevent apt sources from being reverted once this script launches
@@ -115,6 +116,10 @@ apt_install_prereq () {
           --no-download --ignore-missing $package
       fi
     done
+
+    if dpkg -s libc++1 &>/dev/null; then
+        apt-get install -y libc++1=$(apt-cache policy libc++1 | grep Candidate | awk '{print $2}')
+    fi
 }
 
 upgrade () {
