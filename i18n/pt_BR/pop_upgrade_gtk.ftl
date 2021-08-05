@@ -81,7 +81,7 @@ recovery-verify = Verificando pela imagem de recuperação do sistema
 refresh-description = Reinstalar enquanto mantém as contas de usuários e arquivos
 refresh-header = Reparar o Sistema Operacional
 
-release-current = Vcoê está rodando a versão mais recente do {-os}
+release-current = Você está rodando a versão mais recente do {-os}
 
 upgrade-available = {-os} {$version} está disponível
 upgrade-canceling = Cancelando atualização
