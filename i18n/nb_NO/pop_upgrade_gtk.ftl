@@ -29,7 +29,7 @@ dialog-refresh-description =
  
  Husk å lagre alt arbeidet ditt før du starter på nytt
 
-daemon-checking = Søker etter oppdateringer til daemon
+daemon-checking = Ser etter oppdateringer til daemon
 daemon-updating = Oppdaterer oppgraderings daemonen
 
 download-os = Laster ned {-os} {$version}
@@ -46,7 +46,7 @@ error-header = Ser ut som vi har støtt på et problem! Ikke bekymre deg, dette 
 error-no-changelog-found = Ingen endringslogg funnet
 error-originating-cause = Opprinnelig feilårsåk
 error-package-manager = Hvis du ser problemer med pakkebehandleren, vennligst kjør følgende kommandoer og send dem til brukerstøtte i din støttebillett:
-error-recovery-check = Mislyktes å sjekke etter gjenopprettingsoppdateringer
+error-recovery-check = Mislyktes å se etter gjenopprettingsoppdateringer
 error-recovery-download = Mislyktes å laste ned gjenopprettingsoppdatering
 error-recovery-update = Gjenopprettingsoppdatering mislyktes
 error-try-again = Prøv igjen senere
@@ -75,7 +75,7 @@ recovery-downloading = Laster ned oppdateringen for gjenopprettingspartisjonen
 recovery-header = Gjenopprettingspartisjonen
 recovery-progress = {recovery-downloading}: ({$current} av {$total} MiB)
 recovery-sync = Synkroniserer gjenopprettingsbildet til disk
-recovery-update-found = En oppdatering til gjenopprettingspartisjonen er tilgjengelig
+recovery-update-found = En oppdatering for gjenopprettingspartisjonen er tilgjengelig
 recovery-verify = Verifiserer det hentede gjenopprettingsbildet
 
 refresh-description = Reinstaller og behold brukerkontoer og filer
