@@ -36,7 +36,7 @@ NOTIFY = pop-upgrade-notify
 NOTIFY_APPID = com.system76.PopUpgrade.Notify
 STARTUP_DESKTOP = $(NOTIFY_APPID).desktop
 
-.PHONY: all clean distclean install uninstall update
+.PHONY: all clean distclean install uninstall update vendor
 
 all: $(BINARY) $(LIBRARY) $(PKGCONFIG) target/$(NOTIFY).service target/$(STARTUP_DESKTOP)
 
