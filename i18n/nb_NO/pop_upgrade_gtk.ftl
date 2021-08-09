@@ -21,7 +21,7 @@ dialog-refresh-description =
  {"*"} Brukere og brukergrupper vil bli beholdt
  {"*"} Alle systemapplikasjoner installert av brukeren vil bli fjernet
  {"*"} Alle filer i OS partisjonen utenfor /home mappen vil bli tapt
- {"*"} Alle system-globale konfigurasjonsendringer vil bli tapt, med unntaket av:
+ {"*"} Alle systemvide konfigurasjonsendringer vil bli tapt, med unntaket av:
      - Systemets tidssone
      - Systemspråket
      - Systemets tastaturoppsett
@@ -30,7 +30,7 @@ dialog-refresh-description =
  Husk å lagre alt arbeidet ditt før du starter på nytt
 
 daemon-checking = Søker etter oppdateringer til daemon
-daemon-updating = Oppdaterer oppgraderings-daemonen
+daemon-updating = Oppdaterer oppgraderings daemonen
 
 download-os = Laster ned {-os} {$version}
 download-os-complete = {-os} {$version} nedlastning ferdig
