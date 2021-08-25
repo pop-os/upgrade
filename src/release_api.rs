@@ -33,7 +33,7 @@ impl RawRelease {
     fn into_release(self) -> Result<Release, ApiError> {
         let RawRelease { version, url, size, sha_sum, channel, build, urgent } = self;
         let build = build.parse::<u16>().map_err(|_| ApiError::BuildNaN(build))?;
-        let urgent = if urgent == "true" { true } else { false };
+        let urgent = urgent == "true";
 
         Ok(Release { version, url, size, sha_sum, channel, build, urgent })
     }

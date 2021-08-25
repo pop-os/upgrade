@@ -16,6 +16,6 @@ pub async fn findmnt_uuid<P: AsRef<Path>>(path: P) -> io::Result<String> {
 
     match reader.lines().next().await {
         Some(Ok(line)) => Ok(line),
-        _ => Err(io::Error::new(io::ErrorKind::NotFound, "findmnt: uuid not found for device"))?,
+        _ => Err(io::Error::new(io::ErrorKind::NotFound, "findmnt: uuid not found for device")),
     }
 }

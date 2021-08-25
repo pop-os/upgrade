@@ -30,7 +30,7 @@ pub fn dkms_gcc9_fix() -> io::Result<()> {
     for dir in fs::read_dir(lib_modules_dir)? {
         if let Ok(dir) = dir {
             if let Some(file_name) = dir.file_name().to_str() {
-                if human_sort::compare(&file_name, UNAFFECTED) == Ordering::Less {
+                if human_sort::compare(file_name, UNAFFECTED) == Ordering::Less {
                     let makefile = dir.path().join("build/Makefile");
                     if makefile.exists() {
                         let mut data = fs::read_to_string(&makefile)?;

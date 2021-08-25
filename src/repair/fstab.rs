@@ -128,8 +128,7 @@ pub fn repair() -> Result<(), FstabError> {
 
                 let root_mount = mtab
                     .flat_map(Result::ok)
-                    .find(|e| e.dest == Path::new("/"))
-                    .ok_or_else(|| FstabError::RootNotMounted)?;
+                    .find(|e| e.dest == Path::new("/")).ok_or(FstabError::RootNotMounted)?;
 
                 root_mount.fstype
             } else {
@@ -176,7 +175,7 @@ pub fn repair() -> Result<(), FstabError> {
         }
     }
 
-    fstab_write(&mount_tab)?;
+    fstab_write(mount_tab)?;
 
     // Ensure that all devices have been mounted before proceeding.
     mount_all().map_err(FstabError::MountFailure)

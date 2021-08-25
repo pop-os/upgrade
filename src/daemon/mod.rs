@@ -804,7 +804,7 @@ impl Daemon {
         } else {
             let status = self.release_check(false)?;
             if status.is_lts() && status.build.is_ok() {
-                dismiss_file_create(&status.next)?;
+                dismiss_file_create(status.next)?;
 
                 if let DismissEvent::ByTimestamp = event {
                     crate::install::time()
@@ -825,7 +825,7 @@ impl Daemon {
         info!("fetching updates for the system, including {:?}", additional_packages);
 
         let mut borrows = Vec::with_capacity(additional_packages.len());
-        borrows.extend(additional_packages.into_iter().map(String::as_str));
+        borrows.extend(additional_packages.iter().map(String::as_str));
 
         let apt_uris = crate::fetch::apt::fetch_uris(Some(&borrows)).await?;
 
@@ -888,7 +888,7 @@ impl Daemon {
                 RecoveryVersion { version: String::new(), build: -1 }
             }
             Err(ref why) => {
-                return Err(format_error(why))?;
+                return Err(format_error(why));
             }
         };
 

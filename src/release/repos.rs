@@ -288,11 +288,9 @@ X-Repolib-Default-Mirror: http://us.archive.ubuntu.com/ubuntu/
 }
 
 pub fn new_sources_file() -> String {
-    format!(
-        r#"## This file is deprecated in Pop!_OS.
+    r#"## This file is deprecated in Pop!_OS.
 ## See `man deb822` and /etc/apt/sources.list.d/system.sources.
-"#
-    )
+"#.to_string()
 }
 
 pub fn pop_apps_source(release: &str) -> String {

@@ -183,7 +183,7 @@ impl From<UpgradeEvent> for &'static str {
 impl DaemonRuntime {
     /// Get a list of APT URIs to fetch for this operation, and then fetch them.
     pub async fn apt_fetch<'a>(
-        self: &'a mut Self,
+        &'a mut self,
         uris: HashSet<AptRequest>,
         func: Arc<dyn Fn(FetchEvent) + Send + Sync>,
     ) -> RelResult<()> {
@@ -536,7 +536,7 @@ impl DaemonRuntime {
     }
 
     async fn attempt_fetch<'a>(
-        self: &'a mut Self,
+        &'a mut self,
         logger: &'a dyn Fn(UpgradeEvent),
         fetch: Arc<dyn Fn(FetchEvent) + Send + Sync>,
     ) -> RelResult<()> {
@@ -561,7 +561,7 @@ impl DaemonRuntime {
         (*logger)(UpgradeEvent::UpdatingSourceLists);
 
         // Updates the source lists, with a handle for reverting the change.
-        self.release_upgrade(logger, &current, &next).await.map_err(ReleaseError::Check)?;
+        self.release_upgrade(logger, current, next).await.map_err(ReleaseError::Check)?;
 
         // Use a closure to capture any early returns due to an error.
         let updated_list_ops = || async {
