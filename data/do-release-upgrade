@@ -1,0 +1,7 @@
+#!/bin/bash
+
+echo "\`do-release-upgrade\` is not supported on Pop!_OS."
+echo "Use \`pop-upgrade release upgrade\` instead."
+echo ""
+echo "For more information, visit: https://support.system76.com/articles/upgrade-pop"
+
