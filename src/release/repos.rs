@@ -10,51 +10,34 @@ use std::{
 };
 use ubuntu_version::Codename;
 
-const BACKUP_MAIN_FILE: &str = "/etc/apt/sources.list.save";
-const MAIN_FILE: &str = "/etc/apt/sources.list";
+const SOURCES_LIST: &str = "/etc/apt/sources.list";
 const PPA_DIR: &str = "/etc/apt/sources.list.d";
-const NEW_MAIN_FILE: &str = "/etc/apt/sources.list.d/system.sources";
-const APPS_FILE: &str = "/etc/apt/sources.list.d/pop-os-apps.sources";
-const POP_PPA_FILE: &str = "/etc/apt/sources.list.d/pop-os-ppa.list";
+const SYSTEM_SOURCES: &str = "/etc/apt/sources.list.d/system.sources";
 const PROPRIETARY_URL: &str = "http://apt.pop-os.org/proprietary";
+const GROOVY_PROPRIETARY: &str = "/etc/apt/sources.list.d/pop-os-apps.sources";
+const THE_PPA_BEFORE_TIME: &str = "/etc/apt/sources.list.d/pop-os-ppa.list";
 
-enum ReleaseSupport {
-    BeforeGroovy,
-    PostGroovy,
-}
+const DEPRECATED_AFTER_FOCAL: &[&str] =
+    &["/etc/apt/sources.list.d/pop-os-apps.sources", "/etc/apt/sources.list.d/pop-os-ppa.list"];
 
-impl ReleaseSupport {
-    fn get(release: &str) -> anyhow::Result<ReleaseSupport> {
-        // The release where DEB822-format sources were adopted.
-        const DEB822: &str = "groovy";
-
-        let new = release.parse::<Codename>()?.release_timestamp();
-
-        let groovy = DEB822.parse::<Codename>()?.release_timestamp();
-
-        Ok(if new >= groovy { ReleaseSupport::PostGroovy } else { ReleaseSupport::BeforeGroovy })
-    }
-}
-
-/// Backup the sources lists
-pub fn backup(release: &str) -> anyhow::Result<()> {
+// All .list and .save files will be backed up.
+pub fn backup_ppas() -> anyhow::Result<()> {
     if Path::new(PPA_DIR).exists() {
         // Remove previous backups
         let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
-        iter_files(dir, |entry| {
+        for entry in iter_files(dir) {
             let path = entry.path();
             if path.extension().map_or(false, |e| e == "save") {
                 info!("removing old backup at {}", path.display());
                 fs::remove_file(&path)
                     .with_context(|| fomat!("failed to remove backup at "(path.display())))?;
             }
-
-            Ok(())
-        })?;
+        }
 
         // Create new backups
         let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
-        iter_files(dir, |entry| {
+
+        for entry in iter_files(dir) {
             let src_path = entry.path();
             if src_path.extension().map_or(false, |e| e == "list" || e == "sources") {
                 let dst_path_buf = [&*(src_path.to_raw_bytes()), b".save"].concat();
@@ -66,18 +49,25 @@ pub fn backup(release: &str) -> anyhow::Result<()> {
                     || fomat!("failed to copy " (src_path.display()) " to " (dst_path.display())),
                 )?;
             }
-
-            Ok(())
-        })?;
+        }
     }
 
-    if Path::new(MAIN_FILE).exists() {
-        if Path::new(BACKUP_MAIN_FILE).exists() {
-            info!("removing old backup at {}", BACKUP_MAIN_FILE);
-            fs::remove_file(BACKUP_MAIN_FILE).context("failed to remove backup of sources.list")?;
+    Ok(())
+}
+
+/// Backup the sources lists
+pub fn backup(release: &str) -> anyhow::Result<()> {
+    backup_ppas().context("failed to backup third party repositories")?;
+
+    if Path::new(SOURCES_LIST).exists() {
+        let backup = [SOURCES_LIST, ".save"].concat();
+
+        if Path::new(&backup).exists() {
+            info!("removing old backup at {}", &backup);
+            fs::remove_file(&backup).context("failed to remove backup of sources.list")?;
         }
-        info!("creating backup of {} to {}", MAIN_FILE, BACKUP_MAIN_FILE);
-        fs::copy(MAIN_FILE, BACKUP_MAIN_FILE)
+        info!("creating backup of {} to {}", SOURCES_LIST, &backup);
+        fs::copy(SOURCES_LIST, &backup)
             .context("failed to copy sources list to backup path")
             .map(|_| ())
     } else {
@@ -89,7 +79,7 @@ pub fn backup(release: &str) -> anyhow::Result<()> {
 /// For each `.list` in `sources.list.d`, add `#` to the `deb` lines.
 pub fn disable_third_parties(release: &str) -> anyhow::Result<()> {
     let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
-    iter_files(dir, |entry| {
+    for entry in iter_files(dir) {
         let path = entry.path();
         if path.extension().map_or(false, |e| e == "list") {
             if let Some(fname) = path.file_name() {
@@ -119,9 +109,7 @@ pub fn disable_third_parties(release: &str) -> anyhow::Result<()> {
             fs::write(&path, replaced.as_bytes())
                 .with_context(|| fomat!("failed to open " (&path.display()) " for writing"))?;
         }
-
-        Ok(())
-    })?;
+    }
 
     create_new_sources_list(release)?;
 
@@ -146,7 +134,7 @@ pub fn is_old_release(codename: Codename) -> bool {
 }
 
 pub fn repair(release: &str) -> anyhow::Result<()> {
-    if !Path::new(MAIN_FILE).exists() {
+    if !Path::new(SOURCES_LIST).exists() {
         create_new_sources_list(release)?;
     }
 
@@ -156,8 +144,8 @@ pub fn repair(release: &str) -> anyhow::Result<()> {
 /// If this is an old release, replace `*.archive.ubuntu` sources with `old-releases.ubuntu`
 pub fn replace_with_old_releases() -> io::Result<()> {
     replace_with_old_releases_(
-        || fs::read_to_string(MAIN_FILE),
-        |c| fs::write(MAIN_FILE, c.as_bytes()),
+        || fs::read_to_string(SOURCES_LIST),
+        |c| fs::write(SOURCES_LIST, c.as_bytes()),
     )
 }
 
@@ -166,7 +154,7 @@ pub fn restore(release: &str) -> anyhow::Result<()> {
     info!("restoring release files for {}", release);
 
     let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
-    iter_files(dir, |entry| {
+    for entry in iter_files(dir) {
         let src_path = entry.path();
         let src_bytes = src_path.to_raw_bytes();
         if src_bytes.ends_with(b".save") {
@@ -184,32 +172,35 @@ pub fn restore(release: &str) -> anyhow::Result<()> {
                 || fomat!("failed to rename " (src_path.display()) " to " (dst.display())),
             )?;
         }
+    }
 
-        Ok(())
-    })?;
+    let backup = [SOURCES_LIST, ".save"].concat();
 
-    if Path::new(BACKUP_MAIN_FILE).exists() {
+    if Path::new(&backup).exists() {
         info!("restoring system sources list");
 
-        if Path::new(MAIN_FILE).exists() {
-            fs::remove_file(MAIN_FILE).context("failed to remove modified system sources.list")?;
+        if Path::new(SOURCES_LIST).exists() {
+            fs::remove_file(SOURCES_LIST)
+                .context("failed to remove modified system sources.list")?;
         }
 
-        fs::rename(BACKUP_MAIN_FILE, MAIN_FILE).context("failed to restore system sources.list")?;
+        fs::rename(&backup, SOURCES_LIST).context("failed to restore system sources.list")?;
 
-        if let ReleaseSupport::BeforeGroovy = ReleaseSupport::get(release)? {
+        // If reverting to focal sources
+        if release == "focal" {
             // Also remove these on a groovy upgrade that fails
-            if Path::new(NEW_MAIN_FILE).exists() {
-                fs::remove_file(NEW_MAIN_FILE).context("failed to remove deb822 system sources")?;
+            if Path::new(SYSTEM_SOURCES).exists() {
+                fs::remove_file(SYSTEM_SOURCES)
+                    .context("failed to remove deb822 system sources")?;
             }
 
-            if Path::new(APPS_FILE).exists() {
-                fs::remove_file(APPS_FILE)
+            if Path::new(GROOVY_PROPRIETARY).exists() {
+                fs::remove_file(GROOVY_PROPRIETARY)
                     .context("failed to remove deb822 proprietary sources")?;
             }
 
-            if Path::new(POP_PPA_FILE).exists() {
-                fs::remove_file(POP_PPA_FILE).context("failed to remove groovy Pop PPA")?;
+            if Path::new(THE_PPA_BEFORE_TIME).exists() {
+                fs::remove_file(THE_PPA_BEFORE_TIME).context("failed to remove groovy Pop PPA")?;
             }
         }
     }
@@ -257,23 +248,61 @@ fn replace_with_old_releases_(
 }
 
 pub fn create_new_sources_list(release: &str) -> anyhow::Result<()> {
-    if let ReleaseSupport::PostGroovy = ReleaseSupport::get(release)? {
-        // new sources
-        fs::write(NEW_MAIN_FILE, new_system_sources(release))?;
-        fs::write(APPS_FILE, pop_apps_source(release))?;
-        fs::write(POP_PPA_FILE, pop_ppa_source(release))?;
-        fs::write(MAIN_FILE, new_sources_file())?;
-    } else {
-        // old sources
-        fs::write(MAIN_FILE, default_sources(release))?;
-    }
+    match release {
+        "bionic" | "focal" => {
+            fs::write(SOURCES_LIST, sources_list_before_deb822(release))?;
+        }
 
-    // TODO: Ensure that the GPG keys are added for the Ubuntu archives.
+        "groovy" | "hirsute" => {
+            fs::write(SYSTEM_SOURCES, groovy_era_sources(release))?;
+            fs::write(GROOVY_PROPRIETARY, groovy_era_proprietary(release))?;
+            fs::write(THE_PPA_BEFORE_TIME, the_ppa_before_time(release))?;
+            fs::write(SOURCES_LIST, sources_list_placeholder())?;
+        }
+        
+        _ => {
+            // Remove any deprecated files on upgrade.
+            for file in DEPRECATED_AFTER_FOCAL {
+                let _ = fs::remove_file(file)?;
+            }
+
+            fs::write(SOURCES_LIST, sources_list_placeholder())?;
+            fs::write(SYSTEM_SOURCES, impish_era_sources(release))?;
+        }
+    }
 
     Ok(())
 }
 
-pub fn new_system_sources(release: &str) -> String {
+pub fn impish_era_sources(release: &str) -> String {
+    format!(
+        r#"X-Repolib-Name: Pop_OS System Sources
+Enabled: yes
+Types: deb deb-src
+URIs: http://us.archive.ubuntu.com/ubuntu/
+Suites: {0} {0}-security {0}-updates {0}-backports
+Components: main restricted universe multiverse
+X-Repolib-Default-Mirror: http://us.archive.ubuntu.com/ubuntu/
+    
+X-Repolib-Name: Pop_OS Release Sources
+Enabled: yes
+Types: deb deb-src
+URIs: http://apt.pop-os.org/release
+Suites: impish
+Components: main
+
+X-Repolib-Name: Pop_OS Apps
+Enabled: yes
+Types: deb
+URIs: http://apt.pop-os.org/proprietary
+Suites: {0}
+Components: main
+"#,
+        release
+    )
+}
+
+pub fn groovy_era_sources(release: &str) -> String {
     format!(
         r#"X-Repolib-Name: Pop_OS System Sources
 Enabled: yes
@@ -287,7 +316,7 @@ X-Repolib-Default-Mirror: http://us.archive.ubuntu.com/ubuntu/
     )
 }
 
-pub fn new_sources_file() -> String {
+pub fn sources_list_placeholder() -> String {
     format!(
         r#"## This file is deprecated in Pop!_OS.
 ## See `man deb822` and /etc/apt/sources.list.d/system.sources.
@@ -295,7 +324,7 @@ pub fn new_sources_file() -> String {
     )
 }
 
-pub fn pop_apps_source(release: &str) -> String {
+pub fn groovy_era_proprietary(release: &str) -> String {
     format!(
         r#"X-Repolib-Name: Pop_OS Apps
 Enabled: yes
@@ -308,7 +337,7 @@ Components: main
     )
 }
 
-pub fn pop_ppa_source(release: &str) -> String {
+pub fn the_ppa_before_time(release: &str) -> String {
     format!(
         r#"## This file was generated by pop-upgrade
 #
@@ -320,7 +349,7 @@ deb-src http://ppa.launchpad.net/system76/pop/ubuntu {0} main
     )
 }
 
-pub fn default_sources(release: &str) -> String {
+pub fn sources_list_before_deb822(release: &str) -> String {
     format!(
         r#"# Ubuntu Repositories
 
@@ -347,24 +376,8 @@ deb http://apt.pop-os.org/proprietary {0} main
     )
 }
 
-fn iter_files(
-    dir: ReadDir,
-    callback: impl Fn(DirEntry) -> anyhow::Result<()>,
-) -> anyhow::Result<()> {
-    for e in dir {
-        let entry = match e {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
-
-        if !entry.metadata().ok().map_or(false, |m| m.is_file()) {
-            continue;
-        }
-
-        callback(entry)?;
-    }
-
-    Ok(())
+fn iter_files(dir: ReadDir) -> impl Iterator<Item = DirEntry> {
+    dir.filter_map(Result::ok).filter(|entry| !entry.metadata().ok().map_or(false, |m| m.is_file()))
 }
 
 #[cfg(test)]
