@@ -39,7 +39,15 @@ Depends:
   ${misc:Depends}
 Description: The C headers required for linking the libpop-upgrade-gtk widget
  The C headers required for linking the libpop-upgrade-gtk widget
- 
+
+Package: ubuntu-release-upgrader-qt
+Architecture: amd64
+Description: Replaces do-release-upgrade with a help message.
+
+Package: ubuntu-release-upgrader-gtk
+Architecture: amd64
+Description: Replaces do-release-upgrade with a help message.
+
 Package: ubuntu-release-upgrader-core
 Architecture: amd64
 Description: Replaces do-release-upgrade with a help message.
@@ -55,5 +63,13 @@ Architecture: amd64
 Description: Replaces do-release-upgrade with a help message (transitional).
 
 Package: python3-update-manager
+Architecture: amd64
+Description: Replaces do-release-upgrade with a help message (transitional).
+
+Package: update-notifier
+Architecture: amd64
+Description: Replaces do-release-upgrade with a help message (transitional).
+
+Package: update-notifier-common
 Architecture: amd64
 Description: Replaces do-release-upgrade with a help message (transitional).
