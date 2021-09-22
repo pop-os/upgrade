@@ -1,6 +1,6 @@
 use glib::object::ObjectType;
-use pop_upgrade_gtk::*;
 use i18n_embed::DesktopLanguageRequester;
+use pop_upgrade_gtk::*;
 use std::{ffi, ptr};
 
 #[no_mangle]

@@ -29,19 +29,13 @@ fn disable_for(user: &str) {
 
     let result = (|| {
         if Path::new(&backup).exists() {
-            fs::remove_dir_all(&backup)
-                .context("cannot remove extensions backup")?;
+            fs::remove_dir_all(&backup).context("cannot remove extensions backup")?;
         }
 
-        fs::rename(&path, &backup)
-            .context("cannot backup extensions")
+        fs::rename(&path, &backup).context("cannot backup extensions")
     })();
 
     if let Err(why) = result {
-        error!(
-            "failed to disable gnome-shell extensions for {}: {}",
-            user,
-            why
-        );
+        error!("failed to disable gnome-shell extensions for {}: {}", user, why);
     };
 }
