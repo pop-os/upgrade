@@ -40,7 +40,11 @@ fn main() {
     let exec = [&prefix, "/bin/pop-upgrade release check"].concat();
 
     let timer = systemd_timer("Checks for new OS releases every day", NOTIFY_SERVICE, 1440);
-    let service = systemd_service("Check for a new OS release, and display a notification if found", NOTIFY_SERVICE, &exec);
+    let service = systemd_service(
+        "Check for a new OS release, and display a notification if found",
+        NOTIFY_SERVICE,
+        &exec,
+    );
 
     File::create(timer_path)
         .expect("failed to create timer service")

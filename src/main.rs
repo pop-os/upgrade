@@ -53,8 +53,7 @@ pub mod error {
 }
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
-use std::path::Path;
-use std::process::exit;
+use std::{path::Path, process::exit};
 
 use self::error::InitError;
 

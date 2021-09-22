@@ -1,6 +1,6 @@
 use anyhow::Context;
 use async_fs::{copy, File};
-use std::{io, fs, path::Path};
+use std::{fs, io, path::Path};
 
 pub async fn create<P: AsRef<Path>>(path: P) -> io::Result<File> {
     File::create(&path).await.map_err(|why| {
@@ -51,8 +51,8 @@ pub fn format_error(source: &(dyn std::error::Error + 'static)) -> String {
 }
 
 pub fn uid_min_max() -> anyhow::Result<(u32, u32)> {
-    let login_defs = fs::read_to_string("/etc/login.defs")
-        .context("could not read /etc/login.defs")?;
+    let login_defs =
+        fs::read_to_string("/etc/login.defs").context("could not read /etc/login.defs")?;
 
     let defs = whitespace_conf::parse(&login_defs);
 
