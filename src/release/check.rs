@@ -117,13 +117,19 @@ fn next_(
     release_check: impl Fn(&str) -> BuildStatus,
 ) -> ReleaseStatus {
     // Enables a release upgrade from current to next, if a next ISO exists
-    let available = |is_lts: bool, current: &'static str, next: &'static str| {
-        ReleaseStatus { build: release_check(next), current, is_lts, next }
+    let available = |is_lts: bool, current: &'static str, next: &'static str| ReleaseStatus {
+        build: release_check(next),
+        current,
+        is_lts,
+        next,
     };
 
     // Disables any form of upgrades from occurring on this release
-    let blacklisted = |is_lts: bool, current: &'static str, next: &'static str| {
-        ReleaseStatus { build: BuildStatus::Blacklisted, current, is_lts, next }
+    let blacklisted = |is_lts: bool, current: &'static str, next: &'static str| ReleaseStatus {
+        build: BuildStatus::Blacklisted,
+        current,
+        is_lts,
+        next,
     };
 
     // Only permits an upgrade if the development flag is passed

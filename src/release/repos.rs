@@ -6,7 +6,7 @@ use std::{
     fs::{self, DirEntry, ReadDir},
     io,
     os::unix::ffi::OsStrExt,
-    path::Path,
+    path::{Path, PathBuf},
 };
 use ubuntu_version::Codename;
 
@@ -20,60 +20,70 @@ const THE_PPA_BEFORE_TIME: &str = "/etc/apt/sources.list.d/pop-os-ppa.list";
 const DEPRECATED_AFTER_FOCAL: &[&str] =
     &["/etc/apt/sources.list.d/pop-os-apps.sources", "/etc/apt/sources.list.d/pop-os-ppa.list"];
 
-// All .list and .save files will be backed up.
-pub fn backup_ppas() -> anyhow::Result<()> {
-    if Path::new(PPA_DIR).exists() {
-        // Remove previous backups
-        let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
-        for entry in iter_files(dir) {
+/// Backup the sources lists
+pub fn backup(release: &str) -> anyhow::Result<()> {
+    // Files that have been marked for deletion.
+    let mut delete = Vec::new();
+
+    // Files that will be backed up with a `.save` extension.
+    let mut backup = Vec::new();
+
+    // Track if the main sources.list file is missing.
+    let mut sources_missing = false;
+
+    // Backup the sources lists
+    if Path::new(SOURCES_LIST).exists() {
+        let backup_path = PathBuf::from([SOURCES_LIST, ".save"].concat());
+
+        if backup_path.exists() {
+            delete.push(backup_path);
+        }
+
+        backup.push(PathBuf::from(SOURCES_LIST));
+    } else {
+        sources_missing = true;
+    }
+
+    if let Ok(ppa_directory) = Path::new(PPA_DIR).read_dir() {
+        // Inspect what operations we'll need to perform.
+        for entry in ppa_directory.filter_map(Result::ok) {
             let path = entry.path();
-            if path.extension().map_or(false, |e| e == "save") {
-                info!("removing old backup at {}", path.display());
-                fs::remove_file(&path)
-                    .with_context(|| fomat!("failed to remove backup at "(path.display())))?;
+
+            if let Some(extension) = path.extension() {
+                if extension == "save" {
+                    delete.push(path);
+                } else if extension == "sources" || extension == "list" {
+                    backup.push(path);
+                }
             }
         }
+    }
 
-        // Create new backups
-        let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
+    // Delete old backups first.
+    for path in &delete {
+        info!("removing old backup at {}", path.display());
+        fs::remove_file(&path)
+            .with_context(|| fomat!("failed to remove backup at "(path.display())))?;
+    }
 
-        for entry in iter_files(dir) {
-            let src_path = entry.path();
-            if src_path.extension().map_or(false, |e| e == "list" || e == "sources") {
-                let dst_path_buf = [&*(src_path.to_raw_bytes()), b".save"].concat();
-                let dst_path_str = OsStr::from_bytes(&dst_path_buf);
-                let dst_path = Path::new(&dst_path_str);
+    // Then create new backups.
+    for src in &backup {
+        let dst_path_buf = [&*(src.to_raw_bytes()), b".save"].concat();
+        let dst_path_str = OsStr::from_bytes(&dst_path_buf);
+        let dst_path = Path::new(&dst_path_str);
 
-                info!("creating backup of {} to {}", src_path.display(), dst_path.display());
-                fs::copy(&src_path, dst_path).with_context(
-                    || fomat!("failed to copy " (src_path.display()) " to " (dst_path.display())),
-                )?;
-            }
-        }
+        info!("creating backup of {} to {}", src.display(), dst_path.display());
+        fs::copy(&src, dst_path).with_context(
+            || fomat!("failed to copy " (src.display()) " to " (dst_path.display())),
+        )?;
+    }
+
+    if sources_missing {
+        info!("sources list was not found — creating a new one");
+        create_new_sources_list(release).context("failed to create new sources.list")?;
     }
 
     Ok(())
-}
-
-/// Backup the sources lists
-pub fn backup(release: &str) -> anyhow::Result<()> {
-    backup_ppas().context("failed to backup third party repositories")?;
-
-    if Path::new(SOURCES_LIST).exists() {
-        let backup = [SOURCES_LIST, ".save"].concat();
-
-        if Path::new(&backup).exists() {
-            info!("removing old backup at {}", &backup);
-            fs::remove_file(&backup).context("failed to remove backup of sources.list")?;
-        }
-        info!("creating backup of {} to {}", SOURCES_LIST, &backup);
-        fs::copy(SOURCES_LIST, &backup)
-            .context("failed to copy sources list to backup path")
-            .map(|_| ())
-    } else {
-        info!("sources list was not found — creating a new one");
-        create_new_sources_list(release).context("failed to create new sources.list")
-    }
 }
 
 /// For each `.list` in `sources.list.d`, add `#` to the `deb` lines.
@@ -259,7 +269,7 @@ pub fn create_new_sources_list(release: &str) -> anyhow::Result<()> {
             fs::write(THE_PPA_BEFORE_TIME, the_ppa_before_time(release))?;
             fs::write(SOURCES_LIST, sources_list_placeholder())?;
         }
-        
+
         _ => {
             // Remove any deprecated files on upgrade.
             for file in DEPRECATED_AFTER_FOCAL {
@@ -288,7 +298,7 @@ X-Repolib-Name: Pop_OS Release Sources
 Enabled: yes
 Types: deb deb-src
 URIs: http://apt.pop-os.org/release
-Suites: impish
+Suites: {0}
 Components: main
 
 X-Repolib-Name: Pop_OS Apps
@@ -378,29 +388,4 @@ deb http://apt.pop-os.org/proprietary {0} main
 
 fn iter_files(dir: ReadDir) -> impl Iterator<Item = DirEntry> {
     dir.filter_map(Result::ok).filter(|entry| !entry.metadata().ok().map_or(false, |m| m.is_file()))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn old_release() {
-        let codename = Codename::Cosmic;
-        let string = <&'static str>::from(codename);
-
-        let contents = default_sources(string);
-        let expected = contents
-            .replace("us.archive", "old-releases")
-            .replace("deb http://apt.pop-os.org", "# deb http://apt.pop-os.org");
-
-        replace_with_old_releases_(
-            move || Ok(contents.replace("us.archive", "pl.archive")),
-            |contents| {
-                assert_eq!(contents, expected);
-                Ok(())
-            },
-        )
-        .unwrap();
-    }
 }
