@@ -13,7 +13,6 @@ use ubuntu_version::Codename;
 const SOURCES_LIST: &str = "/etc/apt/sources.list";
 const PPA_DIR: &str = "/etc/apt/sources.list.d";
 const SYSTEM_SOURCES: &str = "/etc/apt/sources.list.d/system.sources";
-const PROPRIETARY_URL: &str = "http://apt.pop-os.org/proprietary";
 const GROOVY_PROPRIETARY: &str = "/etc/apt/sources.list.d/pop-os-apps.sources";
 const THE_PPA_BEFORE_TIME: &str = "/etc/apt/sources.list.d/pop-os-ppa.list";
 
@@ -153,10 +152,25 @@ pub fn repair(release: &str) -> anyhow::Result<()> {
 
 /// If this is an old release, replace `*.archive.ubuntu` sources with `old-releases.ubuntu`
 pub fn replace_with_old_releases() -> io::Result<()> {
-    replace_with_old_releases_(
-        || fs::read_to_string(SOURCES_LIST),
-        |c| fs::write(SOURCES_LIST, c.as_bytes()),
-    )
+    let regex = regex::Regex::new("http.*archive.ubuntu.com").expect("bad regex for old-releases");
+
+    let replace = move |input: &str| {
+        use std::borrow::Cow;
+        match regex.replace_all(input, "http://old-releases.ubuntu.com") {
+            Cow::Borrowed(_) => None,
+            Cow::Owned(out) => Some(out),
+        }
+    };
+
+    for source in [SOURCES_LIST, SYSTEM_SOURCES].iter().cloned() {
+        if let Ok(contents) = fs::read_to_string(source) {
+            if let Some(changed) = replace(&contents) {
+                let _ = fs::write(source, changed.as_bytes());
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Restore a previous backup of the sources lists
@@ -214,45 +228,6 @@ pub fn restore(release: &str) -> anyhow::Result<()> {
             }
         }
     }
-
-    Ok(())
-}
-
-fn replace_with_old_releases_(
-    read_release: impl FnOnce() -> io::Result<String>,
-    write_release: impl FnOnce(String) -> io::Result<()>,
-) -> io::Result<()> {
-    let mut replaced = String::new();
-    let contents = read_release()?;
-    for line in contents.lines() {
-        let trimmed = line.trim();
-
-        let prefix = if trimmed.starts_with("deb-src") {
-            Some("deb-src ")
-        } else if trimmed.starts_with("deb") {
-            Some("deb ")
-        } else {
-            None
-        };
-
-        if let Some(prefix) = prefix {
-            if let Some(pos) = twoway::find_str(trimmed, "archive.ubuntu") {
-                replaced.push_str(&[prefix, "http://old-releases", &trimmed[pos + 7..]].concat());
-                replaced.push('\n');
-                continue;
-            }
-
-            // Disable proprietary PPA for old releases
-            if trimmed.contains(PROPRIETARY_URL) {
-                replaced.push_str("# ");
-            }
-        }
-
-        replaced.push_str(trimmed);
-        replaced.push('\n');
-    }
-
-    write_release(replaced)?;
 
     Ok(())
 }
