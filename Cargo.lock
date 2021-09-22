@@ -2098,6 +2098,7 @@ dependencies = [
  "twoway",
  "ubuntu-version",
  "users",
+ "ward",
  "whitespace-conf",
  "yansi",
 ]
@@ -3110,6 +3111,12 @@ dependencies = [
  "winapi",
  "winapi-util",
 ]
+
+[[package]]
+name = "ward"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cbcd609d606e1307a1530061482ed2ee3fc9963128990238cefb2013127b61e"
 
 [[package]]
 name = "wasi"

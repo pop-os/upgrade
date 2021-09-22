@@ -287,7 +287,7 @@ impl DaemonRuntime {
 
             (logger)(UpgradeEvent::UpdatingPackageLists);
 
-            repos::create_new_sources_list(new)?;
+            repos::apply_default_source_lists(new)?;
 
             apt_lock_wait().await;
             AptGet::new().noninteractive().update().await.context("failed to update source lists")
