@@ -919,6 +919,8 @@ impl Daemon {
     }
 
     fn release_upgrade(&mut self, how: u8, from: &str, to: &str) -> anyhow::Result<()> {
+        self.recovery_upgrade_release(to, "", 0)?;
+
         info!("upgrading release from {} to {}, with {}", from, to, how);
 
         let how = ReleaseUpgradeMethod::from_u8(how)
