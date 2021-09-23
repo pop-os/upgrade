@@ -30,12 +30,10 @@ pub mod methods {
 }
 
 mod error;
-mod runtime;
 mod status;
 
 pub use self::{
-    error::DaemonError, methods::DismissEvent, runtime::DaemonRuntime, signals::SignalEvent,
-    status::DaemonStatus,
+    error::DaemonError, methods::DismissEvent, signals::SignalEvent, status::DaemonStatus,
 };
 
 use crate::{
@@ -160,8 +158,6 @@ impl Daemon {
                     }
                 };
 
-                let mut runtime = DaemonRuntime::new();
-
                 let fetch_closure = Arc::new(enclose!((prog_state, dbus_tx) move |event| {
                     match event {
                         FetchEvent::Fetched(uri) => {
@@ -210,7 +206,7 @@ impl Daemon {
                             let npackages = apt_uris.len() as u32;
                             prog_state.store((0, u64::from(npackages)), Ordering::SeqCst);
 
-                            let result = runtime.apt_fetch(apt_uris, fetch_closure.clone()).await;
+                            let result = crate::release::apt_fetch(apt_uris, fetch_closure.clone()).await;
                             info!("fetched");
 
 
@@ -251,7 +247,7 @@ impl Daemon {
 
                         Event::PackageUpgrade => {
                             info!("upgrading packages");
-                            let _ = runtime.package_upgrade(|event| {
+                            let _ = crate::release::package_upgrade(|event| {
                                 let _ = dbus_tx.send(SignalEvent::Upgrade(event));
                             });
                         }
@@ -288,7 +284,7 @@ impl Daemon {
                                 sub_status.store(event as u8, Ordering::SeqCst);
                             });
 
-                            let result = runtime.upgrade(
+                            let result = crate::release::upgrade(
                                 how,
                                 &from,
                                 &to,
