@@ -78,7 +78,6 @@ pub const INSTALL_DATE: &str = "/usr/lib/pop-upgrade/install_date";
 
 #[derive(Debug)]
 pub enum Event {
-    Cancel,
     FetchUpdates { apt_uris: HashSet<AptRequest>, download_only: bool },
     PackageUpgrade,
     RecoveryUpgrade(RecoveryUpgradeMethod),
@@ -152,8 +151,6 @@ impl Daemon {
         let cancel_process =
             enclose!((shared_state) move || shared_state.cancel.swap(false, Ordering::SeqCst));
 
-        let mut processing = false;
-
         std::thread::spawn(enclose!((shared_state) move || async_io::block_on(async move {
             let mut logind = match LoginManager::new() {
                 Ok(logind) => Some(logind),
@@ -199,13 +196,6 @@ impl Daemon {
                 });
 
                 match event {
-                    Event::Cancel => {
-                        if processing {
-                            shared_state.cancel.store(true, Ordering::SeqCst);
-                            continue;
-                        }
-                    }
-
                     Event::FetchUpdates { apt_uris, download_only } => {
                         info!("fetching packages for {:?}", apt_uris);
                         let npackages = apt_uris.len() as u32;
@@ -213,7 +203,6 @@ impl Daemon {
 
                         let result = crate::release::apt_fetch(apt_uris, &fetch_closure).await;
                         info!("fetched");
-
 
                         shared_state.fetching_state.store((0, 0), Ordering::SeqCst);
 
@@ -275,7 +264,6 @@ impl Daemon {
                         ).await;
 
                         let _ = dbus_tx.send(SignalEvent::RecoveryUpgradeResult(result));
-                        processing = false;
                     }
 
                     Event::ReleaseUpgrade { how, from, to } => {
