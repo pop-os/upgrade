@@ -1,7 +1,7 @@
 //! All code responsible for validating and repair the /etc/fstab file.
 
-use anyhow::Context;
 use crate::system_environment::SystemEnvironment;
+use anyhow::Context;
 use std::process::Command;
 use thiserror::Error;
 
@@ -26,7 +26,8 @@ pub fn repair() -> Result<(), FstabError> {
 /// Ensure that the necessary mount points are mounted.
 fn mount_required_partitions() -> anyhow::Result<()> {
     for mount_point in &["/", "/boot/efi"] {
-        Command::new("mount").arg(mount_point)
+        Command::new("mount")
+            .arg(mount_point)
             .status()
             .context("failed to spawn mount command")
             .and_then(|status| {
@@ -34,7 +35,7 @@ fn mount_required_partitions() -> anyhow::Result<()> {
                 // 32 means it was already mounted.
                 match status.code() {
                     Some(0) | Some(32) => Ok(()),
-                    _ => Err(anyhow!("failed to mount `{}` partition", mount_point))
+                    _ => Err(anyhow!("failed to mount `{}` partition", mount_point)),
                 }
             })?;
     }

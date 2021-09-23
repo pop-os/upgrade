@@ -142,9 +142,7 @@ pub fn is_old_release(codename: Codename) -> bool {
     isahc::head(url).ok().map_or(false, |resp| resp.status().is_success())
 }
 
-pub fn repair(release: &str) -> anyhow::Result<()> {
-    apply_default_source_lists(release)
-}
+pub fn repair(release: &str) -> anyhow::Result<()> { apply_default_source_lists(release) }
 
 /// If this is an old release, replace `*.archive.ubuntu` sources with `old-releases.ubuntu`
 pub fn replace_with_old_releases() -> io::Result<()> {
