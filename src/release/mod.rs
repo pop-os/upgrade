@@ -168,10 +168,7 @@ impl From<UpgradeEvent> for &'static str {
 }
 
 /// Get a list of APT URIs to fetch for this operation, and then fetch them.
-pub async fn apt_fetch(
-    uris: HashSet<AptRequest>,
-    func: Arc<dyn Fn(FetchEvent) + Send + Sync>,
-) -> RelResult<()> {
+pub async fn apt_fetch(uris: HashSet<AptRequest>, func: &dyn Fn(FetchEvent)) -> RelResult<()> {
     (*func)(FetchEvent::Init(uris.len()));
 
     apt_lock_wait().await;
@@ -362,7 +359,7 @@ pub async fn upgrade<'a>(
     from: &'a str,
     to: &'a str,
     logger: &'a dyn Fn(UpgradeEvent),
-    fetch: Arc<dyn Fn(FetchEvent) + Send + Sync>,
+    fetch: &'a dyn Fn(FetchEvent),
     upgrade: &'a dyn Fn(AptUpgradeEvent),
 ) -> RelResult<()> {
     terminate_background_applications();
@@ -515,7 +512,7 @@ fn terminate_background_applications() {
 
 async fn attempt_fetch<'a>(
     logger: &'a dyn Fn(UpgradeEvent),
-    fetch: Arc<dyn Fn(FetchEvent) + Send + Sync>,
+    fetch: &'a dyn Fn(FetchEvent),
 ) -> RelResult<()> {
     info!("fetching packages for the new release");
     (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
@@ -530,7 +527,7 @@ async fn attempt_fetch<'a>(
 /// On failure, the original release files will be restored.
 async fn fetch_new_release_packages<'b>(
     logger: &'b dyn Fn(UpgradeEvent),
-    fetch: Arc<dyn Fn(FetchEvent) + Send + Sync>,
+    fetch: &'b dyn Fn(FetchEvent),
     current: &'b str,
     next: &'b str,
 ) -> RelResult<()> {

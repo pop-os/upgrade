@@ -60,7 +60,7 @@ use dbus::{
 };
 use dbus_crossroads::{Context, Crossroads, MethodErr};
 use flume::{bounded, Receiver, Sender};
-use futures::{future::Shared, prelude::*};
+use futures::prelude::*;
 use logind_dbus::LoginManager;
 use num_traits::FromPrimitive;
 use std::{
@@ -163,7 +163,7 @@ impl Daemon {
                 }
             };
 
-            let fetch_closure = Arc::new(enclose!((dbus_tx, shared_state) move |event| {
+            let fetch_closure = enclose!((dbus_tx, shared_state) move |event| {
                 match event {
                     FetchEvent::Fetched(uri) => {
                         let (current, npackages) = shared_state.fetching_state.load(Ordering::SeqCst);
@@ -182,7 +182,7 @@ impl Daemon {
                         shared_state.fetching_state.store((0, total as u64), Ordering::SeqCst);
                     }
                 }
-            }));
+            });
 
             while let Ok(event) = event_rx.recv() {
                 let _suspend_lock = logind.as_mut().and_then(|logind| {
@@ -211,7 +211,7 @@ impl Daemon {
                         let npackages = apt_uris.len() as u32;
                         shared_state.fetching_state.store((0, u64::from(npackages)), Ordering::SeqCst);
 
-                        let result = crate::release::apt_fetch(apt_uris, fetch_closure.clone()).await;
+                        let result = crate::release::apt_fetch(apt_uris, &fetch_closure).await;
                         info!("fetched");
 
 
@@ -294,7 +294,7 @@ impl Daemon {
                             &from,
                             &to,
                             &progress,
-                            fetch_closure.clone(),
+                            &fetch_closure,
                             &|event| {
                                 let _ = dbus_tx.send(SignalEvent::Upgrade(event));
                             },
