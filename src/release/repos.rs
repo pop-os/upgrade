@@ -85,20 +85,32 @@ pub fn backup(release: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn delete_system76_ubuntu_ppa_list() -> anyhow::Result<()> {
+    if let Ok(ppa_directory) = Path::new(PPA_DIR).read_dir() {
+        for entry in ppa_directory.filter_map(Result::ok) {
+            let path = entry.path();
+            if path.extension().map_or(false, |e| e == "list") {
+                if let Some(fname) = path.file_name() {
+                    const POP_PPA: &[u8] = b"system76-ubuntu-pop";
+                    if fname.to_raw_bytes().windows(POP_PPA.len()).any(|w| w == POP_PPA) {
+                        fs::remove_file(&path).context("failed to remove the old Pop PPA file")?;
+                        return Ok(());
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// For each `.list` in `sources.list.d`, add `#` to the `deb` lines.
 pub fn disable_third_parties(release: &str) -> anyhow::Result<()> {
+    delete_system76_ubuntu_ppa_list()?;
     let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
     for entry in iter_files(dir) {
         let path = entry.path();
         if path.extension().map_or(false, |e| e == "list") {
-            if let Some(fname) = path.file_name() {
-                const POP_PPA: &[u8] = b"system76-ubuntu-pop";
-                if fname.to_raw_bytes().windows(POP_PPA.len()).any(|w| w == POP_PPA) {
-                    fs::remove_file(&path).context("failed to remove the old Pop PPA file")?;
-                    return Ok(());
-                }
-            }
-
             info!("disabling sources in {}", path.display());
 
             let contents = fs::read_to_string(&path)
@@ -228,6 +240,7 @@ pub fn apply_default_source_lists(release: &str) -> anyhow::Result<()> {
             fs::write(GROOVY_PROPRIETARY, groovy_era_proprietary(release))?;
             fs::write(THE_PPA_BEFORE_TIME, the_ppa_before_time(release))?;
             fs::write(SOURCES_LIST, sources_list_placeholder())?;
+            delete_system76_ubuntu_ppa_list()?;
         }
 
         _ => {
@@ -238,6 +251,8 @@ pub fn apply_default_source_lists(release: &str) -> anyhow::Result<()> {
                 info!("removing deprecated source at {}", file);
                 let _ = fs::remove_file(file)?;
             }
+
+            delete_system76_ubuntu_ppa_list()?;
 
             info!("creating new sources list");
             fs::write(SOURCES_LIST, sources_list_placeholder())?;
