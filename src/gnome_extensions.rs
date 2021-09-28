@@ -10,7 +10,6 @@ pub fn disable() -> anyhow::Result<()> {
         if user.uid() >= uid_min && user.uid() <= uid_max {
             let name = user.name();
             if let Some(name) = name.to_str() {
-                info!("disabling gnome-shell extensions for {}", name);
                 disable_for(name);
             }
         }
@@ -25,6 +24,13 @@ fn extension_path(user: &str) -> String {
 
 fn disable_for(user: &str) {
     let path = extension_path(user);
+
+    if ! Path::new(&path).exists() {
+        return;
+    }
+
+    info!("disabling extensions for {}", user);
+
     let backup = [&path, ".bak"].concat();
 
     let result = (|| {
