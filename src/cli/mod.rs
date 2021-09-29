@@ -382,6 +382,7 @@ impl Client {
     }
 
     fn event_listen_release_upgrade(&self) -> Result<bool, client::Error> {
+        let mut reset = false;
         let recall = &mut false;
 
         let result = self.event_listen(
@@ -423,6 +424,31 @@ impl Client {
                             Ok(event) => write_apt_event(event),
                             Err(()) => error!("failed to unpack the upgrade event: {:?}", event),
                         }
+                    }
+                    client::Signal::RecoveryDownloadProgress(progress) => {
+                        print!(
+                            "\r{} {}/{} {}",
+                            color_primary("Fetched"),
+                            color_info(progress.progress / 1024),
+                            color_info(progress.total / 1024),
+                            color_primary("MiB")
+                        );
+
+                        let _ = io::stdout().flush();
+
+                        reset = true;
+                    }
+                    client::Signal::RecoveryEvent(event) => {
+                        if reset {
+                            reset = false;
+                            println!();
+                        }
+
+                        println!(
+                            "{}: {}",
+                            color_primary("Recovery event"),
+                            <&'static str>::from(event)
+                        );
                     }
                     client::Signal::ReleaseResult(status) => {
                         if !*recall {
