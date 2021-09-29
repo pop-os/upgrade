@@ -266,7 +266,6 @@ impl Client {
 
     fn event_listen_fetch_updates(&self) -> Result<(), client::Error> {
         self.event_listen(
-            DaemonStatus::FetchingPackages,
             client::Client::fetch_updates_status,
             |new_status| {
                 log_result(
@@ -321,7 +320,6 @@ impl Client {
         let mut reset = false;
 
         self.event_listen(
-            DaemonStatus::RecoveryUpgrade,
             client::Client::recovery_upgrade_release_status,
             |new_status| {
                 log_result(
@@ -387,7 +385,6 @@ impl Client {
         let recall = &mut false;
 
         let result = self.event_listen(
-            DaemonStatus::ReleaseUpgrade,
             client::Client::release_upgrade_status,
             |new_status| {
                 log_result(
