@@ -267,6 +267,8 @@ impl Daemon {
                     }
 
                     Event::ReleaseUpgrade { how, from, to } => {
+                        shared_state.status.store(DaemonStatus::ReleaseUpgrade, Ordering::SeqCst);
+
                         info!(
                             "attempting release upgrade, using a {}",
                             <&'static str>::from(how)
