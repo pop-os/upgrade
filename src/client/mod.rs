@@ -322,7 +322,6 @@ impl Client {
     /// An event loop for listening to signals from the daemon.
     pub fn event_listen(
         &self,
-        expected_status: PrimaryStatus,
         status_func: fn(&Client) -> Result<Status, Error>,
         mut log_cb: impl FnMut(Status),
         mut event: impl FnMut(&Self, Signal) -> Result<Continue, Error>,
@@ -334,7 +333,7 @@ impl Client {
             }
 
             if let ConnectionItem::Nothing = item {
-                if !self.status_is(expected_status)? {
+                if self.is_inactive()? {
                     if break_on_next {
                         log_cb(status_func(self)?);
 
@@ -432,10 +431,8 @@ impl Client {
         self.bus.send_with_reply_and_block(m, TIMEOUT).map_err(|why| Error::Call(method, why))
     }
 
-    fn status_is(&self, expected: PrimaryStatus) -> Result<bool, Error> {
-        let status = self.status()?;
-        let status = PrimaryStatus::from_u8(status.status).ok_or(Error::DaemonStatusOutOfRange)?;
-        Ok(status == expected)
+    fn is_inactive(&self) -> Result<bool, Error> {
+        self.status().map(|status| status.status == 0)
     }
 }
 
