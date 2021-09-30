@@ -29,7 +29,6 @@ pub fn upgrade_listen(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
     let error = &mut None;
 
     let _ = client.event_listen(
-        DaemonStatus::RecoveryUpgrade,
         Client::recovery_upgrade_release_status,
         |status| status_changed(send, status, DaemonStatus::RecoveryUpgrade),
         |_client, signal| {
