@@ -40,8 +40,9 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) {
     let ignore_error = &mut false;
     let status_broken = &mut false;
 
+    use pop_upgrade::client::Progress;
+
     let _ = client.event_listen(
-        DaemonStatus::ReleaseUpgrade,
         Client::release_upgrade_status,
         |status| {
             *status_broken = true;
@@ -71,6 +72,13 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) {
                         }
                         _ => (),
                     }
+                }
+                Signal::RecoveryDownloadProgress(Progress { progress, total }) => {
+                    println!("Progress {}/{}", progress, total);
+                    send(UiEvent::Progress(ProgressEvent::Recovery(progress, total)));
+                }
+                Signal::RecoveryEvent(event) => {
+                    send(UiEvent::Recovery(OsRecoveryEvent::Event(event)));
                 }
                 Signal::ReleaseEvent(event) => {
                     send(UiEvent::Upgrade(OsUpgradeEvent::Event(event)));
@@ -128,7 +136,6 @@ pub fn update(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
         let error = &mut None;
 
         let _ = client.event_listen(
-            DaemonStatus::FetchingPackages,
             Client::fetch_updates_status,
             |status| status_changed(send, status, DaemonStatus::FetchingPackages),
             |_client, signal| {
