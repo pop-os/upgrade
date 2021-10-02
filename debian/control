@@ -17,7 +17,7 @@ Standards-Version: 4.1.1
 Homepage: https://github.com/pop-os/upgrade
 
 Package: pop-upgrade
-Architecture: amd64
+Architecture: amd64 arm64
 Depends:
   rsync,
   ${misc:Depends},
@@ -25,7 +25,7 @@ Depends:
 Description: Utility for performing system upgrades on Pop!_OS
 
 Package: libpop-upgrade-gtk
-Architecture: amd64
+Architecture: amd64 arm64
 Depends:
   pop-upgrade (= ${binary:Version}),
   ${shlibs:Depends}
@@ -33,7 +33,7 @@ Description: The Pop upgrade experience as a GTK widget in a dylib
  The Pop upgrade experience as a GTK widget in a dylib
 
 Package: libpop-upgrade-gtk-dev
-Architecture: amd64
+Architecture: amd64 arm64
 Depends:
   libpop-upgrade-gtk (= ${binary:Version}),
   ${misc:Depends}
@@ -41,35 +41,35 @@ Description: The C headers required for linking the libpop-upgrade-gtk widget
  The C headers required for linking the libpop-upgrade-gtk widget
 
 Package: ubuntu-release-upgrader-qt
-Architecture: amd64
+Architecture: amd64 arm64
 Description: Replaces do-release-upgrade with a help message.
 
 Package: ubuntu-release-upgrader-gtk
-Architecture: amd64
+Architecture: amd64 arm64
 Description: Replaces do-release-upgrade with a help message.
 
 Package: ubuntu-release-upgrader-core
-Architecture: amd64
+Architecture: amd64 arm64
 Description: Replaces do-release-upgrade with a help message.
 
 Package: update-manager-core
-Architecture: amd64
+Architecture: amd64 arm64
 Description: Replaces do-release-upgrade with a help message.
 Depends:
   ubuntu-release-upgrader-core (= ${binary:Version})
 
 Package: python3-distupgrade
-Architecture: amd64
+Architecture: amd64 arm64
 Description: Replaces do-release-upgrade with a help message (transitional).
 
 Package: python3-update-manager
-Architecture: amd64
+Architecture: amd64 arm64
 Description: Replaces do-release-upgrade with a help message (transitional).
 
 Package: update-notifier
-Architecture: amd64
+Architecture: amd64 arm64
 Description: Replaces do-release-upgrade with a help message (transitional).
 
 Package: update-notifier-common
-Architecture: amd64
+Architecture: amd64 arm64
 Description: Replaces do-release-upgrade with a help message (transitional).
