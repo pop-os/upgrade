@@ -61,6 +61,7 @@ dpkg_configure () {
 apt_install_fix () {
     message -i "Checking for package fixes"
     env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
+        -o Dpkg::Options::="--force-breaks" \
         -o Dpkg::Options::="--force-confdef" \
         -o Dpkg::Options::="--force-confold" \
         install -f -y --allow-downgrades --show-progress \
