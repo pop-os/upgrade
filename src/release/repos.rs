@@ -222,7 +222,8 @@ pub fn restore(release: &str) -> anyhow::Result<()> {
     }
 
     // Ensure default source lists are in place for this release.
-    apply_default_source_lists(release)
+    apply_default_source_lists(release)?;
+    update_preferences_script(release)
 }
 
 pub fn apply_default_source_lists(release: &str) -> anyhow::Result<()> {
@@ -252,7 +253,36 @@ pub fn apply_default_source_lists(release: &str) -> anyhow::Result<()> {
         }
     }
 
+    update_preferences_script(release)?;
+
     Ok(())
+}
+
+/// Apt preferences for Bionic through Hirsute
+const PREFERENCES_BIONIC: &str = r#"Package: *
+Pin: release o=LP-PPA-system76-pop
+Pin-Priority: 1001
+
+Package: *
+Pin: release o=LP-PPA-system76-proposed
+Pin-Priority: 1001
+"#;
+
+/// Apt preferences for Impish and beyond
+const PREFERENCES_IMPISH: &str = r#"Package: *
+Pin: release o=pop-os-release
+Pin-Priority: 1001
+"#;
+
+/// Overwrites Pop's apt preferences script
+fn update_preferences_script(release: &str) -> anyhow::Result<()> {
+    let data = match release {
+        "bionic" | "focal" | "hirsute" => PREFERENCES_BIONIC,
+        _ => PREFERENCES_IMPISH
+    };
+
+    fs::write("/etc/apt/preferences.d/pop-default-settings", data.as_bytes())
+        .context("failed to overwrite pop-default-settings apt preferences")
 }
 
 fn system_sources(release: &str) -> String {
