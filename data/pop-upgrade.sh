@@ -3,6 +3,13 @@
 export LANG=C
 export DEBIAN_FRONTEND="noninteractive"
 
+# Sets default session for each user as as pop
+set_default_session () {
+    for $file in /var/lib/AccountsService/users/*; do
+        sed "s/^Session=.*/Session=pop/g" -i $file
+    done
+}
+
 # Prevent apt sources from being reverted once this script launches
 rm -rf /pop-upgrade /pop_preparing_release_upgrade
 
@@ -150,6 +157,8 @@ attempt_upgrade () {
     systemctl mask acpid pop-upgrade
 
     if (upgrade || attempt_repair); then
+        set_default_session
+
         rm -rf  /system-update "$1"
 
         message -i "Upgrade complete. Removing old kernels"
@@ -171,6 +180,7 @@ attempt_upgrade () {
         systemctl unmask acpid pop-upgrade
         systemctl reboot
     else
+        set_default_session
         message -f "Upgrade failed. Restarting the system to try again"
         sleep 6
         plymouth message --text="system-updates-stop"
