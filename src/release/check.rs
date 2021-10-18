@@ -97,6 +97,7 @@ const FOCAL: &str = "20.04";
 const GROOVY: &str = "20.10";
 const HIRSUTE: &str = "21.04";
 const IMPISH: &str = "21.10";
+const JAMMY: &str = "22.04";
 const UNKNOWN: &str = "22.04";
 
 pub fn release_str(major: u8, minor: u8) -> &'static str {
@@ -106,7 +107,8 @@ pub fn release_str(major: u8, minor: u8) -> &'static str {
         (20, 10) => GROOVY,
         (21, 4) => HIRSUTE,
         (21, 10) => IMPISH,
-        (22, 4) => UNKNOWN,
+        (22, 4) => JAMMY,
+        (22, 10) => UNKNOWN,
         _ => panic!("this version of pop-upgrade is not supported on this release"),
     }
 }
@@ -142,8 +144,9 @@ fn next_(
         (18, 4) => available(true, BIONIC, FOCAL),
         (20, 4) => available(true, FOCAL, HIRSUTE),
         (20, 10) => available(false, GROOVY, HIRSUTE),
-        (21, 4) => development_enabled(false, HIRSUTE, IMPISH),
-        (21, 10) => blacklisted(false, IMPISH, UNKNOWN),
+        (21, 4) => available(false, HIRSUTE, IMPISH),
+        (21, 10) => development_enabled(false, IMPISH, JAMMY),
+        (22, 4) => blacklisted(true, JAMMY, UNKNOWN),
         _ => panic!("this version of pop-upgrade is not supported on this release"),
     }
 }
