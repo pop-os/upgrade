@@ -11,14 +11,14 @@ impl PermissionDenied {
             ..set_halign(gtk::Align::Center);
             ..set_valign(gtk::Align::Center);
             ..add(
-                &gtk::ImageBuilder::new()
+                &gtk::Image::builder()
                     .icon_name("system-lock-screen-symbolic")
                     .icon_size(gtk::IconSize::Dialog)
                     .pixel_size(64)
                     .build()
             );
             ..add(&cascade! {
-                gtk::LabelBuilder::new()
+                gtk::Label::builder()
                     .label(&fl!("permission-denied"))
                     .wrap(true)
                     .xalign(0.0)
