@@ -59,7 +59,7 @@ impl Section {
 }
 
 fn create_label(label: &str) -> gtk::Label {
-    gtk::LabelBuilder::new().label(label).use_markup(true).xalign(0.0).build()
+    gtk::Label::builder().label(label).use_markup(true).xalign(0.0).build()
 }
 
 fn separator_header(current: &gtk::ListBoxRow, _before: Option<&gtk::ListBoxRow>) {

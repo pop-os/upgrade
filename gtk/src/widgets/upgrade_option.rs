@@ -21,10 +21,10 @@ pub struct UpgradeOption {
 
 impl UpgradeOption {
     pub fn new() -> Self {
-        let button_label = gtk::LabelBuilder::new().margin(4).build();
+        let button_label = gtk::Label::builder().margin(4).build();
 
         let button = cascade! {
-            gtk::ButtonBuilder::new()
+            gtk::Button::builder()
                 .can_focus(true)
                 .halign(gtk::Align::End)
                 .hexpand(true)
