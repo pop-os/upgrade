@@ -23,7 +23,7 @@ impl DialogTemplate {
 
         let accept = cascade! {
             gtk::Button::with_label(accept);
-            ..get_style_context().add_class(accept_style);
+            ..style_context().add_class(accept_style);
         };
 
         let dialog = gtk::DialogBuilder::new()
@@ -40,7 +40,7 @@ impl DialogTemplate {
 
         cascade! {
             dialog
-                .get_header_bar()
+                .header_bar()
                 .expect("dialog generated without header bar")
                 .downcast::<gtk::HeaderBar>()
                 .expect("dialog header bar is not a header bar");
@@ -58,12 +58,12 @@ impl DialogTemplate {
 
         let icon = gtk::ImageBuilder::new()
             .icon_name(icon)
-            .icon_size(gtk::IconSize::Dialog.into())
+            .icon_size(gtk::IconSize::Dialog)
             .valign(gtk::Align::Start)
             .build();
 
         cascade! {
-            dialog.get_content_area();
+            dialog.content_area();
             ..set_orientation(gtk::Orientation::Horizontal);
             ..set_border_width(12);
             ..set_spacing(12);

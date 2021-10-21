@@ -204,11 +204,11 @@ impl UpgradeWidget {
 }
 
 fn get_upgrade_row(options: &gtk::ListBox) -> gtk::ListBoxRow {
-    options.get_row_at_index(0).expect("upgrade option is not at index 0")
+    options.row_at_index(0).expect("upgrade option is not at index 0")
 }
 
 fn get_dismiss_row(options: &gtk::ListBox) -> gtk::ListBoxRow {
-    options.get_row_at_index(1).expect("dismisser frame row is not at index 1")
+    options.row_at_index(1).expect("dismisser frame row is not at index 1")
 }
 
 fn reboot() { let _ = Command::new("systemctl").arg("reboot").status(); }
