@@ -45,7 +45,7 @@ impl UpgradeOption {
             ..set_line_wrap(true);
             ..set_xalign(0.0);
             ..set_yalign(0.0);
-            ..get_style_context().add_class(&gtk::STYLE_CLASS_DIM_LABEL);
+            ..style_context().add_class(&gtk::STYLE_CLASS_DIM_LABEL);
             ..set_no_show_all(true);
             ..hide();
             scale_label(&label, 0.9);
@@ -93,7 +93,7 @@ impl UpgradeOption {
     }
 
     pub fn button_class(&mut self, class: &'static str) -> &Self {
-        let ctx = self.button.get_style_context();
+        let ctx = self.button.style_context();
 
         if let Some(class) = self.last_class {
             ctx.remove_class(class);
@@ -164,7 +164,7 @@ impl UpgradeOption {
     pub fn progress_exact(&self, percent: u8) -> &Self {
         // Only set if the new progress is higher than the current.
         let new = f64::from(percent) / 100f64;
-        if new > self.progress.get_fraction() {
+        if new > self.progress.fraction() {
             self.progress.set_fraction(new);
         }
 

@@ -32,7 +32,7 @@ impl Dismisser {
             .wrap(true)
             .build();
 
-        label.get_style_context().add_class("dim-label");
+        label.style_context().add_class("dim-label");
 
         let grid = cascade! {
             gtk::Grid::new();

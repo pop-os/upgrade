@@ -13,7 +13,7 @@ impl PermissionDenied {
             ..add(
                 &gtk::ImageBuilder::new()
                     .icon_name("system-lock-screen-symbolic")
-                    .icon_size(gtk::IconSize::Dialog.into())
+                    .icon_size(gtk::IconSize::Dialog)
                     .pixel_size(64)
                     .build()
             );
@@ -24,7 +24,7 @@ impl PermissionDenied {
                     .xalign(0.0)
                     .yalign(0.0)
                     .build();
-                ..get_style_context().add_class(&gtk::STYLE_CLASS_DIM_LABEL);
+                ..style_context().add_class(&gtk::STYLE_CLASS_DIM_LABEL);
             });
             ..show_all();
         };

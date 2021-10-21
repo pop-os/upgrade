@@ -13,11 +13,10 @@ fn main() {
 
     let _ = install_logging(LevelFilter::Debug);
 
-    let application = Application::new(Some(APP_ID), ApplicationFlags::empty())
-        .expect("GTK initialization failed");
+    let application = Application::new(Some(APP_ID), ApplicationFlags::empty());
 
     application.connect_activate(|app| {
-        if let Some(window) = app.get_window_by_id(0) {
+        if let Some(window) = app.window_by_id(0) {
             window.present();
         }
     });
@@ -39,7 +38,7 @@ fn main() {
             ..set_titlebar(Some(&headerbar));
             ..set_icon_name(Some("firmware-manager"));
             ..set_keep_above(true);
-            ..set_property_window_position(gtk::WindowPosition::Center);
+            ..set_window_position(gtk::WindowPosition::Center);
             ..add(cascade! {
                 widget.as_ref();
                 ..set_border_width(12);
@@ -52,7 +51,7 @@ fn main() {
         app.connect_shutdown(move |_| widget.shutdown());
     });
 
-    application.run(&[]);
+    application.run();
 }
 
 /// Manages argument parsing for the GTK application via clap.
