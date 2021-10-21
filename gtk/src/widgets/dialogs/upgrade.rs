@@ -14,7 +14,7 @@ pub struct UpgradeDialog {
 
 impl UpgradeDialog {
     pub fn new(since: &str, version: &str) -> Self {
-        let title = gtk::LabelBuilder::new()
+        let title = gtk::Label::builder()
             .label(&fomat!(
                 (fl!("upgrade-available", version = version)) " "
                 if battery::active() {
@@ -68,7 +68,7 @@ impl UpgradeDialog {
 }
 
 fn add_changelog(changelogs: &gtk::Box, changelog: &str) {
-    let changelog_label = gtk::LabelBuilder::new()
+    let changelog_label = gtk::Label::builder()
         .label(changelog)
         .wrap(true)
         .xalign(0.0)
@@ -82,6 +82,6 @@ fn add_changelog(changelogs: &gtk::Box, changelog: &str) {
 
 fn add_version(changelogs: &gtk::Box, version: &str) {
     let upgrade_label =
-        gtk::LabelBuilder::new().label(&["Pop!_OS ", version].concat()).xalign(0.0).build();
+        gtk::Label::builder().label(&["Pop!_OS ", version].concat()).xalign(0.0).build();
     changelogs.add(&upgrade_label);
 }
