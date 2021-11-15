@@ -59,21 +59,6 @@ pub fn upgrade_listen(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
         return false;
     }
 
-    // if let Err(why) = result {
-    //     let error = if let client::Error::Call(_, ref source) = why {
-    //         if source.name() == Some("org.freedesktop.DBus.Error.NoReply") {
-    //             Box::<str>::from("recovery process interrupted").into()
-    //         } else {
-    //             why.into()
-    //         }
-    //     } else {
-    //         why.into()
-    //     };
-
-    //     send(UiEvent::Error(UiError::Recovery(error)));
-    //     return false;
-    // }
-
     send(UiEvent::Completed(CompletedEvent::Recovery));
     true
 }

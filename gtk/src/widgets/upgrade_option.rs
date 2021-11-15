@@ -33,16 +33,17 @@ impl UpgradeOption {
             ..add(&button_label);
         };
 
-        let label = cascade! {
-            gtk::Label::new(None);
-            ..set_xalign(0.0);
-            ..set_vexpand(true);
-            ..set_mnemonic_widget(Some(&button));
-        };
+        let label = gtk::Label::builder()
+            .xalign(0.0)
+            .hexpand(true)
+            .vexpand(true)
+            .mnemonic_widget(&button)
+            .build();
 
         let sublabel = cascade! {
             let label = gtk::Label::new(None);
             ..set_line_wrap(true);
+            ..set_hexpand(true);
             ..set_xalign(0.0);
             ..set_yalign(0.0);
             ..style_context().add_class(&gtk::STYLE_CLASS_DIM_LABEL);
@@ -66,14 +67,7 @@ impl UpgradeOption {
         };
 
         let container = cascade! {
-            gtk::Grid::new();
-            ..set_margin_start(20);
-            ..set_margin_end(20);
-            ..set_margin_top(9);
-            ..set_margin_bottom(9);
-            ..set_column_spacing(24);
-            ..set_row_spacing(4);
-            ..set_size_request(-1, 32);
+            super::option_container();
             ..attach(&labels,   0, 0, 1, 1);
             ..attach(&button,   1, 0, 1, 1);
             ..attach(&progress, 0, 1, 2, 1);
