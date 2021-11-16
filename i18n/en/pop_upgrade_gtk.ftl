@@ -66,6 +66,7 @@ most-current-recovery = You have the most current version of the recovery partit
 
 os-upgrade = OS Upgrade
 os-recovery = OS Recovery
+os-updates = System and Application Updates
 
 permission-denied = Permission Required
 

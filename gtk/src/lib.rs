@@ -120,12 +120,23 @@ impl UpgradeWidget {
             ..show_all();
         };
 
+        let updates_label = gtk::Label::builder()
+            .label(&fomat!("<b>" (fl!("os-updates")) "</b>"))
+            .use_markup(true)
+            .xalign(0.0)
+            .hexpand(true)
+            .build();
+
+        let updates_widget = pop_system_updater_gtk::SettingsWidget::new();
+
         let container = cascade! {
             gtk::Box::new(gtk::Orientation::Vertical, 12);
             ..add(&upgrade.label);
             ..add(&upgrade.frame);
             ..add(&recovery.label);
             ..add(&recovery.frame);
+            ..add(&updates_label);
+            ..add(&updates_widget.inner);
             ..show_all();
         };
 
