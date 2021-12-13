@@ -471,6 +471,11 @@ pub async fn upgrade<'a>(
         )
     }
 
+    if to == "21.10" {
+        info!("removing /var/lib/bluetooth to resolve https://github.com/bluez/bluez/issues/157");
+        let _ = fs::remove_dir_all("/var/lib/bluetooth");
+    }
+
     (*logger)(UpgradeEvent::Success);
     Ok(())
 }
