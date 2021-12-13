@@ -142,7 +142,7 @@ fn next_(
 
     match (current.major, current.minor) {
         (18, 4) => available(true, BIONIC, FOCAL),
-        (20, 4) => available(true, FOCAL, HIRSUTE),
+        (20, 4) => available(true, FOCAL, IMPISH),
         (20, 10) => available(false, GROOVY, HIRSUTE),
         (21, 4) => available(false, HIRSUTE, IMPISH),
         (21, 10) => development_enabled(false, IMPISH, JAMMY),
