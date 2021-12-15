@@ -17,6 +17,8 @@ const PROPRIETARY_SOURCES: &str = "/etc/apt/sources.list.d/pop-os-apps.sources";
 const GROOVY_PPA: &str = "/etc/apt/sources.list.d/pop-os-ppa.list";
 const IMPISH_RELEASE: &str = "/etc/apt/sources.list.d/pop-os-ppa.sources";
 
+const REMOVE_LIST: &[&str] = &[SYSTEM_SOURCES, PROPRIETARY_SOURCES, GROOVY_PPA, IMPISH_RELEASE];
+
 /// Backup the sources lists
 pub fn backup(release: &str) -> anyhow::Result<()> {
     // Files that have been marked for deletion.
@@ -181,6 +183,10 @@ pub fn replace_with_old_releases() -> io::Result<()> {
 pub fn restore(release: &str) -> anyhow::Result<()> {
     info!("restoring release files for {}", release);
 
+    for file in REMOVE_LIST {
+        let _ = fs::remove_file(file);
+    }
+
     let mut files = Vec::new();
 
     let sources_list = PathBuf::from([SOURCES_LIST, ".save"].concat());
@@ -223,7 +229,9 @@ pub fn restore(release: &str) -> anyhow::Result<()> {
 
     // Ensure default source lists are in place for this release.
     apply_default_source_lists(release)?;
-    update_preferences_script(release)
+    update_preferences_script(release)?;
+
+    Ok(())
 }
 
 pub fn apply_default_source_lists(release: &str) -> anyhow::Result<()> {
