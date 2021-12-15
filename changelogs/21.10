@@ -45,7 +45,7 @@
 ** Apt is now prevented from enabling the accidental removal of critical desktop packages.
 
 * Upgrade Hardening
-** Various issues with relase upgrades were discovered and resolved.
+** Various issues with release upgrades were discovered and resolved.
 ** User-added PPAs are disabled on upgrade because they are a often the cause of failed upgrades.
 ** Fixed errors revolving around custom edits to the /etc/fstab file.
 ** The recovery partition is now upgraded prior to updating the OS.
