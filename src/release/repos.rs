@@ -224,14 +224,14 @@ pub fn restore(release: &str) -> anyhow::Result<()> {
     }
 
     // Ensure default source lists are in place for this release.
-    apply_default_source_lists(release)?;
-    update_preferences_script(release)?;
+    let a = apply_default_source_lists(release);
+    let b = update_preferences_script(release);
 
     if release == "focal" {
         let _ = fs::remove_file("/etc/apt/sources.list.d/system76-ubuntu-pop-focal.list");
     }
 
-    Ok(())
+    a.or(b)
 }
 
 pub fn apply_default_source_lists(release: &str) -> anyhow::Result<()> {
