@@ -85,7 +85,7 @@ pub fn backup(release: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn delete_system76_ubuntu_ppa_list() -> anyhow::Result<()> {
+fn delete_system76_ubuntu_ppa_list() {
     if let Ok(ppa_directory) = Path::new(PPA_DIR).read_dir() {
         for entry in ppa_directory.filter_map(Result::ok) {
             let path = entry.path();
@@ -93,20 +93,17 @@ fn delete_system76_ubuntu_ppa_list() -> anyhow::Result<()> {
                 if let Some(fname) = path.file_name() {
                     const POP_PPA: &[u8] = b"system76-ubuntu-pop";
                     if fname.to_raw_bytes().windows(POP_PPA.len()).any(|w| w == POP_PPA) {
-                        fs::remove_file(&path).context("failed to remove the old Pop PPA file")?;
-                        return Ok(());
+                        let _ = fs::remove_file(&path);
                     }
                 }
             }
         }
     }
-
-    Ok(())
 }
 
 /// For each `.list` in `sources.list.d`, add `#` to the `deb` lines.
 pub fn disable_third_parties(release: &str) -> anyhow::Result<()> {
-    delete_system76_ubuntu_ppa_list()?;
+    delete_system76_ubuntu_ppa_list();
     let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
     for entry in iter_files(dir) {
         let path = entry.path();
@@ -186,7 +183,6 @@ pub fn restore(release: &str) -> anyhow::Result<()> {
     for file in REMOVE_LIST {
         let _ = fs::remove_file(file);
     }
-
     let mut files = Vec::new();
 
     let sources_list = PathBuf::from([SOURCES_LIST, ".save"].concat());
@@ -231,6 +227,10 @@ pub fn restore(release: &str) -> anyhow::Result<()> {
     apply_default_source_lists(release)?;
     update_preferences_script(release)?;
 
+    if release == "focal" {
+        let _ = fs::remove_file("/etc/apt/sources.list.d/system76-ubuntu-pop-focal.list");
+    }
+
     Ok(())
 }
 
@@ -247,7 +247,7 @@ pub fn apply_default_source_lists(release: &str) -> anyhow::Result<()> {
             fs::write(SYSTEM_SOURCES, system_sources(release))?;
             fs::write(PROPRIETARY_SOURCES, proprietary_sources(release))?;
             fs::write(GROOVY_PPA, groovy_ppa(release))?;
-            delete_system76_ubuntu_ppa_list()?;
+            delete_system76_ubuntu_ppa_list();
         }
 
         _ => {
@@ -257,7 +257,7 @@ pub fn apply_default_source_lists(release: &str) -> anyhow::Result<()> {
             fs::write(SYSTEM_SOURCES, system_sources(release))?;
             fs::write(PROPRIETARY_SOURCES, proprietary_sources(release))?;
             fs::write(IMPISH_RELEASE, release_sources(release))?;
-            delete_system76_ubuntu_ppa_list()?;
+            delete_system76_ubuntu_ppa_list();
         }
     }
 
@@ -286,7 +286,7 @@ Pin-Priority: 1001
 fn update_preferences_script(release: &str) -> anyhow::Result<()> {
     let data = match release {
         "bionic" | "focal" | "hirsute" => PREFERENCES_BIONIC,
-        _ => PREFERENCES_IMPISH
+        _ => PREFERENCES_IMPISH,
     };
 
     fs::write("/etc/apt/preferences.d/pop-default-settings", data.as_bytes())
