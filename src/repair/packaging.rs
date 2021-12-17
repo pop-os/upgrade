@@ -26,17 +26,29 @@ pub async fn repair(release: &str) -> anyhow::Result<()> {
     apt_lock_wait().await;
     let _ = AptGet::new().update().await;
 
-    apt_lock_wait().await;
-    AptGet::new()
-        .args(&["install", "-f", "-y", "--allow-downgrades"])
-        .status()
-        .await
-        .context("failed to repair broken packages with `apt-get install -f`")?;
+    let mut last_error = Ok(());
 
-    apt_lock_wait().await;
-    Dpkg::new()
-        .configure_all()
-        .status()
-        .await
-        .context("failed to configure packages with `dpkg --configure -a`")
+    for _ in 0..3i32 {
+        apt_lock_wait().await;
+        let a = AptGet::new()
+            .args(&["install", "-f", "-y", "--allow-downgrades"])
+            .status()
+            .await
+            .context("failed to repair broken packages with `apt-get install -f`");
+
+        apt_lock_wait().await;
+        let b = Dpkg::new()
+            .configure_all()
+            .status()
+            .await
+            .context("failed to configure packages with `dpkg --configure -a`");
+
+        last_error = a.and(b);
+
+        if last_error.is_ok() {
+            break;
+        }
+    }
+
+    last_error
 }
