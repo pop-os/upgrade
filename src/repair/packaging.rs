@@ -1,10 +1,11 @@
 use crate::release::repos::{iter_files, PPA_DIR};
 use anyhow::Context;
-use apt_cmd::{AptGet, Dpkg};
+use apt_cmd::{lock::apt_lock_wait, AptGet, Dpkg};
 use std::fs;
 use ubuntu_version::Codename;
 
 pub async fn repair(release: &str) -> anyhow::Result<()> {
+    apt_lock_wait().await;
     if let Ok(ppas) = std::fs::read_dir(PPA_DIR) {
         for file in iter_files(ppas) {
             let path = file.path();
@@ -22,14 +23,17 @@ pub async fn repair(release: &str) -> anyhow::Result<()> {
         }
     }
 
+    apt_lock_wait().await;
     let _ = AptGet::new().update().await;
 
+    apt_lock_wait().await;
     AptGet::new()
         .args(&["install", "-f", "-y", "--allow-downgrades"])
         .status()
         .await
         .context("failed to repair broken packages with `apt-get install -f`")?;
 
+    apt_lock_wait().await;
     Dpkg::new()
         .configure_all()
         .status()
