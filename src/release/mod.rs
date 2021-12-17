@@ -374,18 +374,18 @@ pub async fn upgrade<'a>(
 
     let _ = AptMark::new().hold(&["pop-upgrade"]).await;
 
+    let version = codename_from_version(from);
+
     // Check the system and perform any repairs necessary for success.
     (async move {
         repair::crypttab::repair().map_err(RepairError::Crypttab)?;
         repair::fstab::repair().map_err(RepairError::Fstab)?;
-        repair::packaging::repair().await.map_err(RepairError::Packaging)?;
+        repair::packaging::repair(version).await.map_err(RepairError::Packaging)?;
 
         Ok(())
     })
     .await
     .map_err(ReleaseError::Repair)?;
-
-    let version = codename_from_version(from);
 
     info!("creating backup of source lists");
     repos::backup(version).map_err(ReleaseError::BackupPPAs)?;
