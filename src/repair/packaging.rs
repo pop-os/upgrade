@@ -22,6 +22,8 @@ pub async fn repair(release: &str) -> anyhow::Result<()> {
         }
     }
 
+    let _ = AptGet::new().update().await;
+
     AptGet::new()
         .args(&["install", "-f", "-y", "--allow-downgrades"])
         .status()
