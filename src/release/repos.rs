@@ -381,5 +381,5 @@ deb http://apt.pop-os.org/proprietary {0} main
 }
 
 fn iter_files(dir: ReadDir) -> impl Iterator<Item = DirEntry> {
-    dir.filter_map(Result::ok).filter(|entry| !entry.metadata().ok().map_or(false, |m| m.is_file()))
+    dir.filter_map(Result::ok).filter(|entry| entry.metadata().ok().map_or(false, |m| m.is_file()))
 }
