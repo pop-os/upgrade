@@ -31,9 +31,11 @@ pub enum RepairError {
 pub async fn repair() -> Result<(), RepairError> {
     info!("performing release repair");
 
+    let release = &os_release::OS_RELEASE.as_ref().unwrap().version_codename;
+
     crypttab::repair().map_err(RepairError::Crypttab)?;
     fstab::repair().map_err(RepairError::Fstab)?;
-    packaging::repair().await.map_err(RepairError::Packaging)?;
+    packaging::repair(&release).await.map_err(RepairError::Packaging)?;
 
     Ok(())
 }

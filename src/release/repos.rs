@@ -11,7 +11,7 @@ use std::{
 use ubuntu_version::Codename;
 
 const SOURCES_LIST: &str = "/etc/apt/sources.list";
-const PPA_DIR: &str = "/etc/apt/sources.list.d";
+pub const PPA_DIR: &str = "/etc/apt/sources.list.d";
 const SYSTEM_SOURCES: &str = "/etc/apt/sources.list.d/system.sources";
 const PROPRIETARY_SOURCES: &str = "/etc/apt/sources.list.d/pop-os-apps.sources";
 const GROOVY_PPA: &str = "/etc/apt/sources.list.d/pop-os-ppa.list";
@@ -402,7 +402,7 @@ deb http://apt.pop-os.org/proprietary {0} main
     )
 }
 
-fn iter_files(dir: ReadDir) -> impl Iterator<Item = DirEntry> {
+pub fn iter_files(dir: ReadDir) -> impl Iterator<Item = DirEntry> {
     dir.filter_map(Result::ok).filter(|entry| entry.metadata().ok().map_or(false, |m| m.is_file()))
 }
 
