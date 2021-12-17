@@ -202,6 +202,7 @@ pub fn restore(release: &str) -> anyhow::Result<()> {
 
     for file in REMOVE_LIST {
         let _ = fs::remove_file(file);
+        let _ = fs::remove_file(&*[file, ".save"].concat());
     }
 
     let mut files = Vec::new();
