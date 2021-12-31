@@ -393,7 +393,7 @@ pub async fn upgrade<'a>(
     info!("disabling third party sources");
     repos::disable_third_parties(version).map_err(ReleaseError::DisablePPAs)?;
 
-    if repos::is_eol(from_codename) && repos::is_old_release(from_codename) {
+    if repos::is_old_release(<&'static str>::from(from_codename)) {
         info!("switching to old-releases repositories");
         repos::replace_with_old_releases().map_err(ReleaseError::OldReleaseSwitch)?;
     }

@@ -140,13 +140,8 @@ pub fn is_eol(codename: Codename) -> bool {
 }
 
 // Check if the release exists on Ubuntu's old-releases archive.
-pub fn is_old_release(codename: Codename) -> bool {
-    let url = &[
-        "http://old-releases.ubuntu.com/ubuntu/dists/",
-        <&'static str>::from(codename),
-        "/Release",
-    ]
-    .concat();
+pub fn is_old_release(codename: &str) -> bool {
+    let url = &["http://old-releases.ubuntu.com/ubuntu/dists/", codename, "/Release"].concat();
 
     isahc::head(url).ok().map_or(false, |resp| resp.status().is_success())
 }
@@ -284,6 +279,10 @@ pub fn apply_default_source_lists(release: &str) -> anyhow::Result<()> {
     }
 
     update_preferences_script(release)?;
+
+    if is_old_release(release) {
+        let _ = replace_with_old_releases();
+    }
 
     Ok(())
 }
