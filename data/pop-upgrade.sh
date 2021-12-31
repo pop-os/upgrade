@@ -119,7 +119,29 @@ install_packages () {
         -o Dpkg::Options::="--force-confold" \
         install -y --allow-downgrades --show-progress \
         --no-download --ignore-missing $package \
-        "${args[@]}"
+        "${args[@]}" | while read -r line; do
+            if test "Progress: [" = "$(echo ${line} | cut -c-11)"; then
+                percent=$(echo "${line}" | cut -c12-14)
+                if test -n "${percent}"; then
+                    plymouth system-update --progress="${percent}"
+                fi
+            fi
+
+            prefix="Installing Prerequisite Updates (${percent//[[:space:]]/}%)"
+
+            if test "Unpacking" = "$(echo ${line} | cut -c-9)"; then
+                package="$(echo $line | awk '{print $2}')"
+                message -i "$prefix: Unpacking $package ..."
+            elif test "Setting up" = "$(echo ${line} | cut -c-10)"; then
+                package="$(echo $line | awk '{print $3}')"
+                message -i "$prefix: Setting up $package ..."
+            elif test "Processing triggers for" = "$(echo ${line} | cut -c-23)"; then
+                package="$(echo $line | awk '{print $4}')"
+                message -i "$prefix: Processing triggers for $package ..."
+            else
+                echo "$line"
+            fi
+        done
 }
 
 apt_install_prereq () {
