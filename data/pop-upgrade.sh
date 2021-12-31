@@ -6,8 +6,6 @@ export DEBIAN_FRONTEND="noninteractive"
 # Prevent apt sources from being reverted once this script launches
 rm -rf /pop-upgrade /pop_preparing_release_upgrade
 
-PREINST=(zlib1g libc6:i386 libmount1:i386)
-
 message () {
     plymouth message --text="system-updates"
 
@@ -106,21 +104,46 @@ apt_full_upgrade () {
         --no-download --ignore-missing
 }
 
-apt_install_prereq () {
-    message -i "Installing Prerequisites"
-    for package in ${PREINST[@]}; do
-      if [[ $(dpkg -s $package | wc -l) > 0 ]]; then
-        env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
-          -o Dpkg::Options::="--force-confdef" \
-          -o Dpkg::Options::="--force-confold" \
-          install -y --allow-downgrades --show-progress \
-          --no-download --ignore-missing $package
-      fi
-    done
+candidate () {
+    echo "$1"=$(apt-cache policy "$1" | grep Candidate | awk '{print $2}')
+}
 
-    if dpkg -s libc++1 &>/dev/null; then
-        apt-get install -y libc++1=$(apt-cache policy libc++1 | grep Candidate | awk '{print $2}')
+package_exists () {
+    dpkg -s "$1" &>/dev/null
+}
+
+install_packages () {
+    local args=("$@")
+    env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
+        -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confold" \
+        install -y --allow-downgrades --show-progress \
+        --no-download --ignore-missing $package \
+        "${args[@]}"
+}
+
+apt_install_prereq () {
+    message -i "Installing Prerequisites. This will take a while."
+
+    packages=($(candidate zlib1g) $(candidate libc6) $(candidate ppp) $(candidate libnm0))
+
+    if package_exists libc6:i386; then
+        packages+=($(candidate libc6:i386))
     fi
+
+    if package_exists libc++1; then
+        packages+=($(candidate libc++1))
+    fi
+
+    if package_exists libc++1:i386; then
+        packages+=($(candidate libc++1:i386))
+    fi
+
+    if package_exists libmount1:i386; then
+        packages+=($(candidate libmount1:i386))
+    fi
+
+    install_packages "${packages[@]}"
 }
 
 upgrade () {
