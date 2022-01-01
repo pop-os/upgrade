@@ -27,7 +27,11 @@ mod widgets;
 
 pub use localize::localizer;
 
-use self::{events::*, state::State, widgets::Section};
+use self::{
+    events::{BackgroundEvent, Event, EventWidgets},
+    state::State,
+    widgets::Section,
+};
 use gtk::prelude::*;
 use std::{
     cell::RefCell,
@@ -61,7 +65,7 @@ impl UpgradeWidget {
         let gui_sender = Arc::new(gui_sender);
 
         thread::spawn(enclose!((gui_sender) move || {
-            events::background::run(bg_receiver, move |event| {
+            events::background::run(&bg_receiver, move |event| {
                 let _ = gui_sender.send(event);
             });
         }));

@@ -55,7 +55,7 @@ impl BootConf {
     }
 
     /// Defines the specified entry as the default boot entry
-    pub fn set_default_boot_variant(&mut self, variant: LoaderEntry) -> anyhow::Result<()> {
+    pub fn set_default_boot_variant(&mut self, variant: &LoaderEntry) -> anyhow::Result<()> {
         self.set_default_boot(|conf| {
             let comparison: fn(filename: &str) -> bool = match variant {
                 LoaderEntry::Current => |e| e.to_lowercase().ends_with("current"),
@@ -124,7 +124,7 @@ pub fn upgrade_prereq() -> RelResult<()> {
 
     let invalid = REQUIRED_UPGRADE_FILES
         .iter()
-        .cloned()
+        .copied()
         .filter(|file| !Path::new(file).is_file())
         .collect::<Vec<&'static str>>();
 

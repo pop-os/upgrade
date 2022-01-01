@@ -48,7 +48,7 @@ impl<'a> Iterator for ErrorIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let current = self.current;
-        self.current = self.current.and_then(|why| why.source());
+        self.current = self.current.and_then(ErrorTrait::source);
         current
     }
 }

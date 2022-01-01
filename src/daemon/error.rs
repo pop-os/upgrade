@@ -1,4 +1,3 @@
-use dbus;
 use std::io;
 use thiserror::Error;
 

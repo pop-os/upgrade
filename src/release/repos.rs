@@ -117,7 +117,7 @@ pub fn disable_third_parties(release: &str) -> anyhow::Result<()> {
             for line in contents.lines() {
                 let trimmed = line.trim();
                 if trimmed.starts_with("deb") {
-                    replaced.push_str("# ")
+                    replaced.push_str("# ");
                 }
 
                 replaced.push_str(trimmed);
@@ -165,7 +165,7 @@ pub fn replace_with_old_releases() -> io::Result<()> {
         }
     };
 
-    for source in [SOURCES_LIST, SYSTEM_SOURCES].iter().cloned() {
+    for source in &[SOURCES_LIST, SYSTEM_SOURCES] {
         if let Ok(contents) = fs::read_to_string(source) {
             if let Some(changed) = replace(&contents) {
                 let _ = fs::write(source, changed.as_bytes());
@@ -330,11 +330,10 @@ X-Repolib-Default-Mirror: http://us.archive.ubuntu.com/ubuntu/
 }
 
 fn sources_list_placeholder() -> String {
-    format!(
-        r#"## This file is deprecated in Pop!_OS.
+    r#"## This file is deprecated in Pop!_OS.
 ## See `man deb822` and /etc/apt/sources.list.d/system.sources.
 "#
-    )
+    .to_string()
 }
 
 fn proprietary_sources(release: &str) -> String {

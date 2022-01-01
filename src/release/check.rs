@@ -12,13 +12,7 @@ pub enum BuildStatus {
 }
 
 impl BuildStatus {
-    pub fn is_ok(&self) -> bool {
-        if let BuildStatus::Build(_) = *self {
-            true
-        } else {
-            false
-        }
-    }
+    pub fn is_ok(&self) -> bool { matches!(*self, BuildStatus::Build(_)) }
 
     pub fn status_code(&self) -> i16 {
         match *self {
@@ -137,7 +131,7 @@ fn next_(
     // Only permits an upgrade if the development flag is passed
     let development_enabled = |is_lts: bool, current: &'static str, next: &'static str| {
         let build = if development { release_check(next) } else { BuildStatus::Blacklisted };
-        ReleaseStatus { build, current, is_lts, next }
+        ReleaseStatus { current, next, build, is_lts }
     };
 
     match (current.major, current.minor) {

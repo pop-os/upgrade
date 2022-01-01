@@ -127,7 +127,7 @@ impl UpgradeOption {
                 self.show_button();
                 let id = self.button.connect_clicked(move |button| {
                     button.hide();
-                    func()
+                    func();
                 });
                 *button_signal = Some(id);
             }
@@ -163,7 +163,7 @@ impl UpgradeOption {
     /// Set the progress bar to the exact percent as defined.
     pub fn progress_exact(&self, percent: u8) -> &Self {
         // Only set if the new progress is higher than the current.
-        let new = percent as f64 / 100f64;
+        let new = f64::from(percent) / 100f64;
         if new > self.progress.get_fraction() {
             self.progress.set_fraction(new);
         }
@@ -193,16 +193,13 @@ impl UpgradeOption {
 
     /// Sets a sublabel with additional information about the operation.
     pub fn sublabel(&self, label: Option<&str>) -> &Self {
-        match label {
-            Some(label) => {
-                self.label.set_yalign(1.0);
-                self.sublabel.set_label(label);
-                self.sublabel.show();
-            }
-            None => {
-                self.label.set_yalign(0.5);
-                self.sublabel.hide();
-            }
+        if let Some(label) = label {
+            self.label.set_yalign(1.0);
+            self.sublabel.set_label(label);
+            self.sublabel.show();
+        } else {
+            self.label.set_yalign(0.5);
+            self.sublabel.hide();
         }
 
         self

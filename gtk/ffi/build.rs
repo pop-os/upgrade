@@ -14,6 +14,6 @@ fn main() {
 
     File::create(dbg!(target_dir.join("pop_upgrade_gtk.pc.stub")))
         .expect("failed to create pc.stub")
-        .write_all(&pkg_config.as_bytes())
+        .write_all(pkg_config.as_bytes())
         .expect("failed to write pc.stub");
 }

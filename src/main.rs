@@ -220,7 +220,7 @@ fn main_(matches: &ArgMatches) -> anyhow::Result<()> {
                 _ => unreachable!(),
             };
 
-            func(&client, matches)?
+            func(&client, matches)?;
         }
         _ => unreachable!("clap argument parsing failed"),
     }

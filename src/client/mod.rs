@@ -1,5 +1,5 @@
 use crate::{
-    daemon::{DaemonStatus as PrimaryStatus, *},
+    daemon::*,
     recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags},
     release::{RefreshOp, UpgradeEvent, UpgradeMethod},
     sighandler, DBUS_IFACE, DBUS_NAME, DBUS_PATH,
@@ -431,9 +431,7 @@ impl Client {
         self.bus.send_with_reply_and_block(m, TIMEOUT).map_err(|why| Error::Call(method, why))
     }
 
-    fn is_inactive(&self) -> Result<bool, Error> {
-        self.status().map(|status| status.status == 0)
-    }
+    fn is_inactive(&self) -> Result<bool, Error> { self.status().map(|status| status.status == 0) }
 }
 
 fn filter_signal(ci: ConnectionItem) -> Option<Message> {

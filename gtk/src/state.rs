@@ -1,4 +1,8 @@
-use crate::{events::*, widgets::Dismisser, ErrorCallback, EventCallback, ReadyCallback};
+use crate::{
+    events::{BackgroundEvent, UiEvent},
+    widgets::Dismisser,
+    ErrorCallback, EventCallback, ReadyCallback,
+};
 
 use pop_upgrade::client::ReleaseInfo;
 

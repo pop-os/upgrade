@@ -35,7 +35,7 @@ pub async fn repair() -> Result<(), RepairError> {
 
     crypttab::repair().map_err(RepairError::Crypttab)?;
     fstab::repair().map_err(RepairError::Fstab)?;
-    packaging::repair(&release).await.map_err(RepairError::Packaging)?;
+    packaging::repair(release).await.map_err(RepairError::Packaging)?;
 
     Ok(())
 }

@@ -31,7 +31,7 @@ pub enum BackgroundEvent {
 }
 
 pub fn run(
-    receiver: mpsc::Receiver<BackgroundEvent>,
+    receiver: &mpsc::Receiver<BackgroundEvent>,
     send: impl Fn(UiEvent) + Send + Sync + 'static,
 ) {
     let send: &dyn Fn(UiEvent) = &send;
@@ -65,11 +65,11 @@ pub fn run(
                         }
                     };
 
-                    send(event)
+                    send(event);
                 }
 
                 BackgroundEvent::DownloadUpgrade(info) => {
-                    self::release::download(client, send, info);
+                    self::release::download(client, send, &info);
                 }
 
                 BackgroundEvent::Finalize => match client.release_upgrade_finalize() {
