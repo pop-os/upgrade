@@ -59,6 +59,7 @@ pub struct UpgradeWidget {
 }
 
 impl UpgradeWidget {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let (bg_sender, bg_receiver) = mpsc::sync_channel(5);
         let (gui_sender, gui_receiver) = flume::unbounded();
