@@ -404,7 +404,7 @@ fn download_complete(state: &mut State, widgets: &EventWidgets) {
 
 use once_cell::sync::Lazy;
 
-const GENERIC: Lazy<String> = Lazy::new(|| {
+static GENERIC: Lazy<String> = Lazy::new(|| {
     fomat!(
         (fl!("error-header")) "\n\n"
         "* /etc/apt/sources.list\n"
