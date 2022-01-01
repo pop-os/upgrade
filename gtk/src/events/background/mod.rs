@@ -23,6 +23,7 @@ pub enum BackgroundEvent {
     GetStatus(DaemonStatus),
     IsActive(SyncSender<bool>),
     DismissNotification(bool),
+    #[allow(clippy::upper_case_acronyms)]
     RefreshOS,
     Reset,
     Scan,

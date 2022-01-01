@@ -14,6 +14,7 @@ pub enum ReleaseError {
     AptPurge(#[source] io::Error),
 
     #[error("failed to back up system sources")]
+    #[allow(clippy::upper_case_acronyms)]
     BackupPPAs(#[source] anyhow::Error),
 
     #[error("unable to upgrade to next release: {:?}", _0)]
@@ -29,6 +30,7 @@ pub enum ReleaseError {
     CurrentUpdate(#[source] io::Error),
 
     #[error("unable to disable third party repositories")]
+    #[allow(clippy::upper_case_acronyms)]
     DisablePPAs(#[source] anyhow::Error),
 
     #[error("status for `dpkg --configure -a` failed")]
