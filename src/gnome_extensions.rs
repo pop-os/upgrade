@@ -25,7 +25,7 @@ fn extension_path(user: &str) -> String {
 fn disable_for(user: &str) {
     let path = extension_path(user);
 
-    if ! Path::new(&path).exists() {
+    if !Path::new(&path).exists() {
         return;
     }
 

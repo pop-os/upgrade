@@ -42,7 +42,7 @@ pub fn setup_logging(filter: LevelFilter) -> Result<(), InitError> {
                 format_level(record),
                 location(record),
                 message
-            ))
+            ));
         })
         .chain(io::stderr())
         .apply()?;

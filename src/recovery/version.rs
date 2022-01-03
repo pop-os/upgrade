@@ -65,7 +65,7 @@ pub fn version() -> Result<RecoveryVersion, RecoveryVersionError> {
             }
         }
 
-        return Err(RecoveryVersionError::Unknown);
+        Err(RecoveryVersionError::Unknown)
     }
 }
 

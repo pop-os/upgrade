@@ -27,7 +27,11 @@ mod widgets;
 
 pub use localize::localizer;
 
-use self::{events::*, state::State, widgets::Section};
+use self::{
+    events::{BackgroundEvent, Event, EventWidgets},
+    state::State,
+    widgets::Section,
+};
 use gtk::prelude::*;
 use std::{
     cell::RefCell,
@@ -55,13 +59,14 @@ pub struct UpgradeWidget {
 }
 
 impl UpgradeWidget {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let (bg_sender, bg_receiver) = mpsc::sync_channel(5);
         let (gui_sender, gui_receiver) = flume::unbounded();
         let gui_sender = Arc::new(gui_sender);
 
         thread::spawn(enclose!((gui_sender) move || {
-            events::background::run(bg_receiver, move |event| {
+            events::background::run(&bg_receiver, move |event| {
                 let _ = gui_sender.send(event);
             });
         }));

@@ -79,7 +79,7 @@ pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
         RefreshOp::Disable => {
             info!("Disabling refresh OS");
 
-            conf.set_default_boot_variant(LoaderEntry::Current)
+            conf.set_default_boot_variant(&LoaderEntry::Current)
                 .map_err(ReleaseError::SystemdBoot)?;
 
             recovery::mode_unset().map_err(|why| ReleaseError::RecoveryConf(why.into()))?;
@@ -92,7 +92,7 @@ pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
             recovery::mode_set("refresh", conf.default_boot())
                 .map_err(|why| ReleaseError::RecoveryConf(why.into()))?;
 
-            conf.set_default_boot_variant(LoaderEntry::Recovery)
+            conf.set_default_boot_variant(&LoaderEntry::Recovery)
                 .map_err(ReleaseError::SystemdBoot)?;
 
             Ok(true)
@@ -168,7 +168,10 @@ impl From<UpgradeEvent> for &'static str {
 }
 
 /// Get a list of APT URIs to fetch for this operation, and then fetch them.
-pub async fn apt_fetch(uris: HashSet<AptRequest>, func: &dyn Fn(FetchEvent)) -> RelResult<()> {
+pub async fn apt_fetch<H>(uris: HashSet<AptRequest, H>, func: &dyn Fn(FetchEvent)) -> RelResult<()>
+where
+    H: std::hash::BuildHasher,
+{
     (*func)(FetchEvent::Init(uris.len()));
 
     apt_lock_wait().await;
@@ -243,7 +246,7 @@ pub async fn apt_fetch(uris: HashSet<AptRequest>, func: &dyn Fn(FetchEvent)) -> 
                     return Err(why).context("package fetching failed");
                 }
 
-                _ => (),
+                EventKind::Fetched(_) => (),
             }
         }
 
@@ -308,7 +311,7 @@ pub async fn package_upgrade<C: Fn(AptUpgradeEvent)>(callback: C) -> RelResult<(
             AptGet::new().noninteractive().allow_downgrades().force().stream_upgrade().await?;
 
         while let Some(event) = upgrade_events.next().await {
-            callback(event)
+            callback(event);
         }
 
         child.status().await
@@ -338,7 +341,7 @@ pub async fn package_upgrade<C: Fn(AptUpgradeEvent)>(callback: C) -> RelResult<(
         if dpkg_configure {
             apt_lock_wait().await;
             info!("dpkg --configure -a");
-            Dpkg::new().configure_all().status().await.map_err(ReleaseError::DpkgConfigure)?
+            Dpkg::new().configure_all().status().await.map_err(ReleaseError::DpkgConfigure)?;
         }
 
         apt_upgrade().await.map_err(ReleaseError::Upgrade)?;
@@ -439,7 +442,7 @@ pub async fn upgrade<'a>(
     let uris =
         crate::fetch::apt::fetch_uris(Some(CORE_PACKAGES)).await.map_err(ReleaseError::AptList)?;
 
-    apt_fetch(uris, fetch.clone()).await?;
+    apt_fetch(uris, fetch).await?;
 
     // Upgrade the current release to the latest packages.
     (*logger)(UpgradeEvent::UpgradingPackages);
@@ -462,13 +465,13 @@ pub async fn upgrade<'a>(
 
     // Update the source lists to the new release,
     // then fetch the packages required for the upgrade.
-    let _ = fetch_new_release_packages(logger, fetch, from, to).await?;
+    fetch_new_release_packages(logger, fetch, from, to).await?;
 
     if let Err(why) = crate::gnome_extensions::disable() {
         error!(
             "failed to disable gnome-shell extensions: {}",
             crate::misc::format_error(why.as_ref())
-        )
+        );
     }
 
     (*logger)(UpgradeEvent::Success);
@@ -534,7 +537,7 @@ async fn fetch_new_release_packages<'b>(
     (*logger)(UpgradeEvent::UpdatingSourceLists);
 
     // Updates the source lists, with a handle for reverting the change.
-    release_upgrade(logger, &current, &next).await.map_err(ReleaseError::Check)?;
+    release_upgrade(logger, current, next).await.map_err(ReleaseError::Check)?;
 
     // Use a closure to capture any early returns due to an error.
     let updated_list_ops = || async {
@@ -607,7 +610,7 @@ pub async fn cleanup() {
 
     let _ = AptMark::new().unhold(&["pop-upgrade"]).await;
 
-    for &file in [RELEASE_FETCH_FILE, STARTUP_UPGRADE_FILE].iter() {
+    for &file in &[RELEASE_FETCH_FILE, STARTUP_UPGRADE_FILE] {
         if Path::new(file).exists() {
             info!("cleaning up after failed upgrade");
 

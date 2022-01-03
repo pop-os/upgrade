@@ -91,7 +91,7 @@ where
     }
 
     if let Some((version, build)) =
-        fetch_iso(cancel, verify, &action, &progress, &event, "/recovery").await?
+        fetch_iso(cancel, verify, action, &progress, &event, "/recovery").await?
     {
         let data = fomat!((version) " " (build));
         async_fs::write(RECOVERY_VERSION, data.as_bytes())
@@ -232,7 +232,7 @@ async fn from_release<'a, F: Fn(u64, u64) + 'static + Send + Sync>(
     _flags: ReleaseFlags,
 ) -> RecResult<PathBuf> {
     let arch = match arch {
-        Some(ref arch) => arch,
+        Some(arch) => arch,
         None => detect_arch()?,
     };
 

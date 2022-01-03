@@ -8,7 +8,7 @@ use pop_upgrade::{
     release::UpgradeMethod,
 };
 
-pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) {
+pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: &ReleaseInfo) {
     info!("downloading updates for {}", info.next);
     if !update(client, send) {
         return;
@@ -58,14 +58,14 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) {
                 }
                 Signal::PackageFetched(status) => {
                     send(UiEvent::Progress(ProgressEvent::Fetching(
-                        status.completed as u64,
-                        status.total as u64,
+                        status.completed.into(),
+                        status.total.into(),
                     )));
                 }
                 Signal::PackageUpgrade(event) => {
                     match AptUpgradeEvent::from_dbus_map(event.into_iter()) {
                         Ok(AptUpgradeEvent::Progress { percent }) => {
-                            send(UiEvent::Progress(ProgressEvent::Updates(percent)))
+                            send(UiEvent::Progress(ProgressEvent::Updates(percent)));
                         }
                         Ok(AptUpgradeEvent::WaitingOnLock) => {
                             send(UiEvent::WaitingOnLock);
@@ -89,12 +89,6 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: ReleaseInfo) {
                     }
 
                     return Ok(client::Continue(false));
-                }
-                Signal::RecoveryDownloadProgress(progress) => {
-                    send(UiEvent::Progress(ProgressEvent::Recovery(
-                        progress.progress,
-                        progress.total,
-                    )));
                 }
                 _ => (),
             }
@@ -129,8 +123,8 @@ pub fn update(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
 
     if updates.updates_available {
         send(UiEvent::Progress(ProgressEvent::Fetching(
-            updates.completed as u64,
-            updates.total as u64,
+            updates.completed.into(),
+            updates.total.into(),
         )));
 
         let error = &mut None;
@@ -149,14 +143,14 @@ pub fn update(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
                     }
                     Signal::PackageFetched(status) => {
                         send(UiEvent::Progress(ProgressEvent::Fetching(
-                            status.completed as u64,
-                            status.total as u64,
+                            status.completed.into(),
+                            status.total.into(),
                         )));
                     }
                     Signal::PackageUpgrade(event) => {
                         match AptUpgradeEvent::from_dbus_map(event.into_iter()) {
                             Ok(AptUpgradeEvent::Progress { percent }) => {
-                                send(UiEvent::Progress(ProgressEvent::Updates(percent)))
+                                send(UiEvent::Progress(ProgressEvent::Updates(percent)));
                             }
                             Ok(AptUpgradeEvent::WaitingOnLock) => {
                                 send(UiEvent::WaitingOnLock);
