@@ -27,19 +27,17 @@ pub fn dkms_gcc9_fix() -> io::Result<()> {
             )
         })?;
 
-    for dir in fs::read_dir(lib_modules_dir)? {
-        if let Ok(dir) = dir {
-            if let Some(file_name) = dir.file_name().to_str() {
-                if human_sort::compare(&file_name, UNAFFECTED) == Ordering::Less {
-                    let makefile = dir.path().join("build/Makefile");
-                    if makefile.exists() {
-                        let mut data = fs::read_to_string(&makefile)?;
-                        let mut file = File::create(&makefile)?;
+    for dir in fs::read_dir(lib_modules_dir)?.flatten() {
+        if let Some(file_name) = dir.file_name().to_str() {
+            if human_sort::compare(file_name, UNAFFECTED) == Ordering::Less {
+                let makefile = dir.path().join("build/Makefile");
+                if makefile.exists() {
+                    let mut data = fs::read_to_string(&makefile)?;
+                    let mut file = File::create(&makefile)?;
 
-                        data = data.replace(BADFLAGS[0], "");
-                        data = data.replace(BADFLAGS[1], "");
-                        file.write_all(data.as_bytes())?;
-                    }
+                    data = data.replace(BADFLAGS[0], "");
+                    data = data.replace(BADFLAGS[1], "");
+                    file.write_all(data.as_bytes())?;
                 }
             }
         }

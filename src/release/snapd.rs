@@ -15,7 +15,7 @@ pub async fn hold_transitional_packages() -> Result<(), ReleaseError> {
     let mut buffer = String::new();
 
     for package in &snap_packages {
-        buffer.push_str(&*package);
+        buffer.push_str(*package);
         buffer.push('\n');
     }
 

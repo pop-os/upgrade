@@ -1,6 +1,4 @@
 #![deny(clippy::all)]
-#![allow(clippy::new_ret_no_self)]
-#![allow(clippy::useless_attribute)]
 
 #[macro_use]
 extern crate anyhow;

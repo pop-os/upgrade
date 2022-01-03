@@ -3,7 +3,7 @@ extern crate cascade;
 
 use gio::{prelude::*, ApplicationFlags};
 use gtk::{prelude::*, Application};
-use pop_upgrade_gtk::*;
+use pop_upgrade_gtk::UpgradeWidget;
 
 pub const APP_ID: &str = "com.system76.UpgradeManager";
 
@@ -125,7 +125,7 @@ fn install_logging(filter: LevelFilter) -> Result<(), InitError> {
                 format_level(record),
                 location(record),
                 message
-            ))
+            ));
         })
         .chain(io::stderr())
         .apply()?;

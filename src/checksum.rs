@@ -34,7 +34,7 @@ pub async fn validate_checksum(file: &mut File, checksum: &str) -> Result<(), Va
     }
 
     let found = hasher.finalize();
-    if &*found != &*expected {
+    if *found != *expected {
         return Err(ValidateError::Checksum {
             expected: checksum.into(),
             found:    format!("{:x}", found),

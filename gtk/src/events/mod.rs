@@ -273,7 +273,7 @@ pub fn attach(gui_receiver: flume::Receiver<UiEvent>, widgets: EventWidgets, mut
                     let _ = state.sender.send(BackgroundEvent::GetStatus(from));
                 }
 
-                UiEvent::Error(why) => error(&mut state, &widgets, why),
+                UiEvent::Error(why) => error(&mut state, &widgets, &why),
 
                 UiEvent::WaitingOnLock => (),
 
@@ -335,7 +335,7 @@ fn connect_upgrade(state: &mut State, widgets: &EventWidgets, is_lts: bool, rebo
         }
     };
 
-    let notice = notice.as_ref().map(String::as_str);
+    let notice = notice.as_deref();
 
     widgets.upgrade.options[0]
         .label(&state.upgrade_label)
@@ -422,7 +422,7 @@ const GENERIC: Lazy<String> = Lazy::new(|| {
 });
 
 /// Formats error messages for display on the console, and in the UI.
-fn error(state: &mut State, widgets: &EventWidgets, why: UiError) {
+fn error(state: &mut State, widgets: &EventWidgets, why: &UiError) {
     let error_message = &mut format!("{}", why);
     why.iter_sources().for_each(|source| {
         error_message.push_str(": ");
@@ -451,14 +451,14 @@ fn error(state: &mut State, widgets: &EventWidgets, why: UiError) {
         }
     } else {
         (state.callback_event.borrow())(Event::NotUpgrading);
-        reset(state, widgets)
+        reset(state, widgets);
     }
 }
 
 /// Checks if the release has been dismissed.
 fn is_dismissed(next: &str) -> bool {
     if Path::new(DISMISSED).exists() {
-        if let Some(dismissed) = fs::read_to_string(DISMISSED).ok() {
+        if let Ok(dismissed) = fs::read_to_string(DISMISSED) {
             if dismissed.as_str() == next {
                 return true;
             }
@@ -565,8 +565,8 @@ fn scan_event(state: &mut State, widgets: &EventWidgets, event: ScanEvent) {
 
             if refresh {
                 widgets.recovery.show();
-                connect_refresh(&state, widgets);
-                recovery::update_status(&state, widgets, status_failed, upgrading_recovery);
+                connect_refresh(state, widgets);
+                recovery::update_status(state, widgets, status_failed, upgrading_recovery);
             } else {
                 widgets.recovery.hide();
             }

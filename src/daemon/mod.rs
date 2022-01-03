@@ -51,7 +51,7 @@ use crate::{
 
 use anyhow::Context as AnyhowContext;
 use apt_cmd::{request::Request as AptRequest, AptCache, AptGet, AptMark};
-use as_result::*;
+use as_result::MapResult;
 use atomic::Atomic;
 use dbus::{
     blocking::Connection,
@@ -249,7 +249,7 @@ impl Daemon {
                     Event::RecoveryUpgrade(action) => {
                         info!("attempting recovery upgrade with {:?}", action);
                         let result = recovery::recovery(
-                            &|| cancel_process(),
+                            &cancel_process,
                             &action,
                             enclose!((dbus_tx, shared_state) move |p, t| {
                                 shared_state.fetching_state.store((p, t), Ordering::SeqCst);
@@ -680,7 +680,7 @@ impl Daemon {
                     {
                         if let Some(policy) = policies.next().await {
                             if policy.installed != "(none)" {
-                                packages.push("libpop-upgrade-gtk-dev")
+                                packages.push("libpop-upgrade-gtk-dev");
                             }
                         }
                     }
@@ -691,7 +691,7 @@ impl Daemon {
                 if let Some(status) = sighandler::status() {
                     info!("received a '{}' signal", status);
 
-                    use sighandler::Signal::*;
+                    use sighandler::Signal::{TermStop, Terminate};
 
                     match status {
                         Terminate => {
@@ -775,7 +775,7 @@ impl Daemon {
                                     .append1(event.clone().into_dbus_map())
                             }
                         }
-                    })
+                    });
                 }
             }
         })
@@ -791,7 +791,7 @@ impl Daemon {
         } else {
             let status = self.release_check(false)?;
             if status.is_lts() && status.build.is_ok() {
-                dismiss_file_create(&status.next)?;
+                dismiss_file_create(status.next)?;
 
                 if let DismissEvent::ByTimestamp = event {
                     crate::install::time()
@@ -812,7 +812,7 @@ impl Daemon {
         info!("fetching updates for the system, including {:?}", additional_packages);
 
         let mut borrows = Vec::with_capacity(additional_packages.len());
-        borrows.extend(additional_packages.into_iter().map(String::as_str));
+        borrows.extend(additional_packages.iter().map(String::as_str));
 
         let apt_uris = crate::fetch::apt::fetch_uris(Some(&borrows)).await?;
 
@@ -875,7 +875,7 @@ impl Daemon {
                 RecoveryVersion { version: String::new(), build: -1 }
             }
             Err(ref why) => {
-                return Err(format_error(why))?;
+                return Err(format_error(why));
             }
         };
 
