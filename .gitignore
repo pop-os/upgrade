@@ -11,3 +11,4 @@ debian/
 gtk/ffi/examples/c/build
 target/
 vendor.tar
+vendor
