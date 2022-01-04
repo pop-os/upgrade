@@ -1,4 +1,4 @@
-use serde_derive::Deserialize;
+use serde::Deserialize;
 use thiserror::Error;
 
 const BASE: &str = "https://api.pop-os.org/";
