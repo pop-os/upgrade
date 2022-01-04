@@ -56,7 +56,6 @@ sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
 systemd-boot-conf = "0.2.2"
 tempfile = "3.2.0"
 thiserror = "1.0.29"
-twoway = "0.2.2"
 ubuntu-version = "0.2.4"
 yansi = "0.5.0"
 cascade = "1.0.0"
