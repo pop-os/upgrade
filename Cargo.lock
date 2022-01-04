@@ -2096,7 +2096,6 @@ dependencies = [
  "as-result",
  "async-fs",
  "async-io",
- "async-lock",
  "async-process",
  "atomic",
  "atty",
