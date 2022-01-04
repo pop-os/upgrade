@@ -13,6 +13,7 @@ extern crate shrinkwraprs;
 #[macro_use]
 extern crate thiserror;
 
+mod app;
 mod cli;
 mod logging;
 mod notify;
@@ -52,12 +53,14 @@ pub mod error {
     }
 }
 
-use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
+use clap_old::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use std::{path::Path, process::exit};
 
 use self::error::InitError;
 
 pub fn main() {
+    app::App::from_cli();
+    panic!("exit early");
     // Service shall not run in a live environment.
     if Path::new("/cdrom/casper/filesystem.squashfs").exists() {
         exit(0);

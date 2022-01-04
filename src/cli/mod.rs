@@ -6,7 +6,7 @@ use crate::notify::notify;
 
 use apt_cmd::AptUpgradeEvent;
 use chrono::{TimeZone, Utc};
-use clap::ArgMatches;
+use clap_old::ArgMatches;
 use num_traits::FromPrimitive;
 use pop_upgrade::{
     client,
