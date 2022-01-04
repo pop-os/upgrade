@@ -1,4 +1,8 @@
 use clap::Parser;
+use pop_upgrade::{client::Client, release::systemd};
+
+mod upgrade;
+use upgrade::Upgrade;
 
 /// tools for managing the recovery partition
 #[derive(Parser)]
@@ -17,19 +21,32 @@ pub enum Recovery {
     Check,
 }
 
-/// upgrade the recovery partition
-#[derive(Parser)]
-pub enum Upgrade {
-    /// update the recovery partition using a the Pop release API
-    FromRelease {
-        /// release version to fetch. IE: `18.04`
-        version: String,
+impl Recovery {
+    pub fn run(&self, client: &Client) -> anyhow::Result<()> {
+        match self {
+            Self::DefaultBoot { reboot: _ } => {
+                root_required()?;
+                systemd::BootConf::load()?
+                    .set_default_boot_variant(&systemd::LoaderEntry::Recovery)?;
+            }
+            Self::Upgrade(upgrade) => upgrade.run(client)?,
+            Self::Check => {
+                let version = client.recovery_version()?;
+                pintln!(
+                    "version: " (version.version) "\n"
+                    "build: " (version.build)
+                );
+            }
+        }
 
-        /// release arch to fetch: IE: `nvidia` or `intel`
-        arch: String,
+        Ok(())
+    }
+}
 
-        /// fetches the next release's ISO if VERSION is not set
-        #[clap(long)]
-        next: bool,
-    },
+fn root_required() -> anyhow::Result<()> {
+    if unsafe { libc::geteuid() == 0 } {
+        Ok(())
+    } else {
+        Err(anyhow!("root is required for this operation"))
+    }
 }

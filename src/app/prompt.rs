@@ -62,6 +62,6 @@ mod tests {
     #[test_case("\n", None => None ; "returns None if nothing is entered and no default set")]
     #[test_case("YeS\n", None => Some(true) ; "is case insensitive")]
     fn parse_bool(input: &str, default: Option<bool>) -> Option<bool> {
-        crate::cli::prompt::parse_bool(input, default)
+        super::super::parse_bool(input, default)
     }
 }
