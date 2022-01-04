@@ -58,18 +58,21 @@ fn main() {
 ///
 /// Currently the primary purpose is to determine the logging level.
 fn argument_parsing() {
-    use clap::{App, Arg};
+    use clap::Parser;
 
-    let matches = App::new("com.system76.FirmwareManager")
-        .arg(
-            Arg::with_name("verbose")
-                .short("v")
-                .multiple(true)
-                .help("define the logging level; multiple occurrences increases the logging level"),
-        )
-        .get_matches();
+    #[derive(Parser)]
+    #[clap(name = "com.system76.FirmwareManager")]
+    struct App {
+        /// define the logging level
+        ///
+        /// multiple occurrences increases the logging level
+        #[clap(long, short, parse(from_occurrences))]
+        verbose: u8,
+    }
 
-    let logging_level = match matches.occurrences_of("verbose") {
+    let app = App::parse();
+
+    let logging_level = match app.verbose {
         0 => LevelFilter::Info,
         1 => LevelFilter::Debug,
         _ => LevelFilter::Trace,

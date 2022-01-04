@@ -9,7 +9,7 @@ apt-cmd = { git = "https://github.com/pop-os/apt-cmd/" }
 better-panic = "0.2"
 cascade = "1.0"
 chrono = "0.4"
-clap = "2"
+clap = "3.0.1"
 derive_more = "0.99"
 derive-new = "0.5"
 enclose = "1"

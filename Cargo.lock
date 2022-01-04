@@ -2222,7 +2222,7 @@ dependencies = [
  "better-panic",
  "cascade 1.0.0",
  "chrono",
- "clap 2.33.3",
+ "clap 3.0.1",
  "derive-new",
  "derive_more",
  "enclose",
