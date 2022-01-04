@@ -20,8 +20,7 @@ use apt_cmd::{
     lock::apt_lock_wait, request::Request as AptRequest, AptGet, AptMark, AptUpgradeEvent, Dpkg,
     DpkgQuery,
 };
-
-use futures::prelude::*;
+use futures_util::StreamExt;
 
 use std::{
     collections::HashSet,
@@ -253,7 +252,7 @@ where
         Ok::<(), anyhow::Error>(())
     };
 
-    futures::try_join!(sender, receiver).map(|_| ()).map_err(ReleaseError::PackageFetch)
+    futures_util::try_join!(sender, receiver).map(|_| ()).map_err(ReleaseError::PackageFetch)
 }
 
 /// Check if release files can be upgraded, and then overwrite them with the new release.

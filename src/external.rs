@@ -1,5 +1,5 @@
 use async_process::{Command, Stdio};
-use futures::{io::BufReader, prelude::*};
+use futures_util::{io::BufReader, AsyncBufReadExt, StreamExt};
 use std::{io, path::Path};
 
 pub async fn findmnt_uuid<P: AsRef<Path>>(path: P) -> io::Result<String> {

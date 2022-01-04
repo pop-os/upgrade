@@ -60,7 +60,7 @@ use dbus::{
 };
 use dbus_crossroads::{Context, Crossroads, MethodErr};
 use flume::{bounded, Receiver, Sender};
-use futures::prelude::*;
+use futures_util::StreamExt;
 use logind_dbus::LoginManager;
 use num_traits::FromPrimitive;
 use std::{

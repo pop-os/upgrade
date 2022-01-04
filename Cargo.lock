@@ -2113,7 +2113,6 @@ dependencies = [
  "fern",
  "flume",
  "fomat-macros",
- "futures",
  "futures-util",
  "hex",
  "human-sort",

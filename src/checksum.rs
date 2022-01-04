@@ -1,5 +1,5 @@
 use async_fs::File;
-use futures::prelude::*;
+use futures_util::AsyncReadExt;
 use hex::FromHex;
 use sha2::{digest::generic_array::GenericArray, Digest, Sha256};
 use std::io;

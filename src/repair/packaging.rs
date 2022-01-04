@@ -1,7 +1,7 @@
 use crate::release::repos::{iter_files, PPA_DIR};
 use anyhow::Context;
 use apt_cmd::{lock::apt_lock_wait, AptGet, Dpkg};
-use futures::StreamExt;
+use futures_util::StreamExt;
 use std::fs;
 use ubuntu_version::Codename;
 

@@ -3,7 +3,7 @@ mod version;
 
 use anyhow::Context;
 use async_process::Command;
-use futures::prelude::*;
+use futures_util::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use std::{
     io::SeekFrom,
     path::{Path, PathBuf},
@@ -214,7 +214,7 @@ async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     let cp1 = crate::misc::cp(&casper_initrd, &efi_initrd);
     let cp2 = crate::misc::cp(&casper_vmlinuz, &efi_vmlinuz);
 
-    futures::try_join!(cp1, cp2).context("failed to copy kernel to recovery")?;
+    futures_util::try_join!(cp1, cp2).context("failed to copy kernel to recovery")?;
 
     (*event)(RecoveryEvent::Complete);
 
