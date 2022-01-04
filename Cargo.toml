@@ -71,9 +71,6 @@ ward = "2.1.0"
 [patch.crates-io]
 sysfs-class = { git = "https://github.com/pop-os/sysfs-class" }
 
-[features]
-testing = []
-
 [dev-dependencies]
 test-case = "1.2.0"
 
