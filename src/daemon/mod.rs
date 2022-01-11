@@ -319,6 +319,8 @@ impl Daemon {
     }
 
     pub fn init() -> Result<(), DaemonError> {
+        std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
+
         info!("initializing daemon");
         fs::create_dir_all(crate::VAR_LIB_DIR)
             .map_err(|why| DaemonError::VarLibDirectory(crate::VAR_LIB_DIR, why))?;
