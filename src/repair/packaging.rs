@@ -37,6 +37,7 @@ pub async fn repair(release: &str) -> anyhow::Result<()> {
     for _ in 0..3i32 {
         apt_lock_wait().await;
         let a = AptGet::new()
+            .noninteractive()
             .args(&["install", "-f", "-y", "--allow-downgrades"])
             .status()
             .await
