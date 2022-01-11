@@ -1048,7 +1048,7 @@ fn dismissed_by_timestamp(timestamp: i64) -> Result<(), String> {
 /// even if the daemon is restarted
 async fn self_upgrade(packages: &[&str]) {
     let _ = AptGet::new().noninteractive().fix_broken().allow_downgrades().force().status().await;
-    let _ = AptGet::new().allow_downgrades().force().install(packages).await;
+    let _ = AptGet::new().noninteractive().allow_downgrades().force().install(packages).await;
 
     std::process::exit(1);
 }
