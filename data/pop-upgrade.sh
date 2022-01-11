@@ -49,7 +49,7 @@ efi_rename () {
 
 dpkg_configure () {
     dpkg --configure -a --force-overwrite | while read -r line; do
-        message -i "Attempting to repair: $line"
+        message -i "Repairing packages: $line"
     done
 
     # Validate the exit status
@@ -59,9 +59,12 @@ dpkg_configure () {
 apt_install_fix () {
     message -i "Checking for package fixes"
     env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
-        -o Dpkg::Options::="--force-breaks" \
         -o Dpkg::Options::="--force-confdef" \
         -o Dpkg::Options::="--force-confold" \
+        -o Dpkg::Options::="--force-breaks" \
+        -o Dpkg::Options::="--force-conflicts" \
+        -o Dpkg::Options::="--force-depends" \
+        -o Dpkg::Options::="--force-depends-version" \
         install -f -y --allow-downgrades --show-progress \
         --no-download --ignore-missing
 }
@@ -73,6 +76,10 @@ apt_full_upgrade () {
     env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
         -o Dpkg::Options::="--force-confdef" \
         -o Dpkg::Options::="--force-confold" \
+        -o Dpkg::Options::="--force-breaks" \
+        -o Dpkg::Options::="--force-conflicts" \
+        -o Dpkg::Options::="--force-depends" \
+        -o Dpkg::Options::="--force-depends-version" \
         full-upgrade -y --allow-downgrades --show-progress \
         --no-download --ignore-missing | while read -r line; do
             if test "Progress: [" = "$(echo ${line} | cut -c-11)"; then
@@ -117,8 +124,12 @@ install_packages () {
     env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
         -o Dpkg::Options::="--force-confdef" \
         -o Dpkg::Options::="--force-confold" \
+        -o Dpkg::Options::="--force-breaks" \
+        -o Dpkg::Options::="--force-conflicts" \
+        -o Dpkg::Options::="--force-depends" \
+        -o Dpkg::Options::="--force-depends-version" \
         install -y --allow-downgrades --show-progress \
-        --no-download --ignore-missing $package \
+        --no-download --ignore-missing \
         "${args[@]}" | while read -r line; do
             if test "Progress: [" = "$(echo ${line} | cut -c-11)"; then
                 percent=$(echo "${line}" | cut -c12-14)
@@ -127,7 +138,7 @@ install_packages () {
                 fi
             fi
 
-            prefix="Installing Prerequisite Updates (${percent//[[:space:]]/}%)"
+            prefix="Installing Prerequisites (${percent//[[:space:]]/}%)"
 
             if test "Unpacking" = "$(echo ${line} | cut -c-9)"; then
                 package="$(echo $line | awk '{print $2}')"
@@ -145,12 +156,21 @@ install_packages () {
 }
 
 apt_install_prereq () {
-    message -i "Installing Prerequisites. This will take a while."
+    local packages=($(candidate zlib1g) $(candidate libc6) \
+        $(candidate libglib2.0-0) $(candidate ppp) \
+        $(candidate network-manager) $(candidate libnm0)) \
+        $(candidate libosmesa6) $(candidate mailcap)
 
-    packages=($(candidate zlib1g) $(candidate libc6) $(candidate ppp) $(candidate libnm0))
+    if package_exists libosmesa6:i386; then
+        packages+=($(candidate libosmesa6:i386))
+    fi
 
     if package_exists libc6:i386; then
         packages+=($(candidate libc6:i386))
+    fi
+
+    if package_exists libglib2.0-0:i386; then
+        packages+=($(candidate libglib2.0-0:i386) $(candidate libpcre3:i386))
     fi
 
     if package_exists libc++1; then
@@ -165,18 +185,20 @@ apt_install_prereq () {
         packages+=($(candidate libmount1:i386))
     fi
 
-    install_packages "${packages[@]}"
+    message -i "Installing Prequisites: ${packages}"
+    install_packages ${packages[@]}
 }
 
 upgrade () {
+    apt-mark minimize-manual -y
+    apt_install_prereq
     dpkg_configure
     apt_install_fix
-    apt_install_prereq
     apt_full_upgrade
 }
 
 attempt_repair () {
-    message -i "Upgrade failed: attempting to repair"
+    message -i "Repairing packages"
 
     for (( i=0; i<10; ++i)); do
         if upgrade; then
