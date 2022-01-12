@@ -190,7 +190,7 @@ apt_install_prereq () {
 }
 
 upgrade () {
-    apt-mark minimize-manual -y
+    yes | apt-mark minimize-manual
     apt_install_prereq
     dpkg_configure
     apt_install_fix
