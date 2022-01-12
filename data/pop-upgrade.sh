@@ -156,21 +156,10 @@ install_packages () {
 }
 
 apt_install_prereq () {
-    local packages=($(candidate zlib1g) $(candidate libc6) \
-        $(candidate libglib2.0-0) $(candidate ppp) \
-        $(candidate network-manager) $(candidate libnm0)) \
-        $(candidate libosmesa6) $(candidate mailcap)
-
-    if package_exists libosmesa6:i386; then
-        packages+=($(candidate libosmesa6:i386))
-    fi
+    local packages=($(candidate libc6) $(candidate libmount1) $(candidate zlib1g))
 
     if package_exists libc6:i386; then
         packages+=($(candidate libc6:i386))
-    fi
-
-    if package_exists libglib2.0-0:i386; then
-        packages+=($(candidate libglib2.0-0:i386) $(candidate libpcre3:i386))
     fi
 
     if package_exists libc++1; then
@@ -185,12 +174,37 @@ apt_install_prereq () {
         packages+=($(candidate libmount1:i386))
     fi
 
+    if ! grep 18.04 /etc/os-release; then
+        packages+=($(candidate libglib2.0-0) $(candidate ppp) \
+            $(candidate network-manager) $(candidate libnm0) \
+            $(candidate libosmesa6))
+
+        if package_exists mailcap; then
+            packages+=($(candidate mailcap))
+        fi
+
+        if package_exists libosmesa6:i386; then
+            packages+=($(candidate libosmesa6:i386))
+        fi
+
+        if package_exists libglapi-mesa:i386; then
+            packages+=($(candidate libglapi-mesa:i386))
+        fi
+
+        if package_exists libglib2.0-0:i386; then
+            packages+=($(candidate libglib2.0-0:i386) $(candidate libpcre3:i386))
+        fi
+    fi
+
     message -i "Installing Prequisites: ${packages}"
     install_packages ${packages[@]}
 }
 
 upgrade () {
-    yes | apt-mark minimize-manual
+    if ! grep 18.04 /etc/os-release; then
+        apt-mark minimize-manual -y
+    fi
+
     apt_install_prereq
     dpkg_configure
     apt_install_fix
