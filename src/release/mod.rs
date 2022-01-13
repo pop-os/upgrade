@@ -307,8 +307,7 @@ pub async fn package_upgrade<C: Fn(AptUpgradeEvent)>(callback: C) -> RelResult<(
     let apt_upgrade = || async {
         apt_lock_wait().await;
         info!("upgrading packages");
-        let (mut child, mut upgrade_events) =
-            AptGet::new().noninteractive().allow_downgrades().force().stream_upgrade().await?;
+        let (mut child, mut upgrade_events) = misc::apt_get().stream_upgrade().await?;
 
         while let Some(event) = upgrade_events.next().await {
             callback(event);
@@ -319,7 +318,7 @@ pub async fn package_upgrade<C: Fn(AptUpgradeEvent)>(callback: C) -> RelResult<(
 
     apt_lock_wait().await;
     info!("autoremoving packages");
-    let _ = AptGet::new().noninteractive().allow_downgrades().force().autoremove().status().await;
+    let _ = misc::apt_get().autoremove().status().await;
 
     // If the first upgrade attempt fails, try to dpkg --configure -a and try again.
     if apt_upgrade().await.is_err() {
@@ -329,19 +328,18 @@ pub async fn package_upgrade<C: Fn(AptUpgradeEvent)>(callback: C) -> RelResult<(
 
         apt_lock_wait().await;
         info!("checking for broken packages");
-        AptGet::new()
-            .noninteractive()
-            .fix_broken()
-            .allow_downgrades()
-            .force()
-            .status()
-            .await
-            .map_err(ReleaseError::FixBroken)?;
+        misc::apt_get().fix_broken().status().await.map_err(ReleaseError::FixBroken)?;
 
         if dpkg_configure {
             apt_lock_wait().await;
             info!("dpkg --configure -a");
-            Dpkg::new().configure_all().status().await.map_err(ReleaseError::DpkgConfigure)?;
+            Dpkg::new()
+                .force_confdef()
+                .force_confold()
+                .configure_all()
+                .status()
+                .await
+                .map_err(ReleaseError::DpkgConfigure)?;
         }
 
         apt_upgrade().await.map_err(ReleaseError::Upgrade)?;
@@ -349,7 +347,7 @@ pub async fn package_upgrade<C: Fn(AptUpgradeEvent)>(callback: C) -> RelResult<(
 
     apt_lock_wait().await;
     info!("autoremoving packages");
-    let _ = AptGet::new().noninteractive().force().allow_downgrades().autoremove().status().await;
+    let _ = misc::apt_get().autoremove().status().await;
 
     Ok(())
 }
@@ -423,12 +421,7 @@ pub async fn upgrade<'a>(
     if !conflicting.is_empty() {
         apt_lock_wait().await;
         (logger)(UpgradeEvent::RemovingConflicts);
-        AptGet::new()
-            .noninteractive()
-            .force()
-            .remove(conflicting)
-            .await
-            .map_err(ReleaseError::ConflictRemoval)?;
+        misc::apt_get().remove(conflicting).await.map_err(ReleaseError::ConflictRemoval)?;
     }
 
     // Update the package lists for the current release.
@@ -450,13 +443,7 @@ pub async fn upgrade<'a>(
 
     apt_lock_wait().await;
     (logger)(UpgradeEvent::InstallingPackages);
-    AptGet::new()
-        .noninteractive()
-        .allow_downgrades()
-        .force()
-        .install(CORE_PACKAGES)
-        .await
-        .map_err(ReleaseError::InstallCore)?;
+    misc::apt_get().install(CORE_PACKAGES).await.map_err(ReleaseError::InstallCore)?;
 
     // Apply any fixes necessary before the upgrade.
     repair::pre_upgrade().map_err(ReleaseError::PreUpgrade)?;
@@ -570,14 +557,7 @@ async fn fetch_new_release_packages<'b>(
 
 async fn simulate_upgrade() -> RelResult<()> {
     apt_lock_wait().await;
-    AptGet::new()
-        .noninteractive()
-        .allow_downgrades()
-        .force()
-        .simulate()
-        .upgrade()
-        .await
-        .map_err(ReleaseError::Simulation)
+    misc::apt_get().simulate().upgrade().await.map_err(ReleaseError::Simulation)
 }
 
 /// Currently not a supported path

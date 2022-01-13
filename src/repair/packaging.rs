@@ -36,15 +36,16 @@ pub async fn repair(release: &str) -> anyhow::Result<()> {
 
     for _ in 0..3i32 {
         apt_lock_wait().await;
-        let a = AptGet::new()
-            .noninteractive()
-            .args(&["install", "-f", "-y", "--allow-downgrades"])
+        let a = misc::apt_get()
+            .fix_broken()
             .status()
             .await
             .context("failed to repair broken packages with `apt-get install -f`");
 
         apt_lock_wait().await;
         let b = Dpkg::new()
+            .force_confdef()
+            .force_confold()
             .configure_all()
             .status()
             .await
@@ -93,10 +94,5 @@ async fn base_requirements() -> anyhow::Result<()> {
     info!("installing required prerequisites: {:?}", to_install);
 
     // Ensure that the packages have their candidate versions installed.
-    AptGet::new()
-        .allow_downgrades()
-        .noninteractive()
-        .install(to_install)
-        .await
-        .context("failed to install prerequisites")
+    misc::apt_get().install(to_install).await.context("failed to install prerequisites")
 }
