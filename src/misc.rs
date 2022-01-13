@@ -2,6 +2,16 @@ use anyhow::Context;
 use async_fs::{copy, File};
 use std::{fs, io, path::Path};
 
+// Default options used by all apt-get invocations in pop-upgrade.
+pub fn apt_get() -> apt_cmd::AptGet {
+    apt_cmd::AptGet::new()
+        .noninteractive()
+        .force()
+        .force_confdef()
+        .force_confold()
+        .allow_downgrades()
+}
+
 pub async fn create<P: AsRef<Path>>(path: P) -> io::Result<File> {
     File::create(&path).await.map_err(|why| {
         io::Error::new(
