@@ -36,7 +36,7 @@ pub async fn repair(release: &str) -> anyhow::Result<()> {
 
     for _ in 0..3i32 {
         apt_lock_wait().await;
-        let a = misc::apt_get()
+        let a = crate::misc::apt_get()
             .fix_broken()
             .status()
             .await
@@ -94,5 +94,5 @@ async fn base_requirements() -> anyhow::Result<()> {
     info!("installing required prerequisites: {:?}", to_install);
 
     // Ensure that the packages have their candidate versions installed.
-    misc::apt_get().install(to_install).await.context("failed to install prerequisites")
+    crate::misc::apt_get().install(to_install).await.context("failed to install prerequisites")
 }
