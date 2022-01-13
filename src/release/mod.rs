@@ -195,7 +195,11 @@ where
         .concurrent(CONCURRENT_FETCHES)
         .delay_between(DELAY_BETWEEN)
         .retries(RETRIES)
-        .fetch(fetch_rx.into_stream(), Arc::from(Path::new(PARTIAL)));
+        .fetch(
+            fetch_rx.into_stream(),
+            Arc::from(Path::new(PARTIAL)),
+            Arc::from(Path::new(ARCHIVES)),
+        );
 
     // The system which sends package-fetching requests
     let sender = async move {
@@ -232,13 +236,7 @@ where
                     func(FetchEvent::Fetching((*event.package).clone()));
                 }
 
-                EventKind::Validated(src) => {
-                    let dst = Path::new(ARCHIVES).join(&event.package.name);
-
-                    async_fs::rename(&src, &dst)
-                        .await
-                        .context("failed to rename fetched debian package")?;
-
+                EventKind::Validated => {
                     func(FetchEvent::Fetched((*event.package).clone()));
                 }
 
@@ -246,7 +244,7 @@ where
                     return Err(why).context("package fetching failed");
                 }
 
-                EventKind::Fetched(_) => (),
+                EventKind::Fetched => (),
             }
         }
 
@@ -307,7 +305,7 @@ pub async fn package_upgrade<C: Fn(AptUpgradeEvent)>(callback: C) -> RelResult<(
     let apt_upgrade = || async {
         apt_lock_wait().await;
         info!("upgrading packages");
-        let (mut child, mut upgrade_events) = misc::apt_get().stream_upgrade().await?;
+        let (mut child, mut upgrade_events) = crate::misc::apt_get().stream_upgrade().await?;
 
         while let Some(event) = upgrade_events.next().await {
             callback(event);
@@ -318,7 +316,7 @@ pub async fn package_upgrade<C: Fn(AptUpgradeEvent)>(callback: C) -> RelResult<(
 
     apt_lock_wait().await;
     info!("autoremoving packages");
-    let _ = misc::apt_get().autoremove().status().await;
+    let _ = crate::misc::apt_get().autoremove().status().await;
 
     // If the first upgrade attempt fails, try to dpkg --configure -a and try again.
     if apt_upgrade().await.is_err() {
@@ -328,7 +326,7 @@ pub async fn package_upgrade<C: Fn(AptUpgradeEvent)>(callback: C) -> RelResult<(
 
         apt_lock_wait().await;
         info!("checking for broken packages");
-        misc::apt_get().fix_broken().status().await.map_err(ReleaseError::FixBroken)?;
+        crate::misc::apt_get().fix_broken().status().await.map_err(ReleaseError::FixBroken)?;
 
         if dpkg_configure {
             apt_lock_wait().await;
@@ -347,7 +345,7 @@ pub async fn package_upgrade<C: Fn(AptUpgradeEvent)>(callback: C) -> RelResult<(
 
     apt_lock_wait().await;
     info!("autoremoving packages");
-    let _ = misc::apt_get().autoremove().status().await;
+    let _ = crate::misc::apt_get().autoremove().status().await;
 
     Ok(())
 }
@@ -421,7 +419,7 @@ pub async fn upgrade<'a>(
     if !conflicting.is_empty() {
         apt_lock_wait().await;
         (logger)(UpgradeEvent::RemovingConflicts);
-        misc::apt_get().remove(conflicting).await.map_err(ReleaseError::ConflictRemoval)?;
+        crate::misc::apt_get().remove(conflicting).await.map_err(ReleaseError::ConflictRemoval)?;
     }
 
     // Update the package lists for the current release.
@@ -443,7 +441,7 @@ pub async fn upgrade<'a>(
 
     apt_lock_wait().await;
     (logger)(UpgradeEvent::InstallingPackages);
-    misc::apt_get().install(CORE_PACKAGES).await.map_err(ReleaseError::InstallCore)?;
+    crate::misc::apt_get().install(CORE_PACKAGES).await.map_err(ReleaseError::InstallCore)?;
 
     // Apply any fixes necessary before the upgrade.
     repair::pre_upgrade().map_err(ReleaseError::PreUpgrade)?;
@@ -557,7 +555,7 @@ async fn fetch_new_release_packages<'b>(
 
 async fn simulate_upgrade() -> RelResult<()> {
     apt_lock_wait().await;
-    misc::apt_get().simulate().upgrade().await.map_err(ReleaseError::Simulation)
+    crate::misc::apt_get().simulate().upgrade().await.map_err(ReleaseError::Simulation)
 }
 
 /// Currently not a supported path

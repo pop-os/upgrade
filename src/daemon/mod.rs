@@ -213,7 +213,7 @@ impl Daemon {
                                 } else {
                                     (async {
                                         info!("performing upgrade");
-                                        let (mut child, events) = misc::apt_get()
+                                        let (mut child, events) = crate::misc::apt_get()
                                             .stream_upgrade()
                                             .await
                                             .map_err(ReleaseError::Upgrade)?;
@@ -1046,8 +1046,8 @@ fn dismissed_by_timestamp(timestamp: i64) -> Result<(), String> {
 /// Installs packages in background, ensuring that the process continues
 /// even if the daemon is restarted
 async fn self_upgrade(packages: &[&str]) {
-    let _ = misc::apt_get().fix_broken().status().await;
-    let _ = misc::apt_get().install(packages).await;
+    let _ = crate::misc::apt_get().fix_broken().status().await;
+    let _ = crate::misc::apt_get().install(packages).await;
 
     std::process::exit(1);
 }
