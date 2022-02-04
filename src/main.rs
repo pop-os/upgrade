@@ -57,7 +57,8 @@ use std::{path::Path, process::exit};
 
 use self::error::InitError;
 
-pub fn main() {
+#[tokio::main]
+async fn main() {
     // Service shall not run in a live environment.
     if Path::new("/cdrom/casper/filesystem.squashfs").exists() {
         exit(0);
@@ -176,7 +177,7 @@ pub fn main() {
             SubCommand::with_name("status").about("get the status of the pop upgrade daemon"),
         );
 
-    if let Err(why) = main_(&clap.get_matches()) {
+    if let Err(why) = main_(&clap.get_matches()).await {
         eprintln!("pop-upgrade: {}", why);
 
         let mut source = why.source();
@@ -189,12 +190,12 @@ pub fn main() {
     }
 }
 
-fn main_(matches: &ArgMatches) -> anyhow::Result<()> {
+async fn main_(matches: &ArgMatches<'_>) -> anyhow::Result<()> {
     init()?;
 
     match matches.subcommand() {
         ("cancel", _) => Client::new()?.cancel()?,
-        ("daemon", _) => Daemon::init()?,
+        ("daemon", _) => Daemon::init().await?,
         (other, Some(matches)) => {
             let mut client = Client::new()?;
 

@@ -1,7 +1,4 @@
-use crate::{
-    checksum::ValidateError, release_api::ApiError, release_architecture::ReleaseArchError,
-    repair::RepairError,
-};
+use crate::{release_api::ApiError, release_architecture::ReleaseArchError, repair::RepairError};
 
 use std::{io, path::PathBuf};
 use thiserror::Error;
@@ -21,13 +18,16 @@ pub enum RecoveryError {
     Cancelled,
 
     #[error("checksum for {:?} failed: {}", path, source)]
-    Checksum { path: PathBuf, source: ValidateError },
+    Checksum { path: PathBuf, source: async_fetcher::checksum::ChecksumError },
+
+    #[error("checksum is not SHA256: {}", checksum)]
+    ChecksumInvalid { checksum: String, source: hex::FromHexError },
 
     #[error("failed to download ISO")]
     Download(#[source] Box<RecoveryError>),
 
     #[error("fetching from {} failed: {}", url, source)]
-    Fetch { url: String, source: anyhow::Error },
+    Fetch { url: String, source: async_fetcher::Error },
 
     #[error("ISO does not exist at path")]
     IsoNotFound,

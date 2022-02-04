@@ -186,7 +186,7 @@ where
 
     let client = isahc::HttpClient::new().expect("failed to create HTTP Client");
 
-    let (fetch_tx, fetch_rx) = flume::bounded(CONCURRENT_FETCHES);
+    let (fetch_tx, fetch_rx) = tokio::sync::mpsc::channel(CONCURRENT_FETCHES);
 
     use apt_cmd::fetch::{EventKind, PackageFetcher};
 
@@ -196,7 +196,7 @@ where
         .delay_between(DELAY_BETWEEN)
         .retries(RETRIES)
         .fetch(
-            fetch_rx.into_stream(),
+            tokio_stream::wrappers::ReceiverStream::new(fetch_rx),
             Arc::from(Path::new(PARTIAL)),
             Arc::from(Path::new(ARCHIVES)),
         );
@@ -217,9 +217,7 @@ where
             .context("failed to fetch package URIs from apt-get")?;
 
         for package in packages {
-            info!("sending package");
-            let _ = fetch_tx.send_async(Arc::new(package)).await;
-            info!("sending package");
+            let _ = fetch_tx.send(Arc::new(package)).await;
         }
 
         Ok::<(), anyhow::Error>(())
