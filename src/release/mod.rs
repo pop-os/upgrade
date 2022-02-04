@@ -204,7 +204,7 @@ where
     // The system which sends package-fetching requests
     let sender = async move {
         if !Path::new(PARTIAL).exists() {
-            async_fs::create_dir_all(PARTIAL)
+            tokio::fs::create_dir_all(PARTIAL)
                 .await
                 .context("failed to create partial debian directory")?;
         }

@@ -975,7 +975,7 @@ impl Daemon {
         let _ = AptGet::new().update().await;
 
         if let Ok(true) = upgrade_required().await {
-            if async_fs::File::create(RESTART_SCHEDULED).await.is_ok() {
+            if tokio::fs::File::create(RESTART_SCHEDULED).await.is_ok() {
                 info!("installing latest version of `pop-upgrade`, which will restart the daemon");
                 self.perform_upgrade = true;
                 return 1;

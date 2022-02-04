@@ -1,9 +1,8 @@
-use async_fs::File;
-use futures::prelude::*;
 use hex::FromHex;
 use sha2::{digest::generic_array::GenericArray, Digest, Sha256};
 use std::io;
 use thiserror::Error;
+use tokio::{fs::File, io::AsyncReadExt};
 
 #[derive(Debug, Error)]
 pub enum ValidateError {

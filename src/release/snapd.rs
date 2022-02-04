@@ -1,6 +1,6 @@
 use super::errors::ReleaseError;
 use apt_cmd::{AptCache, AptMark};
-use async_fs as fs;
+use tokio::fs;
 
 /// Holds all packages which have a pre-depend on snapd.
 ///

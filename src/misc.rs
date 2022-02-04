@@ -1,6 +1,6 @@
 use anyhow::Context;
-use async_fs::{copy, File};
 use std::{fs, io, path::Path};
+use tokio::fs::{copy, File};
 
 // Default options used by all apt-get invocations in pop-upgrade.
 pub fn apt_get() -> apt_cmd::AptGet {
