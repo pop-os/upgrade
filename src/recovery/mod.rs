@@ -274,28 +274,29 @@ async fn from_remote(
             .connections_per_file(NonZeroU16::new(4))
             .events(events_tx)
             .build()
-            .request(Arc::from(vec![url.clone()]), Arc::from(path_.clone()))
+            .request(Arc::from(vec![url.clone()]), Arc::from(path_.clone()), Arc::new(()))
             .await
             .map_err(|source| RecoveryError::Fetch { url: url.into(), source })?;
 
-        info!("fetched recovery ISO");
+        info!("fetched recovery ISO. Now validating checksum.");
 
-        let file = tokio::fs::File::open(&path_).await.map_err(|_| RecoveryError::IsoNotFound)?;
-
-        info!("validating checksum of recovery ISO");
-
-        emit_recovery_event(&sender_, RecoveryEvent::Verifying);
-        checksum
-            .validate(file, &mut vec![0u8; 16 * 1024])
-            .await
-            .map_err(|source| RecoveryError::Checksum { path: path_.clone(), source })
+        let sender = sender_.clone();
+        tokio::task::spawn_blocking(move || {
+            let file = std::fs::File::open(&path_).map_err(|_| RecoveryError::IsoNotFound)?;
+            let _ = sender.send(SignalEvent::RecoveryUpgradeEvent(RecoveryEvent::Verifying));
+            checksum
+                .validate(file, &mut vec![0u8; 16 * 1024])
+                .map_err(|source| RecoveryError::Checksum { path: path_.clone(), source })
+        })
+        .await
+        .unwrap()
     });
 
     let mut progress = 0;
     let mut last_update = std::time::Instant::now();
 
     // Watch for events received by the fetcher as it is in progress.
-    while let Some((_, event)) = events_rx.recv().await {
+    while let Some((_, _, event)) = events_rx.recv().await {
         match event {
             FetchEvent::ContentLength(t) => {
                 total = t / 1024;

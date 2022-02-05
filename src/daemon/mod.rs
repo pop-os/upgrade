@@ -175,7 +175,7 @@ impl Daemon {
                         ));
                     }
                     FetchEvent::Fetching(uri) => {
-                        let _ = dbus_tx.send(SignalEvent::Fetching(uri.name));
+                        let _ = dbus_tx.send(SignalEvent::Fetching(uri));
                     }
                     FetchEvent::Init(total) => {
                         shared_state.fetching_state.store((0, total as u64), Ordering::SeqCst);
@@ -227,7 +227,7 @@ impl Daemon {
 
                                         info!("completed apt upgrade");
 
-                                        child.status().await.map_result().map_err(ReleaseError::Upgrade)
+                                        child.wait().await.map_result().map_err(ReleaseError::Upgrade)
                                     }).await
                                 }
                             }

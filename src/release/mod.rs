@@ -181,23 +181,19 @@ where
     const PARTIAL: &str = "/var/cache/apt/archives/partial/";
 
     const CONCURRENT_FETCHES: usize = 4;
-    const DELAY_BETWEEN: u64 = 100;
-    const RETRIES: u32 = 3;
-
-    let client = isahc::HttpClient::new().expect("failed to create HTTP Client");
+    const RETRIES: u16 = 3;
 
     let (fetch_tx, fetch_rx) = tokio::sync::mpsc::channel(CONCURRENT_FETCHES);
 
     use apt_cmd::fetch::{EventKind, PackageFetcher};
 
     // The system which fetches packages we send requests to
-    let mut events = PackageFetcher::new(client)
+    let (fetcher, mut events) = PackageFetcher::default()
         .concurrent(CONCURRENT_FETCHES)
-        .delay_between(DELAY_BETWEEN)
+        .connections_per_file(CONCURRENT_FETCHES as u16)
         .retries(RETRIES)
         .fetch(
             tokio_stream::wrappers::ReceiverStream::new(fetch_rx),
-            Arc::from(Path::new(PARTIAL)),
             Arc::from(Path::new(ARCHIVES)),
         );
 
@@ -226,12 +222,12 @@ where
     // The system that handles events received from the package-fetcher
     let receiver = async move {
         info!("receiving packages");
-        while let Some(event) = events.next().await {
+        while let Some(event) = events.recv().await {
             debug!("Package Fetch Event: {:#?}", event);
 
             match event.kind {
                 EventKind::Fetching => {
-                    func(FetchEvent::Fetching((*event.package).clone()));
+                    func(FetchEvent::Fetching((*event.package.uri).to_owned()));
                 }
 
                 EventKind::Validated => {
@@ -249,7 +245,12 @@ where
         Ok::<(), anyhow::Error>(())
     };
 
-    futures::try_join!(sender, receiver).map(|_| ()).map_err(ReleaseError::PackageFetch)
+    let fetcher = async move {
+        fetcher.await;
+        Ok(())
+    };
+
+    futures::try_join!(fetcher, sender, receiver).map(|_| ()).map_err(ReleaseError::PackageFetch)
 }
 
 /// Check if release files can be upgraded, and then overwrite them with the new release.
@@ -309,7 +310,7 @@ pub async fn package_upgrade<C: Fn(AptUpgradeEvent)>(callback: C) -> RelResult<(
             callback(event);
         }
 
-        child.status().await
+        child.wait().await
     };
 
     apt_lock_wait().await;
@@ -407,7 +408,7 @@ pub async fn upgrade<'a>(
         }
 
         // NOTE: This is okay to fail since it just means a package is not found
-        let _ = child.status().await;
+        let _ = child.wait().await;
 
         Ok::<_, std::io::Error>(packages)
     })
@@ -575,7 +576,7 @@ fn rollback(release: &str, why: &(dyn std::error::Error + 'static)) {
 }
 
 pub enum FetchEvent {
-    Fetching(AptRequest),
+    Fetching(String),
     Fetched(AptRequest),
     Init(usize),
 }
