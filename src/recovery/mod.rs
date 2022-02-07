@@ -10,7 +10,6 @@ use async_fetcher::{
 use atomic::Ordering;
 use std::{
     convert::TryFrom,
-    num::NonZeroU16,
     path::{Path, PathBuf},
     sync::{atomic::AtomicBool, Arc},
 };
@@ -73,7 +72,7 @@ pub async fn recovery(
     // Check the system and perform any repairs necessary for success.
     crate::repair::repair().await.map_err(RecoveryError::Repair)?;
 
-    cancellation_check(&cancel)?;
+    cancelation_check(&cancel)?;
 
     if !recovery_exists()? {
         return Err(RecoveryError::RecoveryNotFound);
@@ -155,14 +154,14 @@ async fn fetch_iso<P: AsRef<Path>>(
             let (version, build) =
                 crate::release::check::current(version_).context("no build available")?;
 
-            cancellation_check(&cancel)?;
+            cancelation_check(&cancel)?;
 
             if verify(&version, build) {
                 info!("recovery partition is already upgraded to {}b{}", version, build);
                 return Ok(None);
             }
 
-            cancellation_check(&cancel)?;
+            cancelation_check(&cancel)?;
 
             // Fetch the latest ISO from the release repository.
             let iso = (|| async {
@@ -194,7 +193,7 @@ async fn fetch_iso<P: AsRef<Path>>(
         }
     };
 
-    cancellation_check(&cancel)?;
+    cancelation_check(&cancel)?;
 
     emit_recovery_event(&sender, RecoveryEvent::Syncing);
     let tempdir = tempfile::tempdir().map_err(RecoveryError::TempDir)?;
@@ -245,7 +244,7 @@ async fn fetch_iso<P: AsRef<Path>>(
 ///
 /// Once downloaded, the ISO will be verfied against the given checksum.
 async fn from_remote(
-    cancelled: Arc<AtomicBool>,
+    canceled: Arc<AtomicBool>,
     sender: UnboundedSender<SignalEvent>,
     url: Box<str>,
     checksum_str: &str,
@@ -266,12 +265,13 @@ async fn from_remote(
 
     let sender_ = sender.clone();
     let path_ = path.clone();
-    tokio::spawn(async move {
-        info!("Initiating fetche of recovery ISO");
+    let result = tokio::spawn(async move {
+        info!("Initiating fetch of recovery ISO");
 
         Fetcher::default()
-            .cancel(cancelled.clone())
-            .connections_per_file(NonZeroU16::new(4))
+            .cancel(canceled.clone())
+            .connections_per_file(4)
+            .max_part_size(4 * 1024 * 1024)
             .events(events_tx)
             .build()
             .request(Arc::from(vec![url.clone()]), Arc::from(path_.clone()), Arc::new(()))
@@ -288,8 +288,7 @@ async fn from_remote(
                 .validate(file, &mut vec![0u8; 16 * 1024])
                 .map_err(|source| RecoveryError::Checksum { path: path_.clone(), source })
         })
-        .await
-        .unwrap()
+        .await?
     });
 
     let mut progress = 0;
@@ -323,10 +322,12 @@ async fn from_remote(
 
     info!("recovery ISO fetch complete");
 
+    result.await??;
+
     Ok(path)
 }
 
-fn cancellation_check(cancel: &Arc<AtomicBool>) -> RecResult<()> {
+fn cancelation_check(cancel: &Arc<AtomicBool>) -> RecResult<()> {
     if cancel.load(Ordering::Relaxed) {
         Err(RecoveryError::Cancelled)
     } else {

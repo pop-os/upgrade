@@ -56,6 +56,9 @@ pub enum RecoveryError {
     #[error("failed to fetch release versions")]
     ReleaseVersion(#[from] VersionError),
 
+    #[error("failed to get status of recovery fetch task")]
+    TokioJoin(#[from] tokio::task::JoinError),
+
     #[error("the recovery feature is limited to EFI installs")]
     Unsupported,
 

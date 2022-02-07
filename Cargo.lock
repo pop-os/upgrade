@@ -44,11 +44,11 @@ checksum = "94a45b455c14666b85fc40a019e8ab9eb75e3a124e05494f5397122bc9eb06e0"
 [[package]]
 name = "apt-cmd"
 version = "0.4.0"
-source = "git+https://github.com/pop-os/apt-cmd/#507966086b90fcade5e1d43e05bd195c71c595e4"
+source = "git+https://github.com/pop-os/apt-cmd/#7a27bf5798ab03c0fd59e88cab1ca43df1264420"
 dependencies = [
  "anyhow",
  "as-result",
- "async-fetcher 0.6.2",
+ "async-fetcher",
  "async-stream",
  "derive_more",
  "futures",
@@ -90,33 +90,6 @@ dependencies = [
  "concurrent-queue",
  "event-listener",
  "futures-core",
-]
-
-[[package]]
-name = "async-fetcher"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c0bc683a2860b033c41538c90643f45387a35ac52c7aaf92640168c46b59966"
-dependencies = [
- "derive-new",
- "derive_more",
- "derive_setters",
- "digest 0.10.1",
- "filetime",
- "futures",
- "hex",
- "http",
- "httpdate",
- "isahc",
- "log",
- "md-5",
- "numtoa",
- "once_cell",
- "remem",
- "serde",
- "sha2 0.10.1",
- "thiserror",
- "tokio",
 ]
 
 [[package]]
@@ -2118,7 +2091,7 @@ dependencies = [
  "anyhow",
  "apt-cmd",
  "as-result",
- "async-fetcher 0.7.0",
+ "async-fetcher",
  "atomic",
  "atty",
  "bitflags",
