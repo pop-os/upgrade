@@ -311,6 +311,12 @@ async fn from_remote(
                 }
             }
 
+            FetchEvent::Retrying => {
+                progress = 0;
+                emit_progress(&sender, 0, total);
+                last_update = std::time::Instant::now();
+            }
+
             _ => (),
         }
     }

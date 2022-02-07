@@ -44,11 +44,11 @@ checksum = "94a45b455c14666b85fc40a019e8ab9eb75e3a124e05494f5397122bc9eb06e0"
 [[package]]
 name = "apt-cmd"
 version = "0.4.0"
-source = "git+https://github.com/pop-os/apt-cmd/#dfe32193d6b1252f47f482a7431b590f3cc009e8"
+source = "git+https://github.com/pop-os/apt-cmd/#507966086b90fcade5e1d43e05bd195c71c595e4"
 dependencies = [
  "anyhow",
  "as-result",
- "async-fetcher",
+ "async-fetcher 0.6.2",
  "async-stream",
  "derive_more",
  "futures",
@@ -97,6 +97,33 @@ name = "async-fetcher"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c0bc683a2860b033c41538c90643f45387a35ac52c7aaf92640168c46b59966"
+dependencies = [
+ "derive-new",
+ "derive_more",
+ "derive_setters",
+ "digest 0.10.1",
+ "filetime",
+ "futures",
+ "hex",
+ "http",
+ "httpdate",
+ "isahc",
+ "log",
+ "md-5",
+ "numtoa",
+ "once_cell",
+ "remem",
+ "serde",
+ "sha2 0.10.1",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "async-fetcher"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "783fb886cc2c8095c58f0c522415fa04e19adfe0c6a1ce5cee18a0525d24b597"
 dependencies = [
  "derive-new",
  "derive_more",
@@ -2091,7 +2118,7 @@ dependencies = [
  "anyhow",
  "apt-cmd",
  "as-result",
- "async-fetcher",
+ "async-fetcher 0.7.0",
  "atomic",
  "atty",
  "bitflags",
@@ -2839,9 +2866,9 @@ dependencies = [
 
 [[package]]
 name = "test-case"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7cad0a06f9a61e94355aa3b3dc92d85ab9c83406722b1ca5e918d4297c12c23"
+checksum = "b8f1ba037d0131884df7ba77277080b8dd1b9669c26eb902df9ecf1c0ba50ff9"
 dependencies = [
  "cfg-if 1.0.0",
  "proc-macro2",
@@ -3103,9 +3130,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-segmentation"
-version = "1.8.0"
+version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8895849a949e7845e06bd6dc1aa51731a103c42707010a5b591c0038fb73385b"
+checksum = "7e8820f5d777f6224dc4be3632222971ac30164d4a258d595640799554ebfd99"
 
 [[package]]
 name = "unicode-width"
