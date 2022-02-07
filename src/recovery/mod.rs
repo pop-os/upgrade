@@ -317,8 +317,6 @@ async fn from_remote(
 
     info!("recovery ISO fetch complete");
 
-    emit_progress(&sender, total, total);
-
     Ok(path)
 }
 
