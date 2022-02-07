@@ -184,6 +184,8 @@ impl Daemon {
             });
 
             while let Some(event) = event_rx.recv().await {
+                shared_state.cancel.store(false, Ordering::SeqCst);
+
                 let _suspend_lock = logind.as_mut().and_then(|logind| {
                     match logind
                         .connect()
@@ -246,7 +248,6 @@ impl Daemon {
 
                     Event::RecoveryUpgrade(action) => {
                         info!("attempting recovery upgrade with {:?}", action);
-
                         let _ = dbus_tx.send(SignalEvent::RecoveryUpgradeResult(recovery::recovery(
                             shared_state.cancel.clone(),
                             &action,
@@ -289,7 +290,6 @@ impl Daemon {
                     }
                 }
 
-                shared_state.cancel.store(false, Ordering::SeqCst);
                 shared_state.status.store(DaemonStatus::Inactive, Ordering::SeqCst);
                 info!("event processed");
             }
