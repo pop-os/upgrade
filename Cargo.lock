@@ -44,7 +44,7 @@ checksum = "94a45b455c14666b85fc40a019e8ab9eb75e3a124e05494f5397122bc9eb06e0"
 [[package]]
 name = "apt-cmd"
 version = "0.4.0"
-source = "git+https://github.com/pop-os/apt-cmd/#3e685461b340a9093954d17eaab579e44bf9b12e"
+source = "git+https://github.com/pop-os/apt-cmd/#a62a4972c33e6d82c36aa4bd78b8bf239e407b78"
 dependencies = [
  "anyhow",
  "as-result",
@@ -95,8 +95,7 @@ dependencies = [
 [[package]]
 name = "async-fetcher"
 version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd42d5262a2afaf0b5b835cd4387eedae800721b9bb02cf86424c4263a44af86"
+source = "git+https://github.com/pop-os/async-fetcher#f3072693301c685c220cfb80239449d0ae4eb594"
 dependencies = [
  "derive-new",
  "derive_more",
