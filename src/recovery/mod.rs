@@ -281,14 +281,21 @@ async fn from_remote(
         info!("fetched recovery ISO. Now validating checksum.");
 
         let sender = sender_.clone();
-        tokio::task::spawn_blocking(move || {
+        let join_handle = tokio::task::spawn_blocking(move || {
             let file = std::fs::File::open(&path_).map_err(|_| RecoveryError::IsoNotFound)?;
             let _ = sender.send(SignalEvent::RecoveryUpgradeEvent(RecoveryEvent::Verifying));
-            checksum
+            let result = checksum
                 .validate(file, &mut vec![0u8; 16 * 1024])
-                .map_err(|source| RecoveryError::Checksum { path: path_.clone(), source })
-        })
-        .await?
+                .map_err(|source| RecoveryError::Checksum { path: path_.clone(), source });
+
+            if result.is_err() {
+                let _ = std::fs::remove_file(&path_);
+            }
+
+            result
+        });
+
+        join_handle.await?
     });
 
     let mut progress = 0;
