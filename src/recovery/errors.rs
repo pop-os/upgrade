@@ -18,7 +18,7 @@ pub enum RecoveryError {
     Cancelled,
 
     #[error("checksum for {:?} failed: {}", path, source)]
-    Checksum { path: PathBuf, source: async_fetcher::checksum::ChecksumError },
+    Checksum { path: PathBuf, source: async_fetcher::ChecksumError },
 
     #[error("checksum is not SHA256: {}", checksum)]
     ChecksumInvalid { checksum: String, source: hex::FromHexError },

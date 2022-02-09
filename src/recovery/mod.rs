@@ -3,10 +3,7 @@ mod version;
 
 use crate::daemon::SignalEvent;
 use anyhow::Context;
-use async_fetcher::{
-    checksum::{Checksum, SumStr},
-    FetchEvent, Fetcher,
-};
+use async_fetcher::{Checksum, FetchEvent, Fetcher, SumStr};
 use atomic::Ordering;
 use std::{
     convert::TryFrom,
