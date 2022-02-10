@@ -667,7 +667,6 @@ impl Daemon {
         connection.start_receive(
             MatchRule::new_method_call(),
             Box::new(move |msg, c| {
-                eprintln!("handling message {:#?}", msg);
                 cr_.lock().unwrap().handle_message(msg, c).unwrap();
                 true
             }),
