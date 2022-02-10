@@ -273,6 +273,7 @@ async fn from_remote(
 
         Fetcher::default()
             .cancel(cancel)
+            .timeout(std::time::Duration::from_secs(5))
             .connections_per_file(4)
             .max_part_size(4 * 1024 * 1024)
             .events(events_tx)

@@ -188,14 +188,15 @@ where
     use apt_cmd::fetch::{EventKind, PackageFetcher};
 
     // The system which fetches packages we send requests to
-    let (fetcher, mut events) = PackageFetcher::default()
-        .concurrent(CONCURRENT_FETCHES)
+    let fetcher = async_fetcher::Fetcher::default()
         .connections_per_file(CONCURRENT_FETCHES as u16)
         .retries(RETRIES)
-        .fetch(
-            tokio_stream::wrappers::ReceiverStream::new(fetch_rx),
-            Arc::from(Path::new(ARCHIVES)),
-        );
+        .timeout(std::time::Duration::from_secs(5));
+
+    let (fetcher, mut events) = PackageFetcher::new(fetcher).concurrent(CONCURRENT_FETCHES).fetch(
+        tokio_stream::wrappers::ReceiverStream::new(fetch_rx),
+        Arc::from(Path::new(ARCHIVES)),
+    );
 
     // The system which sends package-fetching requests
     let sender = async move {
