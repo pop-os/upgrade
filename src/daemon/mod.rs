@@ -67,13 +67,16 @@ use std::{
     fs,
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, AtomicU8, Ordering},
+        atomic::{AtomicU8, Ordering},
         Arc,
     },
 };
 use tokio::{
     runtime::Handle,
-    sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
+    sync::{
+        mpsc::{self, UnboundedReceiver, UnboundedSender},
+        Notify,
+    },
 };
 
 pub const DISMISSED: &str = "/usr/lib/pop-upgrade/dismissed";
@@ -111,8 +114,6 @@ pub struct ReleaseUpgradeState {
 }
 
 struct SharedState {
-    // Cancels a process which is in progress
-    cancel:         Arc<AtomicBool>,
     // In case a UI is being constructed after a task has already started, it may request
     // for the curernt progress of a task.
     fetching_state: Atomic<(u64, u64)>,
@@ -120,6 +121,8 @@ struct SharedState {
     status:         Atomic<DaemonStatus>,
     // As well as the current sub-status, if relevant.
     sub_status:     AtomicU8,
+    // Cancels a process that is currently active.
+    cancel_notify:  Arc<Notify>,
 }
 
 pub struct Daemon {
@@ -148,7 +151,7 @@ impl Daemon {
             status:         Atomic::new(DaemonStatus::Inactive),
             sub_status:     AtomicU8::new(0),
             fetching_state: Atomic::new((0, 0)),
-            cancel:         Arc::new(AtomicBool::new(false)),
+            cancel_notify:  Arc::new(Notify::new()),
         });
 
         let handle = Handle::current();
@@ -184,111 +187,123 @@ impl Daemon {
             });
 
             while let Some(event) = event_rx.recv().await {
-                shared_state.cancel.store(false, Ordering::SeqCst);
+                let task_in_progress = async {
+                    let _suspend_lock = logind.as_mut().and_then(|logind| {
+                        match logind
+                            .connect()
+                            .inhibit_suspend("pop-upgrade", "performing upgrade event")
+                        {
+                            Ok(lock) => Some(lock),
+                            Err(why) => {
+                                error!("failed to inhibit suspension: {}", why);
+                                None
+                            }
+                        }
+                    });
 
-                let _suspend_lock = logind.as_mut().and_then(|logind| {
-                    match logind
-                        .connect()
-                        .inhibit_suspend("pop-upgrade", "performing upgrade event")
-                    {
-                        Ok(lock) => Some(lock),
-                        Err(why) => {
-                            error!("failed to inhibit suspension: {}", why);
-                            None
+                    match event {
+                        Event::FetchUpdates { apt_uris, download_only } => {
+                            info!("fetching packages for {:?}", apt_uris);
+                            shared_state.status.store(DaemonStatus::FetchingPackages, Ordering::SeqCst);
+                            let npackages = apt_uris.len() as u32;
+                            shared_state.fetching_state.store((0, u64::from(npackages)), Ordering::SeqCst);
+
+                            let result = crate::release::apt_fetch(apt_uris, &fetch_closure).await;
+
+                            shared_state.fetching_state.store((0, 0), Ordering::SeqCst);
+
+                            let result = match result {
+                                Ok(_) => {
+                                    if download_only {
+                                        Ok(())
+                                    } else {
+                                        (async {
+                                            info!("performing upgrade");
+                                            shared_state.status.store(DaemonStatus::PackageUpgrade, Ordering::SeqCst);
+
+                                            let (mut child, events) = crate::misc::apt_get()
+                                                .stream_upgrade()
+                                                .await
+                                                .map_err(ReleaseError::Upgrade)?;
+
+                                            futures_util::pin_mut!(events);
+
+                                            while let Some(event) = events.next().await {
+                                                let _ = dbus_tx.send(SignalEvent::Upgrade(event));
+                                            }
+
+                                            info!("completed apt upgrade");
+
+                                            child.wait().await.map_result().map_err(ReleaseError::Upgrade)
+                                        }).await
+                                    }
+                                }
+                                Err(why) => Err(why)
+                            };
+
+                            let _ = dbus_tx.send(SignalEvent::FetchResult(result));
+                        }
+
+                        Event::PackageUpgrade => {
+                            info!("upgrading packages");
+                            shared_state.status.store(DaemonStatus::PackageUpgrade, Ordering::SeqCst);
+                            let _ = crate::release::package_upgrade(|event| {
+                                let _ = dbus_tx.send(SignalEvent::Upgrade(event));
+                            });
+                        }
+
+                        Event::RecoveryUpgrade(action) => {
+                            info!("attempting recovery upgrade with {:?}", action);
+                            shared_state.status.store(DaemonStatus::RecoveryUpgrade, Ordering::SeqCst);
+                            let _ = dbus_tx.send(SignalEvent::RecoveryUpgradeResult(recovery::recovery(
+                                shared_state.cancel_notify.clone(),
+                                &action,
+                                dbus_tx.clone(),
+                            ).await));
+                        }
+
+                        Event::ReleaseUpgrade { how, from, to } => {
+                            shared_state.status.store(DaemonStatus::ReleaseUpgrade, Ordering::SeqCst);
+
+                            info!(
+                                "attempting release upgrade, using a {}",
+                                <&'static str>::from(how)
+                            );
+
+                            let progress = enclose!((dbus_tx, shared_state) move |event| {
+                                let _ = dbus_tx.send(SignalEvent::ReleaseUpgradeEvent(event));
+                                shared_state.sub_status.store(event as u8, Ordering::SeqCst);
+                            });
+
+                            let result = crate::release::upgrade(
+                                how,
+                                &from,
+                                &to,
+                                &progress,
+                                &fetch_closure,
+                                &|event| {
+                                    let _ = dbus_tx.send(SignalEvent::Upgrade(event));
+                                },
+                            ).await;
+
+                            let _ = AptMark::new().unhold(&["pop-upgrade"]).await;
+
+                            let _ = fg_tx.send(FgEvent::SetUpgradeState(
+                                result,
+                                how,
+                                from.into(),
+                                to.into(),
+                            ));
                         }
                     }
-                });
+                };
 
-                match event {
-                    Event::FetchUpdates { apt_uris, download_only } => {
-                        info!("fetching packages for {:?}", apt_uris);
-                        let npackages = apt_uris.len() as u32;
-                        shared_state.fetching_state.store((0, u64::from(npackages)), Ordering::SeqCst);
+                let canceled = shared_state.cancel_notify.notified();
 
-                        let result = crate::release::apt_fetch(apt_uris, &fetch_closure).await;
+                futures::pin_mut!(canceled);
+                futures::pin_mut!(task_in_progress);
 
-                        shared_state.fetching_state.store((0, 0), Ordering::SeqCst);
-
-                        let result = match result {
-                            Ok(_) => {
-                                if download_only {
-                                    Ok(())
-                                } else {
-                                    (async {
-                                        info!("performing upgrade");
-                                        let (mut child, events) = crate::misc::apt_get()
-                                            .stream_upgrade()
-                                            .await
-                                            .map_err(ReleaseError::Upgrade)?;
-
-                                        futures_util::pin_mut!(events);
-
-                                        while let Some(event) = events.next().await {
-                                            let _ = dbus_tx.send(SignalEvent::Upgrade(event));
-                                        }
-
-                                        info!("completed apt upgrade");
-
-                                        child.wait().await.map_result().map_err(ReleaseError::Upgrade)
-                                    }).await
-                                }
-                            }
-                            Err(why) => Err(why)
-                        };
-
-                        let _ = dbus_tx.send(SignalEvent::FetchResult(result));
-                    }
-
-                    Event::PackageUpgrade => {
-                        info!("upgrading packages");
-                        let _ = crate::release::package_upgrade(|event| {
-                            let _ = dbus_tx.send(SignalEvent::Upgrade(event));
-                        });
-                    }
-
-                    Event::RecoveryUpgrade(action) => {
-                        info!("attempting recovery upgrade with {:?}", action);
-                        let _ = dbus_tx.send(SignalEvent::RecoveryUpgradeResult(recovery::recovery(
-                            shared_state.cancel.clone(),
-                            &action,
-                            dbus_tx.clone(),
-                        ).await));
-                    }
-
-                    Event::ReleaseUpgrade { how, from, to } => {
-                        shared_state.status.store(DaemonStatus::ReleaseUpgrade, Ordering::SeqCst);
-
-                        info!(
-                            "attempting release upgrade, using a {}",
-                            <&'static str>::from(how)
-                        );
-
-                        let progress = enclose!((dbus_tx, shared_state) move |event| {
-                            let _ = dbus_tx.send(SignalEvent::ReleaseUpgradeEvent(event));
-                            shared_state.sub_status.store(event as u8, Ordering::SeqCst);
-                        });
-
-                        let result = crate::release::upgrade(
-                            how,
-                            &from,
-                            &to,
-                            &progress,
-                            &fetch_closure,
-                            &|event| {
-                                let _ = dbus_tx.send(SignalEvent::Upgrade(event));
-                            },
-                        ).await;
-
-                        let _ = AptMark::new().unhold(&["pop-upgrade"]).await;
-
-                        let _ = fg_tx.send(FgEvent::SetUpgradeState(
-                            result,
-                            how,
-                            from.into(),
-                            to.into(),
-                        ));
-                    }
-                }
+                futures::future::select(canceled, task_in_progress).await;
 
                 shared_state.status.store(DaemonStatus::Inactive, Ordering::SeqCst);
                 info!("event processed");
@@ -827,9 +842,22 @@ impl Daemon {
     }
 
     fn cancel(&mut self) {
-        info!("cancelling a process which is in progress");
+        match self.shared_state.status.load(Ordering::SeqCst) {
+            DaemonStatus::ReleaseUpgrade => {
+                info!("cannot cancel a release upgrade in progress");
+                return;
+            }
 
-        self.shared_state.cancel.store(true, Ordering::SeqCst);
+            DaemonStatus::PackageUpgrade => {
+                info!("cannot cancel while upgrading packages");
+                return;
+            }
+            _ => (),
+        }
+
+        info!("cancelling a process which is in progress");
+        self.shared_state.cancel_notify.notify_waiters();
+        self.shared_state.status.store(DaemonStatus::Inactive, Ordering::SeqCst);
     }
 
     fn recovery_upgrade_file(&mut self, path: &str) -> anyhow::Result<()> {
