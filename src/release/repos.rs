@@ -143,7 +143,10 @@ pub fn is_eol(codename: Codename) -> bool {
 pub fn is_old_release(codename: &str) -> bool {
     let url = &["http://old-releases.ubuntu.com/ubuntu/dists/", codename, "/Release"].concat();
 
-    isahc::head(url).ok().map_or(false, |resp| resp.status().is_success())
+    crate::misc::http_client()
+        .and_then(|client| client.head(url))
+        .ok()
+        .map_or(false, |resp| resp.status().is_success())
 }
 
 pub fn repair(release: &str) -> anyhow::Result<()> { apply_default_source_lists(release) }

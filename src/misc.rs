@@ -2,6 +2,15 @@ use anyhow::Context;
 use std::{fs, io, path::Path};
 use tokio::fs::{copy, File};
 
+pub fn http_client() -> Result<isahc::HttpClient, isahc::Error> {
+    use isahc::config::Configurable;
+
+    isahc::HttpClient::builder()
+        .low_speed_timeout(1, std::time::Duration::from_secs(1))
+        .redirect_policy(isahc::config::RedirectPolicy::Follow)
+        .build()
+}
+
 // Default options used by all apt-get invocations in pop-upgrade.
 pub fn apt_get() -> apt_cmd::AptGet {
     apt_cmd::AptGet::new()

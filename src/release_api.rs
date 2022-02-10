@@ -55,7 +55,8 @@ impl Release {
         info!("checking for build {} in channel {}", version, channel);
         let url = [BASE, "builds/", version, "/", channel].concat();
 
-        let response = isahc::get(&url).map_err(ApiError::Get)?;
+        let response =
+            crate::misc::http_client().map_err(ApiError::Get)?.get(&url).map_err(ApiError::Get)?;
 
         let status = response.status();
         if !status.is_success() {
