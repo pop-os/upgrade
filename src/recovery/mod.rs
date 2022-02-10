@@ -149,7 +149,7 @@ async fn fetch_iso<P: AsRef<Path>>(
             let arch = arch.as_ref().map(String::as_str);
 
             let (version, build) =
-                crate::release::check::current(version_).context("no build available")?;
+                crate::release::check::current(version_).await.context("no build available")?;
 
             tokio::task::yield_now().await;
 
@@ -170,7 +170,7 @@ async fn fetch_iso<P: AsRef<Path>>(
                 tokio::task::yield_now().await;
 
                 let release =
-                    Release::get_release(&version, arch).map_err(RecoveryError::ApiError)?;
+                    Release::get_release(&version, arch).await.map_err(RecoveryError::ApiError)?;
 
                 tokio::task::yield_now().await;
 

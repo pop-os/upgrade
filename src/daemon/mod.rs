@@ -398,10 +398,13 @@ impl Daemon {
                         .ok_or("dismiss value is out of range")
                         .map_err(|why| MethodErr::failed(&why))?;
 
-                    daemon
-                        .dismiss_notification(event)
-                        .map(|v| (v,))
-                        .map_err(|why| MethodErr::failed(&why))
+                    futures::executor::block_on(async {
+                        daemon
+                            .dismiss_notification(event)
+                            .await
+                            .map(|v| (v,))
+                            .map_err(|why| MethodErr::failed(&why))
+                    })
                 },
             );
 
@@ -545,31 +548,35 @@ impl Daemon {
                 ("development",),
                 ("current", "next", "build", "urgent", "is_lts"),
                 |_ctx: &mut Context, daemon: &mut Daemon, (development,): (bool,)| {
-                    daemon
-                        .release_check(development)
-                        .map(|status| {
-                            let is_lts = status.is_lts();
-                            let mut urgent = -1;
+                    futures::executor::block_on(async {
+                        let status = daemon
+                            .release_check(development)
+                            .await
+                            .map_err(|why| MethodErr::failed(&why))?;
 
-                            if let Ok(release) =
-                                crate::release_api::Release::get_release(status.current, "nvidia")
-                            {
-                                urgent = release.build as i16;
-                            }
+                        let is_lts = status.is_lts();
+                        let mut urgent = -1;
 
-                            if status.current == "20.10" {
-                                urgent = urgent.max(14);
-                            }
+                        let release =
+                            crate::release_api::Release::get_release(status.current, "nvidia")
+                                .await;
 
-                            (
-                                String::from(status.current),
-                                String::from(status.next),
-                                status.build.status_code(),
-                                urgent,
-                                is_lts,
-                            )
-                        })
-                        .map_err(|why| MethodErr::failed(&why))
+                        if let Ok(release) = release {
+                            urgent = release.build as i16;
+                        }
+
+                        if status.current == "20.10" {
+                            urgent = urgent.max(14);
+                        }
+
+                        Ok((
+                            String::from(status.current),
+                            String::from(status.next),
+                            status.build.status_code(),
+                            urgent,
+                            is_lts,
+                        ))
+                    })
                 },
             );
 
@@ -790,12 +797,12 @@ impl Daemon {
     /// Dismiss future desktop notifications.
     ///
     /// Only applicable for LTS releases.
-    fn dismiss_notification(&self, event: DismissEvent) -> Result<bool, String> {
+    async fn dismiss_notification(&self, event: DismissEvent) -> Result<bool, String> {
         if let DismissEvent::Unset = event {
             dismiss_file_remove()?;
             Ok(false)
         } else {
-            let status = self.release_check(false)?;
+            let status = self.release_check(false).await?;
             if status.is_lts() && status.build.is_ok() {
                 dismiss_file_create(status.next)?;
 
@@ -906,10 +913,11 @@ impl Daemon {
         crate::release::refresh_os(flag).map_err(|ref why| format_error(why))
     }
 
-    fn release_check(&self, development: bool) -> Result<ReleaseStatus, String> {
+    async fn release_check(&self, development: bool) -> Result<ReleaseStatus, String> {
         info!("performing a release check");
 
-        let status = release::check::next(development).map_err(|ref why| format_error(why))?;
+        let status =
+            release::check::next(development).await.map_err(|ref why| format_error(why))?;
 
         let mut buffer = String::new();
 
