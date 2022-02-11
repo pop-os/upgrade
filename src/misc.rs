@@ -1,5 +1,5 @@
 use anyhow::Context;
-use std::{fs, io, path::Path};
+use std::{fs, future::Future, io, path::Path, time::Duration};
 use tokio::fs::{copy, File};
 
 pub fn http_client() -> Result<isahc::HttpClient, isahc::Error> {
@@ -83,4 +83,25 @@ pub fn uid_min_max() -> anyhow::Result<(u32, u32)> {
             let max = max.parse::<u32>().context("UID_MAX is not a u32 value")?;
             Ok((min, max))
         })
+}
+
+pub async fn network_reconnect<Fun, Fut, Res>(func: Fun) -> Res
+where
+    Fun: Fn() -> Fut,
+    Fut: Future<Output = Res>,
+{
+    loop {
+        let request = func();
+        let changed = async_fetcher::iface::watch_change();
+
+        futures::pin_mut!(request);
+        futures::pin_mut!(changed);
+
+        use futures::future::Either;
+
+        match futures::future::select(request, changed).await {
+            Either::Left((result, _)) => break result,
+            Either::Right(_) => tokio::time::sleep(Duration::from_secs(3)).await,
+        }
+    }
 }

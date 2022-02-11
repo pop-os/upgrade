@@ -59,11 +59,14 @@ impl Release {
         info!("checking for build {} in channel {}", version, channel);
         let url = [BASE, "builds/", version, "/", channel].concat();
 
-        let mut response = crate::misc::http_client()
-            .map_err(ApiError::Get)?
-            .get_async(&url)
-            .await
-            .map_err(ApiError::Get)?;
+        let mut response = crate::misc::network_reconnect(|| async {
+            crate::misc::http_client()
+                .map_err(ApiError::Get)?
+                .get_async(&url)
+                .await
+                .map_err(ApiError::Get)
+        })
+        .await?;
 
         let status = response.status();
         if !status.is_success() {

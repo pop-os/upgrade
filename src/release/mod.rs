@@ -279,7 +279,7 @@ pub async fn release_upgrade<'b>(
 
         (logger)(UpgradeEvent::UpdatingPackageLists);
 
-        repos::apply_default_source_lists(new)?;
+        repos::apply_default_source_lists(new).await?;
 
         apt_lock_wait().await;
         AptGet::new().noninteractive().update().await.context("failed to update source lists")
@@ -288,7 +288,7 @@ pub async fn release_upgrade<'b>(
     if let Err(why) = update_sources.await {
         error!("failed to update sources: {}", why);
 
-        if let Err(why) = repos::restore(current) {
+        if let Err(why) = repos::restore(current).await {
             error!("failed to restore source lists: {:?}", why);
         }
 
@@ -387,12 +387,12 @@ pub async fn upgrade<'a>(
     .map_err(ReleaseError::Repair)?;
 
     info!("creating backup of source lists");
-    repos::backup(version).map_err(ReleaseError::BackupPPAs)?;
+    repos::backup(version).await.map_err(ReleaseError::BackupPPAs)?;
 
     info!("disabling third party sources");
-    repos::disable_third_parties(version).map_err(ReleaseError::DisablePPAs)?;
+    repos::disable_third_parties(version).await.map_err(ReleaseError::DisablePPAs)?;
 
-    if repos::is_old_release(<&'static str>::from(from_codename)) {
+    if repos::is_old_release(<&'static str>::from(from_codename)).await {
         info!("switching to old-releases repositories");
         repos::replace_with_old_releases().map_err(ReleaseError::OldReleaseSwitch)?;
     }
@@ -546,7 +546,7 @@ async fn fetch_new_release_packages<'b>(
     match updated_list_ops().await {
         Ok(_) => Ok(()),
         Err(why) => {
-            rollback(codename_from_version(current), &why);
+            rollback(codename_from_version(current), &why).await;
 
             Err(why)
         }
@@ -565,10 +565,10 @@ pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResul
     }
 }
 
-fn rollback(release: &str, why: &(dyn std::error::Error + 'static)) {
+async fn rollback(release: &str, why: &(dyn std::error::Error + 'static)) {
     error!("failed to fetch packages: {}", crate::misc::format_error(why));
     warn!("attempting to roll back apt release files");
-    if let Err(why) = repos::restore(release) {
+    if let Err(why) = repos::restore(release).await {
         error!(
             "failed to revert release name changes to source lists in /etc/apt/: {}",
             crate::misc::format_error(why.as_ref())
