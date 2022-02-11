@@ -430,10 +430,15 @@ pub async fn upgrade<'a>(
     // Fetch required packages for upgrading the current release.
     (*logger)(UpgradeEvent::FetchingPackages);
 
-    let uris =
-        crate::fetch::apt::fetch_uris(Some(CORE_PACKAGES)).await.map_err(ReleaseError::AptList)?;
+    // Fetch apt packages and retry if network connections are changed.
+    crate::misc::network_reconnect(|| async {
+        let uris = crate::fetch::apt::fetch_uris(Some(CORE_PACKAGES))
+            .await
+            .map_err(ReleaseError::AptList)?;
 
-    apt_fetch(uris, fetch).await?;
+        apt_fetch(uris, fetch).await
+    })
+    .await?;
 
     // Upgrade the current release to the latest packages.
     (*logger)(UpgradeEvent::UpgradingPackages);
@@ -505,9 +510,12 @@ async fn attempt_fetch<'a>(
     info!("fetching packages for the new release");
     (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
 
-    let uris = crate::fetch::apt::fetch_uris(None).await.map_err(ReleaseError::AptList)?;
+    crate::misc::network_reconnect(|| async {
+        let uris = crate::fetch::apt::fetch_uris(None).await.map_err(ReleaseError::AptList)?;
 
-    apt_fetch(uris, fetch).await
+        apt_fetch(uris, fetch).await
+    })
+    .await
 }
 
 /// Update the release files and fetch packages for the new release.
