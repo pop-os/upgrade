@@ -1595,7 +1595,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa5cce6b4cae6792378aefb34152be19600949dde0041e7910430022f94b81f1"
 dependencies = [
  "libc",
- "nix",
+ "nix 0.8.1",
 ]
 
 [[package]]
@@ -1955,6 +1955,19 @@ dependencies = [
  "cfg-if 0.1.10",
  "libc",
  "void",
+]
+
+[[package]]
+name = "nix"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f866317acbd3a240710c63f065ffb1e4fd466259045ccb504130b7f668f35c6"
+dependencies = [
+ "bitflags 1.3.2",
+ "cc",
+ "cfg-if 1.0.0",
+ "libc",
+ "memoffset 0.6.5",
 ]
 
 [[package]]
@@ -2325,6 +2338,7 @@ dependencies = [
  "log",
  "logind-dbus",
  "md-5",
+ "nix 0.23.1",
  "notify-rust",
  "num-derive",
  "num-traits",

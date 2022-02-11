@@ -59,6 +59,9 @@ use self::error::InitError;
 
 #[tokio::main]
 async fn main() {
+    // Ensure file system caches are synced to prevent recovery ISO download corruption.
+    nix::unistd::sync();
+
     // Service shall not run in a live environment.
     if Path::new("/cdrom/casper/filesystem.squashfs").exists() {
         exit(0);
