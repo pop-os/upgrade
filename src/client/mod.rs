@@ -40,6 +40,7 @@ pub struct RepoCompatError {
 }
 
 /// A signal received by the daemon.
+#[derive(Debug)]
 pub enum Signal {
     NoConnection,
     PackageFetchResult(Status),

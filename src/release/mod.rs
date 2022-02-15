@@ -20,6 +20,7 @@ use apt_cmd::{
     lock::apt_lock_wait, request::Request as AptRequest, AptGet, AptMark, AptUpgradeEvent, Dpkg,
     DpkgQuery,
 };
+use async_shutdown::Shutdown;
 
 use futures::prelude::*;
 
@@ -168,7 +169,11 @@ impl From<UpgradeEvent> for &'static str {
 }
 
 /// Get a list of APT URIs to fetch for this operation, and then fetch them.
-pub async fn apt_fetch<H>(uris: HashSet<AptRequest, H>, func: &dyn Fn(FetchEvent)) -> RelResult<()>
+pub async fn apt_fetch<H>(
+    shutdown: Shutdown,
+    uris: HashSet<AptRequest, H>,
+    func: &dyn Fn(FetchEvent),
+) -> RelResult<()>
 where
     H: std::hash::BuildHasher,
 {
@@ -194,6 +199,7 @@ where
         .timeout(std::time::Duration::from_secs(5));
 
     let (fetcher, mut events) = PackageFetcher::new(fetcher).concurrent(CONCURRENT_FETCHES).fetch(
+        shutdown,
         tokio_stream::wrappers::ReceiverStream::new(fetch_rx),
         Arc::from(Path::new(ARCHIVES)),
     );
@@ -436,7 +442,7 @@ pub async fn upgrade<'a>(
             .await
             .map_err(ReleaseError::AptList)?;
 
-        apt_fetch(uris, fetch).await
+        apt_fetch(Shutdown::new(), uris, fetch).await
     })
     .await?;
 
@@ -513,7 +519,7 @@ async fn attempt_fetch<'a>(
     crate::misc::network_reconnect(|| async {
         let uris = crate::fetch::apt::fetch_uris(None).await.map_err(ReleaseError::AptList)?;
 
-        apt_fetch(uris, fetch).await
+        apt_fetch(Shutdown::new(), uris, fetch).await
     })
     .await
 }

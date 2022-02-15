@@ -4,16 +4,14 @@ mod version;
 use crate::daemon::SignalEvent;
 use anyhow::Context;
 use async_fetcher::{Checksum, FetchEvent, Fetcher, SumStr};
+use async_shutdown::Shutdown;
 use std::{
     convert::TryFrom,
     path::{Path, PathBuf},
     sync::Arc,
 };
 use sys_mount::{Mount, MountFlags, Unmount, UnmountFlags};
-use tokio::{
-    process::Command,
-    sync::{mpsc::UnboundedSender, Notify},
-};
+use tokio::{process::Command, sync::mpsc::UnboundedSender};
 
 use crate::{
     external::findmnt_uuid, release_api::Release, release_architecture::detect_arch,
@@ -60,7 +58,7 @@ pub enum UpgradeMethod {
 }
 
 pub async fn recovery(
-    cancel: Arc<Notify>,
+    cancel: Shutdown,
     action: &UpgradeMethod,
     sender: UnboundedSender<SignalEvent>,
 ) -> RecResult<()> {
@@ -71,7 +69,7 @@ pub async fn recovery(
     // Check the system and perform any repairs necessary for success.
     crate::repair::repair().await.map_err(RecoveryError::Repair)?;
 
-    tokio::task::yield_now().await;
+    shutdown_check(&cancel)?;
 
     if !recovery_exists()? {
         return Err(RecoveryError::RecoveryNotFound);
@@ -114,7 +112,7 @@ pub fn recovery_exists() -> Result<bool, RecoveryError> {
 }
 
 async fn fetch_iso<P: AsRef<Path>>(
-    cancel: Arc<Notify>,
+    cancel: Shutdown,
     verify: fn(&str, u16) -> bool,
     action: &UpgradeMethod,
     sender: UnboundedSender<SignalEvent>,
@@ -151,14 +149,16 @@ async fn fetch_iso<P: AsRef<Path>>(
             let (version, build) =
                 crate::release::check::current(version_).await.context("no build available")?;
 
-            tokio::task::yield_now().await;
+            shutdown_check(&cancel)?;
 
             if verify(&version, build) {
                 info!("recovery partition is already upgraded to {}b{}", version, build);
                 return Ok(None);
             }
 
-            tokio::task::yield_now().await;
+            shutdown_check(&cancel)?;
+
+            let cancel = cancel.clone();
 
             // Fetch the latest ISO from the release repository.
             let iso = (|| async {
@@ -167,12 +167,12 @@ async fn fetch_iso<P: AsRef<Path>>(
                     None => detect_arch()?,
                 };
 
-                tokio::task::yield_now().await;
+                shutdown_check(&cancel)?;
 
                 let release =
                     Release::get_release(&version, arch).await.map_err(RecoveryError::ApiError)?;
 
-                tokio::task::yield_now().await;
+                shutdown_check(&cancel)?;
 
                 let iso_path = from_remote(
                     cancel.clone(),
@@ -183,7 +183,7 @@ async fn fetch_iso<P: AsRef<Path>>(
                 .await
                 .map_err(|why| RecoveryError::Download(Box::new(why)))?;
 
-                tokio::task::yield_now().await;
+                shutdown_check(&cancel)?;
 
                 Ok::<PathBuf, RecoveryError>(iso_path)
             })()
@@ -196,7 +196,10 @@ async fn fetch_iso<P: AsRef<Path>>(
         }
     };
 
-    tokio::task::yield_now().await;
+    let _shutdown_delay = match cancel.delay_shutdown_token() {
+        Ok(token) => token,
+        Err(_) => return Err(RecoveryError::Cancelled),
+    };
 
     emit_recovery_event(&sender, RecoveryEvent::Syncing);
     let tempdir = tempfile::tempdir().map_err(RecoveryError::TempDir)?;
@@ -247,7 +250,7 @@ async fn fetch_iso<P: AsRef<Path>>(
 ///
 /// Once downloaded, the ISO will be verfied against the given checksum.
 async fn from_remote(
-    cancel: Arc<Notify>,
+    cancel: Shutdown,
     sender: UnboundedSender<SignalEvent>,
     url: Box<str>,
     checksum_str: &str,
@@ -271,14 +274,16 @@ async fn from_remote(
     let result = tokio::spawn(async move {
         info!("Initiating fetch of recovery ISO");
 
+        let urls = Arc::from(vec![url.clone()]);
+        let dest = Arc::from(path_.clone());
+
         Fetcher::default()
-            .cancel(cancel)
             .timeout(std::time::Duration::from_secs(5))
             .connections_per_file(4)
             .max_part_size(4 * 1024 * 1024)
             .events(events_tx)
             .build()
-            .request(Arc::from(vec![url.clone()]), Arc::from(path_.clone()), Arc::new(()))
+            .request(cancel, urls, dest, Arc::new(()))
             .await
             .map_err(|source| RecoveryError::Fetch { url: url.into(), source })?;
 
@@ -342,4 +347,12 @@ fn emit_progress(sender: &UnboundedSender<SignalEvent>, progress: u64, total: u6
 
 fn emit_recovery_event(sender: &UnboundedSender<SignalEvent>, event: RecoveryEvent) {
     let _ = sender.send(SignalEvent::RecoveryUpgradeEvent(event));
+}
+
+fn shutdown_check(shutdown: &Shutdown) -> Result<(), RecoveryError> {
+    if shutdown.shutdown_started() || shutdown.shutdown_completed() {
+        Err(RecoveryError::Cancelled)
+    } else {
+        Ok(())
+    }
 }
