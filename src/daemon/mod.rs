@@ -225,6 +225,7 @@ impl Daemon {
                                     } else {
                                         (async {
                                             info!("performing upgrade");
+
                                             shared_state.status.store(DaemonStatus::PackageUpgrade, Ordering::SeqCst);
 
                                             let (mut child, events) = crate::misc::apt_get()
@@ -863,34 +864,19 @@ impl Daemon {
     }
 
     async fn cancel(&mut self) {
-        match self.shared_state.status.load(Ordering::SeqCst) {
-            DaemonStatus::ReleaseUpgrade => {
-                info!("cannot cancel a release upgrade in progress");
-                return;
-            }
-
-            DaemonStatus::PackageUpgrade => {
-                info!("cannot cancel while upgrading packages");
-                return;
-            }
-            _ => (),
-        }
-
         info!("canceling a process which is in progress");
 
-        {
-            // Grab the active task shutdown notifier.
-            let mut shutdown = self.shared_state.shutdown.lock().await;
+        // Grab the active task shutdown notifier.
+        let mut shutdown = self.shared_state.shutdown.lock().await;
 
-            // Initiate shutdown of any background tasks.
-            shutdown.shutdown();
+        // Initiate shutdown of any background tasks.
+        shutdown.shutdown();
 
-            // Wait for active tasks to complete before returning.
-            shutdown.wait_shutdown_complete().await;
+        // Wait for active tasks to complete before returning.
+        shutdown.wait_shutdown_complete().await;
 
-            // Insert a new shutdown notifier so it can be reused.
-            *shutdown = Shutdown::new();
-        }
+        // Insert a new shutdown notifier so it can be reused.
+        *shutdown = Shutdown::new();
 
         info!("canceled running processes");
     }
