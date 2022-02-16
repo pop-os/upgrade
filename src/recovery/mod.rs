@@ -282,8 +282,9 @@ async fn from_remote(
             .connections_per_file(4)
             .max_part_size(4 * 1024 * 1024)
             .events(events_tx)
+            .shutdown(cancel)
             .build()
-            .request(cancel, urls, dest, Arc::new(()))
+            .request(urls, dest, Arc::new(()))
             .await
             .map_err(|source| RecoveryError::Fetch { url: url.into(), source })?;
 

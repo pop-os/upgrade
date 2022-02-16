@@ -190,19 +190,19 @@ where
 
     let (fetch_tx, fetch_rx) = tokio::sync::mpsc::channel(CONCURRENT_FETCHES);
 
-    use apt_cmd::fetch::{EventKind, PackageFetcher};
+    use apt_cmd::fetch::{EventKind, FetcherExt};
 
     // The system which fetches packages we send requests to
-    let fetcher = async_fetcher::Fetcher::default()
+    let (fetcher, mut events) = async_fetcher::Fetcher::default()
         .connections_per_file(CONCURRENT_FETCHES as u16)
         .retries(RETRIES)
-        .timeout(std::time::Duration::from_secs(5));
-
-    let (fetcher, mut events) = PackageFetcher::new(fetcher).concurrent(CONCURRENT_FETCHES).fetch(
-        shutdown,
-        tokio_stream::wrappers::ReceiverStream::new(fetch_rx),
-        Arc::from(Path::new(ARCHIVES)),
-    );
+        .timeout(std::time::Duration::from_secs(5))
+        .shutdown(shutdown)
+        .into_package_fetcher()
+        .fetch(
+            tokio_stream::wrappers::ReceiverStream::new(fetch_rx),
+            Arc::from(Path::new(ARCHIVES)),
+        );
 
     // The system which sends package-fetching requests
     let sender = async move {
