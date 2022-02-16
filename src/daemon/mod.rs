@@ -1046,13 +1046,13 @@ pub async fn upgrade_required() -> anyhow::Result<bool> {
     Ok(false)
 }
 
-pub fn result_signal<E: ::std::fmt::Display>(result: Result<&(), &E>) -> (u8, String) {
+pub fn result_signal<E: ::std::error::Error>(result: Result<&(), &E>) -> (u8, String) {
     let status = match result {
         Ok(_) => 0u8,
         Err(_) => 1,
     };
 
-    let why: String = result.err().map(|why| fomat!((why))).unwrap_or_default();
+    let why = result.err().map(|err| err.to_string()).unwrap_or_default();
 
     (status, why)
 }

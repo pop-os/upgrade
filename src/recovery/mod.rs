@@ -180,8 +180,7 @@ async fn fetch_iso<P: AsRef<Path>>(
                     release.url.into(),
                     &release.sha_sum,
                 )
-                .await
-                .map_err(|why| RecoveryError::Download(Box::new(why)))?;
+                .await?;
 
                 shutdown_check(&cancel)?;
 

@@ -23,9 +23,6 @@ pub enum RecoveryError {
     #[error("checksum is not SHA256: {}", checksum)]
     ChecksumInvalid { checksum: String, source: hex::FromHexError },
 
-    #[error("failed to download ISO")]
-    Download(#[source] Box<RecoveryError>),
-
     #[error("fetching from {} failed: {}", url, source)]
     Fetch { url: String, source: async_fetcher::Error },
 
