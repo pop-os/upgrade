@@ -197,7 +197,7 @@ where
         .connections_per_file(CONCURRENT_FETCHES as u16)
         .retries(RETRIES)
         .timeout(std::time::Duration::from_secs(5))
-        .shutdown(shutdown)
+        .shutdown(shutdown.clone())
         .into_package_fetcher()
         .fetch(
             tokio_stream::wrappers::ReceiverStream::new(fetch_rx),
@@ -205,7 +205,7 @@ where
         );
 
     // The system which sends package-fetching requests
-    let sender = async move {
+    let sender = tokio::spawn(async move {
         if !Path::new(PARTIAL).exists() {
             tokio::fs::create_dir_all(PARTIAL)
                 .await
@@ -224,7 +224,9 @@ where
         }
 
         Ok::<(), anyhow::Error>(())
-    };
+    });
+
+    let sender = async move { sender.await.unwrap() };
 
     // The system that handles events received from the package-fetcher
     let receiver = async move {
@@ -257,7 +259,23 @@ where
         Ok(())
     };
 
-    futures::try_join!(fetcher, sender, receiver).map(|_| ()).map_err(ReleaseError::PackageFetch)
+    let task = async move {
+        futures::try_join!(fetcher, sender, receiver)
+            .map(|_| ())
+            .map_err(ReleaseError::PackageFetch)
+    };
+
+    let cancel = async {
+        let _ = shutdown.wait_shutdown_triggered().await;
+        Err(ReleaseError::Canceled)
+    };
+
+    futures::pin_mut!(task);
+    futures::pin_mut!(cancel);
+
+    let result = future::select(cancel, task).await.factor_first().0;
+
+    result
 }
 
 /// Check if release files can be upgraded, and then overwrite them with the new release.
@@ -281,7 +299,7 @@ pub async fn release_upgrade<'b>(
     let update_sources = async move {
         (logger)(UpgradeEvent::AptFilesLocked);
 
-        apt_cmd::lock::apt_lock_wait().await;
+        apt_lock_wait().await;
 
         (logger)(UpgradeEvent::UpdatingPackageLists);
 
@@ -438,7 +456,9 @@ pub async fn upgrade<'a>(
 
     // Fetch apt packages and retry if network connections are changed.
     crate::misc::network_reconnect(|| async {
-        let uris = crate::fetch::apt::fetch_uris(Some(CORE_PACKAGES))
+        use crate::fetch::apt::ExtraPackages;
+        let packages = Some(ExtraPackages::Static(CORE_PACKAGES));
+        let uris = crate::fetch::apt::fetch_uris(Shutdown::new(), packages)
             .await
             .map_err(ReleaseError::AptList)?;
 
@@ -510,6 +530,7 @@ fn terminate_background_applications() {
 }
 
 async fn attempt_fetch<'a>(
+    shutdown: &Shutdown,
     logger: &'a dyn Fn(UpgradeEvent),
     fetch: &'a dyn Fn(FetchEvent),
 ) -> RelResult<()> {
@@ -517,9 +538,11 @@ async fn attempt_fetch<'a>(
     (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
 
     crate::misc::network_reconnect(|| async {
-        let uris = crate::fetch::apt::fetch_uris(None).await.map_err(ReleaseError::AptList)?;
+        let uris = crate::fetch::apt::fetch_uris(shutdown.clone(), None)
+            .await
+            .map_err(ReleaseError::AptList)?;
 
-        apt_fetch(Shutdown::new(), uris, fetch).await
+        apt_fetch(shutdown.clone(), uris, fetch).await
     })
     .await
 }
@@ -547,7 +570,7 @@ async fn fetch_new_release_packages<'b>(
 
         snapd::hold_transitional_packages().await?;
 
-        attempt_fetch(logger, fetch).await?;
+        attempt_fetch(&Shutdown::new(), logger, fetch).await?;
 
         info!("packages fetched successfully");
 

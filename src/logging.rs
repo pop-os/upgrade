@@ -36,6 +36,7 @@ pub fn setup_logging(filter: LevelFilter) -> Result<(), InitError> {
         .level_for("pop_upgrade", filter)
         .level_for("pop_upgrade_gtk", LevelFilter::Trace)
         .level_for("apt_fetcher", filter)
+        .level_for("apt_cmd", filter)
         .format(move |out, message, record| {
             out.finish(format_args!(
                 "[{:5}] {}: {}",

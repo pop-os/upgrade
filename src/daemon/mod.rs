@@ -248,6 +248,7 @@ impl Daemon {
                                 Err(why) => Err(why)
                             };
 
+                            info!("submitting package fetch result: {:?}", result);
                             let _ = dbus_tx.send(SignalEvent::FetchResult(result));
                         }
 
@@ -308,6 +309,7 @@ impl Daemon {
                     }
 
                     let _ = fg_tx.send(FgEvent::StatusInactive);
+                    info!("finished processing message");
                 }
             };
 
@@ -432,9 +434,11 @@ impl Daemon {
                                     let total = total as u32;
                                     Ok((true, completed, total))
                                 } else {
-                                    futures::executor::block_on(
-                                        daemon.fetch_updates(&additional_packages, download_only),
-                                    )
+                                    futures::executor::block_on(async move {
+                                        daemon
+                                            .fetch_updates(additional_packages, download_only)
+                                            .await
+                                    })
                                     .map(|(x, t)| (x, 0u32, t))
                                     .map_err(|ref why| format_error(why.as_ref()))
                                 }
@@ -832,17 +836,18 @@ impl Daemon {
         }
     }
 
-    async fn fetch_updates<'a>(
-        &'a mut self,
-        additional_packages: &'a [String],
+    async fn fetch_updates(
+        &self,
+        extra_packages: Vec<String>,
         download_only: bool,
     ) -> anyhow::Result<(bool, u32)> {
-        info!("fetching updates for the system, including {:?}", additional_packages);
+        info!("fetching updates for the system, including {:?}", extra_packages);
 
-        let mut borrows = Vec::with_capacity(additional_packages.len());
-        borrows.extend(additional_packages.iter().map(String::as_str));
+        let shutdown = self.shared_state.shutdown.lock().await.clone();
 
-        let apt_uris = crate::fetch::apt::fetch_uris(Some(&borrows)).await?;
+        use crate::fetch::apt::ExtraPackages;
+        let packages = Some(ExtraPackages::Dynamic(extra_packages));
+        let apt_uris = crate::fetch::apt::fetch_uris(shutdown, packages).await?;
 
         if apt_uris.is_empty() {
             info!("no updates available to fetch");
@@ -850,8 +855,8 @@ impl Daemon {
         }
 
         let npackages = apt_uris.len() as u32;
-        let event = Event::FetchUpdates { apt_uris, download_only };
-        self.submit_event(event)?;
+
+        self.submit_event(Event::FetchUpdates { apt_uris, download_only })?;
 
         Ok((true, npackages))
     }
@@ -997,9 +1002,9 @@ impl Daemon {
         }
     }
 
-    fn set_status<T, E, F>(&mut self, status: DaemonStatus, mut func: F) -> Result<T, E>
+    fn set_status<T, E, F>(&mut self, status: DaemonStatus, func: F) -> Result<T, E>
     where
-        F: FnMut(&mut Self, bool) -> Result<T, E>,
+        F: FnOnce(&mut Self, bool) -> Result<T, E>,
     {
         func(self, self.shared_state.status.swap(status, Ordering::SeqCst) == status)
     }
