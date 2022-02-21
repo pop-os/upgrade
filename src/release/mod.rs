@@ -455,16 +455,13 @@ pub async fn upgrade<'a>(
     (*logger)(UpgradeEvent::FetchingPackages);
 
     // Fetch apt packages and retry if network connections are changed.
-    crate::misc::network_reconnect(|| async {
-        use crate::fetch::apt::ExtraPackages;
-        let packages = Some(ExtraPackages::Static(CORE_PACKAGES));
-        let uris = crate::fetch::apt::fetch_uris(Shutdown::new(), packages)
-            .await
-            .map_err(ReleaseError::AptList)?;
+    use crate::fetch::apt::ExtraPackages;
+    let packages = Some(ExtraPackages::Static(CORE_PACKAGES));
+    let uris = crate::fetch::apt::fetch_uris(Shutdown::new(), packages)
+        .await
+        .map_err(ReleaseError::AptList)?;
 
-        apt_fetch(Shutdown::new(), uris, fetch).await
-    })
-    .await?;
+    apt_fetch(Shutdown::new(), uris, fetch).await?;
 
     // Upgrade the current release to the latest packages.
     (*logger)(UpgradeEvent::UpgradingPackages);
@@ -537,14 +534,11 @@ async fn attempt_fetch<'a>(
     info!("fetching packages for the new release");
     (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
 
-    crate::misc::network_reconnect(|| async {
-        let uris = crate::fetch::apt::fetch_uris(shutdown.clone(), None)
-            .await
-            .map_err(ReleaseError::AptList)?;
+    let uris = crate::fetch::apt::fetch_uris(shutdown.clone(), None)
+        .await
+        .map_err(ReleaseError::AptList)?;
 
-        apt_fetch(shutdown.clone(), uris, fetch).await
-    })
-    .await
+    apt_fetch(shutdown.clone(), uris, fetch).await
 }
 
 /// Update the release files and fetch packages for the new release.
