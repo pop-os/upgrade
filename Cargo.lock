@@ -96,7 +96,7 @@ dependencies = [
 [[package]]
 name = "async-fetcher"
 version = "0.8.0"
-source = "git+https://github.com/pop-os/async-fetcher#04f8375d19e7783a057832635509720fd3aafab1"
+source = "git+https://github.com/pop-os/async-fetcher#7169f4d9b8f20b0499ecc6673256a79e7fd26c0c"
 dependencies = [
  "async-shutdown",
  "derive-new",
