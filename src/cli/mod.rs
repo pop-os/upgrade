@@ -446,6 +446,7 @@ impl Client {
                     }
                     client::Signal::RecoveryEvent(event) => {
                         if reset {
+                            print!("\r{}", color_primary("Fetch Complete"));
                             reset = false;
                             println!();
                         }
