@@ -276,6 +276,8 @@ async fn from_remote(
         let urls = Arc::from(vec![url.clone()]);
         let dest = Arc::from(path_.clone());
 
+        nix::unistd::sync();
+
         Fetcher::default()
             .timeout(std::time::Duration::from_secs(5))
             .connections_per_file(4)
