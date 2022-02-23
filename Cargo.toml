@@ -68,6 +68,7 @@ git = "https://github.com/pop-os/apt-cmd/"
 
 [dependencies.async-fetcher]
 git = "https://github.com/pop-os/async-fetcher"
+# path = "../async-fetcher"
 # version = "0.8.0"
 
 [dependencies.sysfs-class]
