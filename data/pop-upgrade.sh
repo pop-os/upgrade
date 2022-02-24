@@ -225,6 +225,8 @@ attempt_repair () {
 
 # Attempts the upgrade the system, and if the upgrade fails, tries to repair it.
 attempt_upgrade () {
+    plymouth change-mode --system-upgrade
+    plymouth system-update --progress="0"
     message -i "Installing Updates (0%)"
     touch "$1"
 
@@ -241,6 +243,7 @@ attempt_upgrade () {
 
         message -i "Upgrade complete. Updating initramfs for all kernels"
         update-initramfs -c -k all
+        plymouth system-update --progress="100"
 
         efi_rename
         message -i "Upgrade complete. Now rebooting"
