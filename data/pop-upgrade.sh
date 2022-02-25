@@ -57,7 +57,7 @@ dpkg_configure () {
 }
 
 apt_install_fix () {
-    message -i "Checking for package fixes"
+    message -i "Checking for package fixes..."
     env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
         -o Dpkg::Options::="--force-confdef" \
         -o Dpkg::Options::="--force-confold" \
@@ -93,13 +93,13 @@ apt_full_upgrade () {
 
             if test "Unpacking" = "$(echo ${line} | cut -c-9)"; then
                 package="$(echo $line | awk '{print $2}')"
-                message -i "$prefix: Unpacking $package ..."
+                message -i "$prefix: Unpacking $package..."
             elif test "Setting up" = "$(echo ${line} | cut -c-10)"; then
                 package="$(echo $line | awk '{print $3}')"
-                message -i "$prefix: Setting up $package ..."
+                message -i "$prefix: Setting up $package..."
             elif test "Processing triggers for" = "$(echo ${line} | cut -c-23)"; then
                 package="$(echo $line | awk '{print $4}')"
-                message -i "$prefix: Processing triggers for $package ..."
+                message -i "$prefix: Processing triggers for $package..."
             else
                 echo "$line"
             fi
@@ -142,13 +142,13 @@ install_packages () {
 
             if test "Unpacking" = "$(echo ${line} | cut -c-9)"; then
                 package="$(echo $line | awk '{print $2}')"
-                message -i "$prefix: Unpacking $package ..."
+                message -i "$prefix: Unpacking $package..."
             elif test "Setting up" = "$(echo ${line} | cut -c-10)"; then
                 package="$(echo $line | awk '{print $3}')"
-                message -i "$prefix: Setting up $package ..."
+                message -i "$prefix: Setting up $package..."
             elif test "Processing triggers for" = "$(echo ${line} | cut -c-23)"; then
                 package="$(echo $line | awk '{print $4}')"
-                message -i "$prefix: Processing triggers for $package ..."
+                message -i "$prefix: Processing triggers for $package..."
             else
                 echo "$line"
             fi
@@ -212,11 +212,11 @@ upgrade () {
 }
 
 attempt_repair () {
-    message -i "Repairing packages"
+    message -i "Repairing packages..."
 
     for (( i=0; i<10; ++i)); do
         if upgrade; then
-            message -i "Repair succeeded. Resuming upgrade"
+            message -i "Repair succeeded. Resuming upgrade..."
             sleep 3
             break
         fi
@@ -235,29 +235,27 @@ attempt_upgrade () {
     if (upgrade || attempt_repair); then
         rm -rf  /system-update "$1"
 
-        message -i "Upgrade complete. Removing old kernels"
+        message -i "Upgrade complete. Removing old kernels..."
         apt remove linux-image-*hwe*
 
-        message -i "Upgrade complete. Now autoremoving old packages"
+        message -i "Upgrade complete. Autoremoving old packages..."
         apt-get autoremove -y
 
-        message -i "Upgrade complete. Updating initramfs for all kernels"
+        message -i "Upgrade complete. Updating initramfs for all kernels..."
         update-initramfs -c -k all
         plymouth system-update --progress="100"
 
         efi_rename
-        message -i "Upgrade complete. Now rebooting"
+        message -i "Upgrade complete. Now rebooting..."
 
         sleep 6
-        plymouth message --text="system-updates-stop"
         sync
 
         systemctl unmask acpid pop-upgrade
         systemctl reboot
     else
-        message -f "Upgrade failed. Restarting the system to try again"
+        message -f "Upgrade failed. Restarting the system to try again..."
         sleep 6
-        plymouth message --text="system-updates-stop"
         sync
         systemctl unmask acpid pop-upgrade
         systemctl rescue
@@ -266,5 +264,5 @@ attempt_upgrade () {
 
 ATTEMPTED=/upgrade-attempted
 
-test -e "$ATTEMPTED" && (message -i "System rebooted before upgrade was completed. Trying again"; sleep 6)
+test -e "$ATTEMPTED" && (message -i "System rebooted before upgrade was completed. Trying again..."; sleep 6)
 attempt_upgrade "$ATTEMPTED"
