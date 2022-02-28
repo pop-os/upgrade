@@ -5,7 +5,7 @@ authors = ["Michael Aaron Murphy <mmstick@pm.me>"]
 edition = "2018"
 
 [dependencies]
-apt-cmd = { git = "https://github.com/pop-os/apt-cmd/" }
+apt-cmd = { git = "https://github.com/pop-os/apt-cmd/", branch = "dev" }
 better-panic = "0.2"
 cascade = "1.0"
 chrono = "0.4"

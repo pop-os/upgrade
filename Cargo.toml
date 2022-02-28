@@ -64,10 +64,12 @@ yansi = "0.5.0"
 
 [dependencies.apt-cmd]
 git = "https://github.com/pop-os/apt-cmd/"
+branch = "dev"
 # path = "../apt-cmd"
 
 [dependencies.async-fetcher]
 git = "https://github.com/pop-os/async-fetcher"
+branch = "dev"
 # path = "../async-fetcher"
 # version = "0.8.0"
 

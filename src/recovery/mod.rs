@@ -279,11 +279,19 @@ async fn from_remote(
         nix::unistd::sync();
 
         Fetcher::default()
+            // Timeout if a read takes more than 5 seconds.
             .timeout(std::time::Duration::from_secs(5))
-            .connections_per_file(1)
+            // Download at most 2 parts at a time.
+            .connections_per_file(2)
+            // 16 MiB partial files.
+            .max_part_size(16 * 1024 * 1024)
+            // Forward progress events to this sender.
             .events(events_tx)
+            // Use this to watch for shutdown events.
             .shutdown(cancel)
+            // Wrap in Arc
             .build()
+            // Fetch the ISO to `dest`
             .request(urls, dest, Arc::new(()))
             .await
             .map_err(|source| RecoveryError::Fetch { url: url.into(), source })?;
