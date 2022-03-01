@@ -156,6 +156,8 @@ impl Daemon {
             shutdown:       Mutex::new(Shutdown::new()),
         });
 
+        let http_client = reqwest::Client::new();
+
         let handle = Handle::current();
 
         let task = enclose!((handle, shared_state) move || {
@@ -266,6 +268,7 @@ impl Daemon {
 
                             let result = recovery::recovery(
                                 shutdown.clone(),
+                                http_client.clone(),
                                 &action,
                                 dbus_tx.clone(),
                             ).await;

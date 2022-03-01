@@ -2335,6 +2335,7 @@ dependencies = [
  "pwd",
  "rand",
  "regex",
+ "reqwest",
  "serde",
  "serde_derive",
  "serde_json",
