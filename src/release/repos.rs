@@ -1,5 +1,6 @@
 use super::eol::{EolDate, EolStatus};
 use anyhow::Context;
+use const_format::concatcp;
 use os_str_bytes::OsStrBytes;
 use std::{
     ffi::OsStr,
@@ -11,13 +12,15 @@ use std::{
 use ubuntu_version::Codename;
 
 const SOURCES_LIST: &str = "/etc/apt/sources.list";
-pub const PPA_DIR: &str = "/etc/apt/sources.list.d";
-const SYSTEM_SOURCES: &str = "/etc/apt/sources.list.d/system.sources";
-const PROPRIETARY_SOURCES: &str = "/etc/apt/sources.list.d/pop-os-apps.sources";
-const GROOVY_PPA: &str = "/etc/apt/sources.list.d/pop-os-ppa.list";
-const IMPISH_RELEASE: &str = "/etc/apt/sources.list.d/pop-os-ppa.sources";
+pub const PPA_DIR: &str = concatcp!(SOURCES_LIST, ".d/");
+const SYSTEM_SOURCES: &str = concatcp!(PPA_DIR, "system.sources");
+const PROPRIETARY_SOURCES: &str = concatcp!(PPA_DIR, "pop-os-apps.sources");
+const GROOVY_PPA: &str = concatcp!(PPA_DIR, "pop-os-ppa.list");
+const PPA_SOURCES: &str = concatcp!(PPA_DIR, "pop-os-ppa.sources");
+const IMPISH_RELEASE: &str = concatcp!(PPA_DIR, "pop-os-release.sources");
 
-const REMOVE_LIST: &[&str] = &[SYSTEM_SOURCES, PROPRIETARY_SOURCES, GROOVY_PPA, IMPISH_RELEASE];
+const REMOVE_LIST: &[&str] =
+    &[SYSTEM_SOURCES, PROPRIETARY_SOURCES, GROOVY_PPA, IMPISH_RELEASE, PPA_SOURCES];
 
 /// Backup the sources lists
 pub fn backup(release: &str) -> anyhow::Result<()> {
@@ -270,6 +273,7 @@ pub fn apply_default_source_lists(release: &str) -> anyhow::Result<()> {
         _ => {
             info!("creating source repository files for impish+");
             let _ = fs::remove_file(GROOVY_PPA);
+            let _ = fs::remove_file(PPA_SOURCES);
             fs::write(SOURCES_LIST, sources_list_placeholder())?;
             fs::write(SYSTEM_SOURCES, system_sources(release))?;
             fs::write(PROPRIETARY_SOURCES, proprietary_sources(release))?;
