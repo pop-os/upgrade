@@ -96,7 +96,7 @@ dependencies = [
 [[package]]
 name = "async-fetcher"
 version = "0.8.0"
-source = "git+https://github.com/pop-os/async-fetcher?branch=dev#85cd0c02fd856a0cb133d6b6de14fde0c140dc4d"
+source = "git+https://github.com/pop-os/async-fetcher?branch=dev#3b04cbe589b651322976416f3a4303d3769db20a"
 dependencies = [
  "async-shutdown",
  "derive-new",
@@ -111,7 +111,6 @@ dependencies = [
  "ifaces",
  "log",
  "md-5",
- "nix 0.23.1",
  "numtoa",
  "once_cell",
  "remem",
