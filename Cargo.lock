@@ -96,7 +96,7 @@ dependencies = [
 [[package]]
 name = "async-fetcher"
 version = "0.8.0"
-source = "git+https://github.com/pop-os/async-fetcher?branch=dev#f54ca5654e2f53d0079d42f50d66f534583df6f9"
+source = "git+https://github.com/pop-os/async-fetcher?branch=dev#23393e7a8b124be7423bd1c72d093b0f3b1027cd"
 dependencies = [
  "async-shutdown",
  "derive-new",
@@ -2095,9 +2095,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da32515d9f6e6e489d7bc9d84c71b060db7247dc035bbe44eac88cf87486d8d5"
+checksum = "87f3e037eac156d1775da914196f0f37741a274155e34a0b7e427c35d2a2ecb9"
 
 [[package]]
 name = "opaque-debug"
