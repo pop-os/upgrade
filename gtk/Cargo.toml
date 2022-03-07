@@ -31,7 +31,7 @@ pop-upgrade = { path = "../" }
 rust-embed = { version = "6.2", features = ["debug-embed"] }
 shrinkwraprs = "0.3"
 thiserror = "1.0"
-ubuntu-version = "0.2.2"
+ubuntu-version = "0.2.5"
 upower_dbus = "0.1"
 users = "0.11"
 yansi = "0.5"

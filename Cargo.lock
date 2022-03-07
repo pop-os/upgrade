@@ -3050,9 +3050,9 @@ checksum = "dcf81ac59edc17cc8697ff311e8f5ef2d99fcbd9817b34cec66f90b6c3dfd987"
 
 [[package]]
 name = "ubuntu-version"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aca511290f3e773b5dac97c34d0e3266b3351fac5ec0eb7171044e483d6714fd"
+checksum = "fe764d27e81222ba800c72332ee2d726cc8a76fb8cf588ee12e3a3577668b840"
 dependencies = [
  "chrono",
  "os-release",
