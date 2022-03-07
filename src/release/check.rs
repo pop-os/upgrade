@@ -92,7 +92,7 @@ const GROOVY: &str = "20.10";
 const HIRSUTE: &str = "21.04";
 const IMPISH: &str = "21.10";
 const JAMMY: &str = "22.04";
-const UNKNOWN: &str = "22.04";
+const UNKNOWN: &str = "22.10";
 
 pub fn release_str(major: u8, minor: u8) -> &'static str {
     match (major, minor) {
