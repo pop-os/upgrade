@@ -35,7 +35,6 @@ pub fn upgrade_listen(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
             use pop_upgrade::client::Progress;
             match signal {
                 Signal::RecoveryDownloadProgress(Progress { progress, total }) => {
-                    println!("Progress {}/{}", progress, total);
                     send(UiEvent::Progress(ProgressEvent::Recovery(progress, total)));
                 }
                 Signal::RecoveryEvent(event) => {
@@ -59,6 +58,21 @@ pub fn upgrade_listen(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
         send(UiEvent::Error(UiError::Recovery(why.into())));
         return false;
     }
+
+    // if let Err(why) = result {
+    //     let error = if let client::Error::Call(_, ref source) = why {
+    //         if source.name() == Some("org.freedesktop.DBus.Error.NoReply") {
+    //             Box::<str>::from("recovery process interrupted").into()
+    //         } else {
+    //             why.into()
+    //         }
+    //     } else {
+    //         why.into()
+    //     };
+
+    //     send(UiEvent::Error(UiError::Recovery(error)));
+    //     return false;
+    // }
 
     send(UiEvent::Completed(CompletedEvent::Recovery));
     true

@@ -23,7 +23,7 @@ const REMOVE_LIST: &[&str] =
     &[SYSTEM_SOURCES, PROPRIETARY_SOURCES, GROOVY_PPA, IMPISH_RELEASE, PPA_SOURCES];
 
 /// Backup the sources lists
-pub fn backup(release: &str) -> anyhow::Result<()> {
+pub async fn backup(release: &str) -> anyhow::Result<()> {
     // Files that have been marked for deletion.
     let mut delete = Vec::new();
 
@@ -82,7 +82,7 @@ pub fn backup(release: &str) -> anyhow::Result<()> {
 
     if sources_missing {
         info!("sources list was not found — creating a new one");
-        apply_default_source_lists(release).context("failed to create new sources.list")?;
+        apply_default_source_lists(release).await.context("failed to create new sources.list")?;
     }
 
     Ok(())
@@ -105,7 +105,7 @@ fn delete_system76_ubuntu_ppa_list() {
 }
 
 /// For each `.list` in `sources.list.d`, add `#` to the `deb` lines.
-pub fn disable_third_parties(release: &str) -> anyhow::Result<()> {
+pub async fn disable_third_parties(release: &str) -> anyhow::Result<()> {
     delete_system76_ubuntu_ppa_list();
     let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
     for entry in iter_files(dir) {
@@ -132,7 +132,7 @@ pub fn disable_third_parties(release: &str) -> anyhow::Result<()> {
         }
     }
 
-    apply_default_source_lists(release)?;
+    apply_default_source_lists(release).await?;
 
     Ok(())
 }
@@ -143,13 +143,22 @@ pub fn is_eol(codename: Codename) -> bool {
 }
 
 // Check if the release exists on Ubuntu's old-releases archive.
-pub fn is_old_release(codename: &str) -> bool {
+pub async fn is_old_release(codename: &str) -> bool {
     let url = &["http://old-releases.ubuntu.com/ubuntu/dists/", codename, "/Release"].concat();
 
-    isahc::head(url).ok().map_or(false, |resp| resp.status().is_success())
+    if let Ok(client) = crate::misc::http_client() {
+        let request = || async { client.head_async(url).await };
+        if let Ok(resp) = crate::misc::network_reconnect(request).await {
+            return resp.status().is_success();
+        }
+    }
+
+    false
 }
 
-pub fn repair(release: &str) -> anyhow::Result<()> { apply_default_source_lists(release) }
+pub async fn repair(release: &str) -> anyhow::Result<()> {
+    apply_default_source_lists(release).await
+}
 
 /// If this is an old release, replace `*.archive.ubuntu` sources with `old-releases.ubuntu`
 pub fn replace_with_old_releases() -> io::Result<()> {
@@ -175,7 +184,7 @@ pub fn replace_with_old_releases() -> io::Result<()> {
 }
 
 /// Restore a previous backup of the sources lists
-pub fn restore(release: &str) -> anyhow::Result<()> {
+pub async fn restore(release: &str) -> anyhow::Result<()> {
     info!("restoring release files for {}", release);
 
     // Start by removing all of the non-.save files, if .save files exist.
@@ -244,7 +253,7 @@ pub fn restore(release: &str) -> anyhow::Result<()> {
     }
 
     // Ensure default source lists are in place for this release.
-    let a = apply_default_source_lists(release);
+    let a = apply_default_source_lists(release).await;
     let b = update_preferences_script(release);
 
     if release == "focal" {
@@ -254,7 +263,7 @@ pub fn restore(release: &str) -> anyhow::Result<()> {
     a.or(b)
 }
 
-pub fn apply_default_source_lists(release: &str) -> anyhow::Result<()> {
+pub async fn apply_default_source_lists(release: &str) -> anyhow::Result<()> {
     match release {
         "bionic" | "focal" => {
             info!("creating source repository files for bionic/focal");
@@ -284,7 +293,7 @@ pub fn apply_default_source_lists(release: &str) -> anyhow::Result<()> {
 
     update_preferences_script(release)?;
 
-    if is_old_release(release) {
+    if is_old_release(release).await {
         let _ = replace_with_old_releases();
     }
 
