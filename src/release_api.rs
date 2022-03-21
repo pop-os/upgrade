@@ -1,4 +1,3 @@
-use isahc::AsyncReadResponseExt;
 use serde_derive::Deserialize;
 use thiserror::Error;
 
@@ -72,6 +71,8 @@ impl Release {
         if !status.is_success() {
             return Err(ApiError::Status(status));
         }
+
+        use isahc::AsyncReadResponseExt;
 
         let bytes = response.bytes().await?;
 
