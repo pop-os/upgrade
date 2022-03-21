@@ -269,7 +269,7 @@ pub fn attach(gui_receiver: flume::Receiver<UiEvent>, widgets: EventWidgets, mut
                 },
 
                 UiEvent::StatusChanged(from, to, why) => {
-                    warn!("status changed from {} to {}: {}", from, to, why);
+                    println!("status changed from {} to {}: {}", from, to, why);
                     let _ = state.sender.send(BackgroundEvent::GetStatus(from));
                 }
 

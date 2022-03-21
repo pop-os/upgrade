@@ -319,7 +319,7 @@ impl Client {
     fn event_listen_recovery_upgrade(&self) -> Result<(), client::Error> {
         let mut reset = false;
 
-        self.event_listen(
+        let result = self.event_listen(
             client::Client::recovery_upgrade_release_status,
             |new_status| {
                 log_result(
@@ -330,7 +330,7 @@ impl Client {
                     &new_status.why,
                 );
             },
-            move |_client, signal| {
+            |_client, signal| {
                 match signal {
                     client::Signal::RecoveryDownloadProgress(progress) => {
                         print!(
@@ -378,7 +378,13 @@ impl Client {
 
                 Ok(client::Continue(true))
             },
-        )
+        );
+
+        if reset {
+            println!();
+        }
+
+        result
     }
 
     fn event_listen_release_upgrade(&self) -> Result<bool, client::Error> {
@@ -440,6 +446,7 @@ impl Client {
                     }
                     client::Signal::RecoveryEvent(event) => {
                         if reset {
+                            print!("\r{}", color_primary("Fetch Complete"));
                             reset = false;
                             println!();
                         }

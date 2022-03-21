@@ -24,7 +24,7 @@ pub async fn repair(release: &str) -> anyhow::Result<()> {
         }
     }
 
-    if crate::release::repos::is_old_release(release) {
+    if crate::release::repos::is_old_release(release).await {
         info!("switching to old-releases repositories");
         let _ = crate::release::repos::replace_with_old_releases();
     }
@@ -89,7 +89,7 @@ async fn base_requirements() -> anyhow::Result<()> {
         }
     }
 
-    let _ = child.status();
+    let _ = child.wait();
 
     info!("installing required prerequisites: {:?}", to_install);
 
