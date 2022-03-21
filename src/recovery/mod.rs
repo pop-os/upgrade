@@ -1,20 +1,21 @@
 mod errors;
 mod version;
 
+use crate::daemon::SignalEvent;
 use anyhow::Context;
-use async_process::Command;
-use futures::prelude::*;
+use async_fetcher::{Checksum, FetchEvent, Fetcher, SumStr};
+use async_shutdown::Shutdown;
 use std::{
-    io::SeekFrom,
+    convert::TryFrom,
     path::{Path, PathBuf},
-    time::Instant,
+    sync::Arc,
 };
 use sys_mount::{Mount, MountFlags, Unmount, UnmountFlags};
-use tempfile::{tempdir, TempDir};
+use tokio::{process::Command, sync::mpsc::UnboundedSender};
 
 use crate::{
-    checksum::validate_checksum, external::findmnt_uuid, release_api::Release,
-    release_architecture::detect_arch, system_environment::SystemEnvironment,
+    external::findmnt_uuid, release_api::Release, release_architecture::detect_arch,
+    system_environment::SystemEnvironment,
 };
 
 pub use self::{
@@ -27,6 +28,8 @@ bitflags! {
         const NEXT = 1;
     }
 }
+
+const CACHE_PATH: &str = "/var/cache/pop-upgrade/";
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, FromPrimitive, PartialEq)]
@@ -54,16 +57,12 @@ pub enum UpgradeMethod {
     FromRelease { version: Option<String>, arch: Option<String>, flags: ReleaseFlags },
 }
 
-pub async fn recovery<'a, F, E>(
-    cancel: &'a (dyn Fn() -> bool + Send + Sync),
-    action: &'a UpgradeMethod,
-    progress: F,
-    event: E,
-) -> RecResult<()>
-where
-    F: Fn(u64, u64) + 'static + Send + Sync,
-    E: Fn(RecoveryEvent) + 'static,
-{
+pub async fn recovery(
+    cancel: Shutdown,
+    http_client: reqwest::Client,
+    action: &UpgradeMethod,
+    sender: UnboundedSender<SignalEvent>,
+) -> RecResult<()> {
     if SystemEnvironment::detect() != SystemEnvironment::Efi {
         return Err(RecoveryError::Unsupported);
     }
@@ -71,7 +70,7 @@ where
     // Check the system and perform any repairs necessary for success.
     crate::repair::repair().await.map_err(RecoveryError::Repair)?;
 
-    cancellation_check(&cancel)?;
+    shutdown_check(&cancel)?;
 
     if !recovery_exists()? {
         return Err(RecoveryError::RecoveryNotFound);
@@ -91,10 +90,10 @@ where
     }
 
     if let Some((version, build)) =
-        fetch_iso(cancel, verify, action, &progress, &event, "/recovery").await?
+        fetch_iso(cancel, http_client, verify, action, sender, "/recovery").await?
     {
         let data = fomat!((version) " " (build));
-        async_fs::write(RECOVERY_VERSION, data.as_bytes())
+        tokio::fs::write(RECOVERY_VERSION, data.as_bytes())
             .await
             .map_err(RecoveryError::WriteVersion)?;
     }
@@ -115,17 +114,17 @@ pub fn recovery_exists() -> Result<bool, RecoveryError> {
     Ok(false)
 }
 
-async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
-    cancel: &'a (dyn Fn() -> bool + Send + Sync),
+async fn fetch_iso<P: AsRef<Path>>(
+    cancel: Shutdown,
+    http_client: reqwest::Client,
     verify: fn(&str, u16) -> bool,
-    action: &'a UpgradeMethod,
-    progress: &'a F,
-    event: &'a dyn Fn(RecoveryEvent),
+    action: &UpgradeMethod,
+    sender: UnboundedSender<SignalEvent>,
     recovery_path: P,
 ) -> RecResult<Option<(Box<str>, u16)>> {
     let recovery_path = recovery_path.as_ref();
     info!("fetching ISO to upgrade recovery partition at {}", recovery_path.display());
-    (*event)(RecoveryEvent::Fetching);
+    emit_recovery_event(&sender, RecoveryEvent::Fetching);
 
     if !recovery_path.exists() {
         return Err(RecoveryError::RecoveryNotFound);
@@ -146,27 +145,54 @@ async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     // TODO: Create recovery entry if it is missing
     std::fs::create_dir_all(&efi_recovery).context("failed to create recovery entry directory")?;
 
-    let mut temp_iso_dir = None;
     let (build, version, iso) = match action {
-        UpgradeMethod::FromRelease { ref version, ref arch, flags } => {
+        UpgradeMethod::FromRelease { ref version, ref arch, .. } => {
             let version_ = version.as_ref().map(String::as_str);
             let arch = arch.as_ref().map(String::as_str);
 
             let (version, build) =
-                crate::release::check::current(version_).context("no build available")?;
+                crate::release::check::current(version_).await.context("no build available")?;
 
-            cancellation_check(&cancel)?;
+            shutdown_check(&cancel)?;
 
             if verify(&version, build) {
                 info!("recovery partition is already upgraded to {}b{}", version, build);
                 return Ok(None);
             }
 
-            cancellation_check(&cancel)?;
+            shutdown_check(&cancel)?;
 
-            let iso =
-                from_release(cancel, &mut temp_iso_dir, progress, event, &version, arch, *flags)
-                    .await?;
+            let cancel = cancel.clone();
+
+            // Fetch the latest ISO from the release repository.
+            let iso = (|| async {
+                let arch = match arch {
+                    Some(arch) => arch,
+                    None => detect_arch()?,
+                };
+
+                shutdown_check(&cancel)?;
+
+                let release =
+                    Release::get_release(&version, arch).await.map_err(RecoveryError::ApiError)?;
+
+                shutdown_check(&cancel)?;
+
+                let iso_path = from_remote(
+                    cancel.clone(),
+                    http_client,
+                    sender.clone(),
+                    release.url.into(),
+                    &release.sha_sum,
+                )
+                .await?;
+
+                shutdown_check(&cancel)?;
+
+                Ok::<PathBuf, RecoveryError>(iso_path)
+            })()
+            .await?;
+
             (build, version, iso)
         }
         UpgradeMethod::FromFile(ref _path) => {
@@ -174,9 +200,12 @@ async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
         }
     };
 
-    cancellation_check(&cancel)?;
+    let _shutdown_delay = match cancel.delay_shutdown_token() {
+        Ok(token) => token,
+        Err(_) => return Err(RecoveryError::Cancelled),
+    };
 
-    (*event)(RecoveryEvent::Syncing);
+    emit_recovery_event(&sender, RecoveryEvent::Syncing);
     let tempdir = tempfile::tempdir().map_err(RecoveryError::TempDir)?;
     let _iso_mount = Mount::new(iso, tempdir.path(), "iso9660", MountFlags::RDONLY, None)
         .context("failed to mount recovery ISO")?
@@ -214,139 +243,133 @@ async fn fetch_iso<'a, P: AsRef<Path>, F: Fn(u64, u64) + 'static + Send + Sync>(
     let cp1 = crate::misc::cp(&casper_initrd, &efi_initrd);
     let cp2 = crate::misc::cp(&casper_vmlinuz, &efi_vmlinuz);
 
-    futures::try_join!(cp1, cp2).context("failed to copy kernel to recovery")?;
+    futures::future::try_join(cp1, cp2).await.context("failed to copy kernel to recovery")?;
 
-    (*event)(RecoveryEvent::Complete);
+    emit_recovery_event(&sender, RecoveryEvent::Complete);
 
     Ok(Some((version, build)))
-}
-
-/// Fetches the release ISO remotely from api.pop-os.org.
-async fn from_release<'a, F: Fn(u64, u64) + 'static + Send + Sync>(
-    cancel: &'a (dyn Fn() -> bool + Send + Sync),
-    temp: &'a mut Option<TempDir>,
-    progress: &'a F,
-    event: &'a dyn Fn(RecoveryEvent),
-    version: &'a str,
-    arch: Option<&'a str>,
-    _flags: ReleaseFlags,
-) -> RecResult<PathBuf> {
-    let arch = match arch {
-        Some(arch) => arch,
-        None => detect_arch()?,
-    };
-
-    let release = Release::get_release(version, arch).map_err(RecoveryError::ApiError)?;
-    let iso_path = from_remote(cancel, temp, progress, event, &release.url, &release.sha_sum)
-        .await
-        .map_err(|why| RecoveryError::Download(Box::new(why)))?;
-
-    Ok(iso_path)
 }
 
 /// Downloads the ISO from a remote location, to a temporary local directory.
 ///
 /// Once downloaded, the ISO will be verfied against the given checksum.
-async fn from_remote<'a, F: Fn(u64, u64) + 'static + Send + Sync>(
-    cancel: &'a (dyn Fn() -> bool + Send + Sync),
-    temp_dir: &'a mut Option<TempDir>,
-    progress: &'a F,
-    event: &'a dyn Fn(RecoveryEvent),
-    url: &'a str,
-    checksum: &'a str,
+async fn from_remote(
+    cancel: Shutdown,
+    http_client: reqwest::Client,
+    sender: UnboundedSender<SignalEvent>,
+    url: Box<str>,
+    checksum_str: &str,
 ) -> RecResult<PathBuf> {
-    info!("downloading ISO from remote at {}", url);
-    let temp = tempdir().map_err(RecoveryError::TempDir)?;
-    let path = temp.path().join("new.iso");
+    let _ = std::fs::create_dir_all(CACHE_PATH);
 
-    let mut file = async_fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .read(true)
-        .truncate(true)
-        .open(&path)
-        .await
-        .context("failed to create ISO file for writing")?;
+    let path = Path::new(CACHE_PATH).join("recovery.iso");
+
+    if path.exists() {
+        let _ = std::fs::remove_file(&path);
+    }
+
+    info!("downloading ISO from remote at {} to {:?}", url, path);
+
+    let checksum = Checksum::try_from(SumStr::Sha256(checksum_str)).map_err(|source| {
+        RecoveryError::ChecksumInvalid { checksum: checksum_str.to_owned(), source }
+    })?;
+
+    let (events_tx, mut events_rx) = tokio::sync::mpsc::unbounded_channel();
 
     let mut total = 0;
 
-    (async {
-        use isahc::config::Configurable;
+    let sender_ = sender.clone();
+    let path_ = path.clone();
+    let result = tokio::spawn(async move {
+        info!("Initiating fetch of recovery ISO");
 
-        let req = isahc::HttpClient::builder()
-            .low_speed_timeout(1, std::time::Duration::from_secs(15))
+        let urls = Arc::from(vec![url.clone()]);
+        let dest = Arc::from(path_.clone());
+
+        nix::unistd::sync();
+
+        Fetcher::new(http_client)
+            // Timeout if a read takes more than 5 seconds.
+            .timeout(std::time::Duration::from_secs(5))
+            // Download at most 4 parts at a time.
+            .connections_per_file(4)
+            // 4 MiB partial files.
+            .max_part_size(4 * 1024 * 1024)
+            // Forward progress events to this sender.
+            .events(events_tx)
+            // Use this to watch for shutdown events.
+            .shutdown(cancel)
+            // Wrap in Arc
             .build()
-            .expect("failed to build HTTP client")
-            .get_async(url)
-            .await?;
+            // Fetch the ISO to `dest`
+            .request(urls, dest, Arc::new(()))
+            .await
+            .map_err(|source| RecoveryError::Fetch { url: url.into(), source })?;
 
-        let status = req.status();
-        if !status.is_success() {
-            return Err(anyhow!("request failed due to status code {}", status));
-        }
+        info!("fetched recovery ISO. Now validating checksum.");
 
-        total = req
-            .headers()
-            .get("content-length")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.parse::<u64>().ok())
-            .unwrap_or(0)
-            / 1024;
+        let sender = sender_.clone();
+        let join_handle = tokio::task::spawn_blocking(move || {
+            let file = std::fs::File::open(&path_).map_err(|_| RecoveryError::IsoNotFound)?;
+            let _ = sender.send(SignalEvent::RecoveryUpgradeEvent(RecoveryEvent::Verifying));
+            let result = checksum
+                .validate(file, &mut vec![0u8; 16 * 1024])
+                .map_err(|source| RecoveryError::Checksum { path: path_.clone(), source });
 
-        let mut buf = vec![0u8; 8 * 1024];
-        let mut p = 0;
-
-        let mut body = req.into_body();
-
-        let mut last = Instant::now();
-
-        loop {
-            let read = body.read(&mut buf).await?;
-            if read == 0 {
-                break;
+            if result.is_err() {
+                let _ = std::fs::remove_file(&path_);
             }
 
-            file.write_all(&buf[..read]).await?;
+            result
+        });
 
-            p += read;
+        join_handle.await?
+    });
 
-            if last.elapsed().as_secs() > 1 {
-                last = Instant::now();
-                (*progress)(p as u64 / 1024, total);
+    let mut progress = 0;
+    let mut last_update = std::time::Instant::now();
+
+    // Watch for events received by the fetcher as it is in progress.
+    while let Some((_, _, event)) = events_rx.recv().await {
+        match event {
+            FetchEvent::ContentLength(t) => {
+                total = t / 1024;
             }
 
-            cancellation_check(cancel)?;
+            FetchEvent::Progress(p) => {
+                progress += p;
+                let now = std::time::Instant::now();
+                if now.duration_since(last_update).as_secs() >= 1 {
+                    emit_progress(&sender, progress / 1024, total);
+                    last_update = now;
+                }
+            }
+
+            FetchEvent::Retrying => {
+                progress = 0;
+            }
+
+            _ => (),
         }
-
-        Ok(())
-    })
-    .await
-    .map_err(|source| RecoveryError::Fetch { url: url.to_owned(), source })?;
-
-    cancellation_check(cancel)?;
-
-    (*progress)(total, total);
-    (*event)(RecoveryEvent::Verifying);
-
-    async {
-        file.flush().await?;
-        file.seek(SeekFrom::Start(0)).await
     }
-    .await
-    .context("failed to write recovery ISO")?;
 
-    validate_checksum(&mut file, checksum)
-        .await
-        .map_err(|source| RecoveryError::Checksum { path: path.clone(), source })?;
+    info!("recovery ISO fetch complete");
 
-    cancellation_check(cancel)?;
+    result.await??;
 
-    *temp_dir = Some(temp);
     Ok(path)
 }
 
-fn cancellation_check(cancel: &(dyn Fn() -> bool + Send + Sync)) -> RecResult<()> {
-    if cancel() {
+fn emit_progress(sender: &UnboundedSender<SignalEvent>, progress: u64, total: u64) {
+    let _ = sender.send(SignalEvent::RecoveryDownloadProgress(progress, total));
+}
+
+fn emit_recovery_event(sender: &UnboundedSender<SignalEvent>, event: RecoveryEvent) {
+    let _ = sender.send(SignalEvent::RecoveryUpgradeEvent(event));
+}
+
+fn shutdown_check(shutdown: &Shutdown) -> Result<(), RecoveryError> {
+    if shutdown.shutdown_started() || shutdown.shutdown_completed() {
         Err(RecoveryError::Cancelled)
     } else {
         Ok(())
