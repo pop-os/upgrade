@@ -82,8 +82,8 @@ dependencies = [
 
 [[package]]
 name = "async-fetcher"
-version = "0.8.1"
-source = "git+https://github.com/pop-os/async-fetcher#c62721876d2545e32111b75f33c0126f64bcad62"
+version = "0.8.2"
+source = "git+https://github.com/pop-os/async-fetcher#0e185a62fcd1a0089c36bf2b1aa34e488b3cc1c9"
 dependencies = [
  "async-shutdown",
  "derive-new",
@@ -1730,9 +1730,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.14"
+version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
+checksum = "1c4dcd960cc540667f619483fc99102f88d6118b87730e24e8fbe8054b7445e4"
 dependencies = [
  "cfg-if 1.0.0",
 ]
@@ -3022,9 +3022,9 @@ dependencies = [
 
 [[package]]
 name = "test-case"
-version = "2.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f7d58e237f65d5fe5eaf1105188c94c9a441e1fbc298ed5df45ec9c9af236d3"
+checksum = "4b712a2c4665154f693a4d2e7601f321ef9be194a4bc1ea16c90ea1f71a14e5c"
 dependencies = [
  "cfg-if 1.0.0",
  "proc-macro-error",
