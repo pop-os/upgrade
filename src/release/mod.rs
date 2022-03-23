@@ -230,10 +230,7 @@ where
 
     // The system that handles events received from the package-fetcher
     let receiver = async move {
-        info!("receiving packages");
         while let Some(event) = events.recv().await {
-            debug!("Package Fetch Event: {:#?}", event);
-
             match event.kind {
                 EventKind::Fetching => {
                     func(FetchEvent::Fetching((*event.package.uri).to_owned()));
@@ -244,6 +241,7 @@ where
                 }
 
                 EventKind::Error(why) => {
+                    error!("{}: fetch error: {:?}", event.package.name, why);
                     return Err(why).context("package fetching failed");
                 }
 
