@@ -225,7 +225,7 @@ impl Daemon {
                                     if download_only {
                                         Ok(())
                                     } else {
-                                        (async {
+                                        let perform_upgrade = || async {
                                             info!("performing upgrade");
 
                                             shared_state.status.store(DaemonStatus::PackageUpgrade, Ordering::SeqCst);
@@ -241,10 +241,18 @@ impl Daemon {
                                                 let _ = dbus_tx.send(SignalEvent::Upgrade(event));
                                             }
 
-                                            info!("completed apt upgrade");
-
                                             child.wait().await.map_result().map_err(ReleaseError::Upgrade)
-                                        }).await
+                                        };
+
+                                        if perform_upgrade().await.is_err() {
+                                            info!("attempting to repair a packaging error");
+                                            match crate::repair::repair().await {
+                                                Ok(()) => perform_upgrade().await,
+                                                Err(why) => Err(ReleaseError::Repair(why))
+                                            }
+                                        } else {
+                                            Ok(())
+                                        }
                                     }
                                 }
                                 Err(why) => Err(why)
