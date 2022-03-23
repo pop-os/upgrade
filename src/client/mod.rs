@@ -327,7 +327,7 @@ impl Client {
         mut log_cb: impl FnMut(Status),
         mut event: impl FnMut(&Self, Signal) -> Result<Continue, Error>,
     ) -> Result<(), Error> {
-        let mut break_on_next = false;
+        let mut inactivity_count = 0;
         for item in self.bus.iter(500) {
             if sighandler::status().is_some() {
                 let _ = self.cancel();
@@ -335,14 +335,16 @@ impl Client {
 
             if let ConnectionItem::Nothing = item {
                 if self.is_inactive()? {
-                    if break_on_next {
-                        log_cb(status_func(self)?);
-
-                        break;
+                    if inactivity_count < 6 {
+                        inactivity_count += 1;
+                        continue
                     }
 
-                    break_on_next = true;
+                    log_cb(status_func(self)?);
+                    break
                 }
+
+                inactivity_count = 0;
             } else if let Some(signal) = filter_signal(item) {
                 let signal = match &*signal.member().unwrap() {
                     signals::NO_CONNECTION => Signal::NoConnection,
@@ -407,8 +409,13 @@ impl Client {
                         .map_err(|why| Error::ArgumentMismatch(signals::RELEASE_RESULT, why))
                         .map(|(status, why)| Status { status, why: why.into() })
                         .map(Signal::ReleaseResult)?,
-                    _ => continue,
+                    _ => {
+                        inactivity_count = 0;
+                        continue
+                    }
                 };
+
+                inactivity_count = 0;
 
                 if !event(self, signal)?.0 {
                     break;
