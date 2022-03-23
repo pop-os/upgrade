@@ -319,6 +319,7 @@ impl Daemon {
                         }
                     }
 
+
                     let _ = fg_tx.send(FgEvent::StatusInactive);
                     info!("finished processing message");
                 }
@@ -702,7 +703,7 @@ impl Daemon {
         let mut set_status_inactive = false;
 
         loop {
-            let _ = connection.process(std::time::Duration::from_millis(1000));
+            let _ = connection.process(std::time::Duration::from_millis(500));
             let mut lock = cr.lock().unwrap();
             let daemon: &mut Daemon = lock.data_mut(&path).unwrap();
 
