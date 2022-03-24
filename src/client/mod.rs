@@ -337,11 +337,11 @@ impl Client {
                 if self.is_inactive()? {
                     if inactivity_count < 6 {
                         inactivity_count += 1;
-                        continue
+                        continue;
                     }
 
                     log_cb(status_func(self)?);
-                    break
+                    break;
                 }
 
                 inactivity_count = 0;
@@ -411,7 +411,7 @@ impl Client {
                         .map(Signal::ReleaseResult)?,
                     _ => {
                         inactivity_count = 0;
-                        continue
+                        continue;
                     }
                 };
 
