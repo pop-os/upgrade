@@ -246,6 +246,10 @@ where
                 }
 
                 EventKind::Fetched => (),
+
+                EventKind::Retrying => {
+                    func(FetchEvent::Retrying((*event.package).clone()));
+                }
             }
         }
 
@@ -609,6 +613,7 @@ pub enum FetchEvent {
     Fetching(String),
     Fetched(AptRequest),
     Init(usize),
+    Retrying(AptRequest),
 }
 
 /// Check if certain files exist at the time of starting this daemon.
