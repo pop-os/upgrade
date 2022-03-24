@@ -44,9 +44,7 @@ const UPGRADE_RESULT_ERROR: &str = "release upgrade aborted";
 pub struct Client(client::Client);
 
 impl Client {
-    pub fn new() -> Result<Self, client::Error> {
-        client::Client::new().map(Client)
-    }
+    pub fn new() -> Result<Self, client::Error> { client::Client::new().map(Client) }
 
     /// Executes the recovery subcommand of the client.
     pub fn recovery(&self, matches: &ArgMatches) -> anyhow::Result<()> {
