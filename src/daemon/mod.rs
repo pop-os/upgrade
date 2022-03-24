@@ -85,10 +85,18 @@ pub const INSTALL_DATE: &str = "/usr/lib/pop-upgrade/install_date";
 
 #[derive(Debug)]
 pub enum Event {
-    FetchUpdates { apt_uris: HashSet<AptRequest>, download_only: bool },
+    FetchUpdates {
+        apt_uris:      HashSet<AptRequest>,
+        download_only: bool,
+    },
     PackageUpgrade,
     RecoveryUpgrade(RecoveryUpgradeMethod),
-    ReleaseUpgrade { how: ReleaseUpgradeMethod, from: String, to: String },
+    ReleaseUpgrade {
+        how:            ReleaseUpgradeMethod,
+        from:           String,
+        to:             String,
+        await_recovery: bool,
+    },
 }
 
 #[derive(Debug)]
@@ -159,6 +167,9 @@ impl Daemon {
         let http_client = reqwest::Client::new();
 
         let handle = Handle::current();
+
+        // Tracks if a successful recovery upgrade was performed.
+        let mut recovery_upgraded = false;
 
         let task = enclose!((handle, shared_state) move || {
             let main_future = async move {
@@ -285,10 +296,17 @@ impl Daemon {
                                 dbus_tx.clone(),
                             ).await;
 
+                            recovery_upgraded = result.is_ok();
+
                             let _ = dbus_tx.send(SignalEvent::RecoveryUpgradeResult(result));
                         }
 
-                        Event::ReleaseUpgrade { how, from, to } => {
+                        Event::ReleaseUpgrade { how, from, to, await_recovery } => {
+                            if await_recovery && !recovery_upgraded {
+                                let _ = fg_tx.send(FgEvent::StatusInactive);
+                                info!("finished processing message");
+                            }
+
                             shared_state.status.store(DaemonStatus::ReleaseUpgrade, Ordering::SeqCst);
 
                             info!(
@@ -968,7 +986,9 @@ impl Daemon {
     }
 
     fn release_upgrade(&mut self, how: u8, from: &str, to: &str) -> anyhow::Result<()> {
+        let mut await_recovery = false;
         if recovery::recovery_exists()? {
+            await_recovery = true;
             self.recovery_upgrade_release(to, "", 0)?;
         }
 
@@ -977,7 +997,7 @@ impl Daemon {
         let how = ReleaseUpgradeMethod::from_u8(how)
             .context("provided upgrade `how` value is out of range")?;
 
-        let event = Event::ReleaseUpgrade { how, from: from.into(), to: to.into() };
+        let event = Event::ReleaseUpgrade { how, from: from.into(), to: to.into(), await_recovery };
         self.submit_event(event)
     }
 
