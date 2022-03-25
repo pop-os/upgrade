@@ -101,14 +101,15 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: &ReleaseInfo) {
         return;
     }
 
-    if let Some(why) = error.take() {
-        send(UiEvent::Error(UiError::Upgrade(why.into())));
-        return;
-    }
-
-    if !*status_broken {
-        send(UiEvent::Completed(CompletedEvent::Download));
-    }
+    send(if let Some(why) = error.take() {
+        UiEvent::Error(UiError::Upgrade(why.into()))
+    } else if *status_broken {
+        UiEvent::Error(UiError::Upgrade(
+            Box::<str>::from("Upgrade service status changed unexpectedly").into(),
+        ))
+    } else {
+        UiEvent::Completed(CompletedEvent::Download)
+    });
 }
 
 pub fn update(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
