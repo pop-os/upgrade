@@ -206,6 +206,10 @@ impl Daemon {
                     }
                 });
 
+                let is_performing_release_upgrade = || {
+                    shared_state.status.load(Ordering::SeqCst) == DaemonStatus::ReleaseUpgrade
+                };
+
                 while let Some(event) = event_rx.recv().await {
                     let _suspend_lock = logind.as_mut().and_then(|logind| {
                         match logind
@@ -287,7 +291,10 @@ impl Daemon {
 
                         Event::RecoveryUpgrade(action) => {
                             info!("attempting recovery upgrade with {:?}", action);
-                            shared_state.status.store(DaemonStatus::RecoveryUpgrade, Ordering::SeqCst);
+
+                            if !is_performing_release_upgrade() {
+                                shared_state.status.store(DaemonStatus::RecoveryUpgrade, Ordering::SeqCst);
+                            }
 
                             let result = recovery::recovery(
                                 shutdown.clone(),
@@ -299,6 +306,12 @@ impl Daemon {
                             recovery_upgraded = result.is_ok();
 
                             let _ = dbus_tx.send(SignalEvent::RecoveryUpgradeResult(result));
+
+                            if !recovery_upgraded && is_performing_release_upgrade() {
+                                let _ = fg_tx.send(FgEvent::StatusInactive);
+                            }
+
+                            continue
                         }
 
                         Event::ReleaseUpgrade { how, from, to, await_recovery } => {
@@ -332,18 +345,12 @@ impl Daemon {
 
                             let _ = AptMark::new().unhold(&["pop-upgrade"]).await;
 
-                            let _ = fg_tx.send(FgEvent::SetUpgradeState(
-                                result,
-                                how,
-                                from.into(),
-                                to.into(),
-                            ));
+                            let _ = fg_tx.send(FgEvent::SetUpgradeState(result, how, from.into(), to.into()));
+                            continue
                         }
                     }
 
-
                     let _ = fg_tx.send(FgEvent::StatusInactive);
-                    info!("finished processing message");
                 }
             };
 
