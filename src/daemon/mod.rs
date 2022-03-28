@@ -346,7 +346,6 @@ impl Daemon {
                             let _ = AptMark::new().unhold(&["pop-upgrade"]).await;
 
                             let _ = fg_tx.send(FgEvent::SetUpgradeState(result, how, from.into(), to.into()));
-                            continue
                         }
                     }
 
@@ -786,7 +785,13 @@ impl Daemon {
                             daemon.release_upgrade = Some(state);
                         }
 
+                        let (status, why) = result_signal(result.as_ref());
+
                         daemon.last_known.release_upgrade = result;
+
+                        Self::send_signal_message(&connection, {
+                            Self::signal_message(signals::RELEASE_RESULT).append2(status, why)
+                        })
                     }
                     FgEvent::StatusInactive => set_status_inactive = true,
                 }

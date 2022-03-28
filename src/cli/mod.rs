@@ -162,17 +162,15 @@ impl Client {
                 if forcing || available >= 0 {
                     // Ask to perform the release upgrade, and then listen for its signals.
                     self.release_upgrade(method, current.as_ref(), next.as_ref())?;
-                    let mut recall = self.event_listen_release_upgrade()?;
-
                     // Repeat as necessary.
-                    while recall {
+
+                    while self.event_listen_release_upgrade()? {
                         println!(
                             "{}: {}",
                             color_primary("Event"),
                             color_secondary("attempting to perform upgrade again")
                         );
                         self.release_upgrade(method, current.as_ref(), next.as_ref())?;
-                        recall = self.event_listen_release_upgrade()?;
                     }
 
                     // Finalize the release upgrade.
