@@ -45,12 +45,12 @@ pub fn upgrade_listen(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
                         *error = Some(status.why);
                     }
 
-                    return Ok(client::Continue(false));
+                    return Ok(client::Continue::False);
                 }
                 _ => (),
             }
 
-            Ok(client::Continue(true))
+            Ok(client::Continue::True)
         },
     );
 
