@@ -343,6 +343,8 @@ impl Daemon {
                                 },
                             ).await;
 
+                            info!("upgrade result: {:?}", result);
+
                             let _ = AptMark::new().unhold(&["pop-upgrade"]).await;
 
                             let _ = fg_tx.send(FgEvent::SetUpgradeState(result, how, from.into(), to.into()));

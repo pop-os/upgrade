@@ -285,7 +285,7 @@ impl Client {
                             &status.why,
                         );
 
-                        return Ok(client::Continue(false));
+                        return Ok(client::Continue::False);
                     }
                     client::Signal::PackageFetched(status) => {
                         println!(
@@ -309,7 +309,7 @@ impl Client {
                     _ => (),
                 }
 
-                Ok(client::Continue(true))
+                Ok(client::Continue::True)
             },
         )
     }
@@ -369,12 +369,12 @@ impl Client {
                             &status.why,
                         );
 
-                        return Ok(client::Continue(false));
+                        return Ok(client::Continue::False);
                     }
                     _ => (),
                 }
 
-                Ok(client::Continue(true))
+                Ok(client::Continue::True)
             },
         );
 
@@ -401,8 +401,9 @@ impl Client {
                 );
             },
             |_client, signal| {
+                use client::Signal;
                 match signal {
-                    client::Signal::PackageFetchResult(status) => {
+                    Signal::PackageFetchResult(status) => {
                         log_result(
                             status.status,
                             FETCH_RESULT_STR,
@@ -410,8 +411,13 @@ impl Client {
                             FETCH_RESULT_ERROR,
                             &status.why,
                         );
+
+                        if status.status != 0 {
+                            return Err(client::Error::Status(status.why));
+                        }
                     }
-                    client::Signal::PackageFetched(package) => {
+
+                    Signal::PackageFetched(package) => {
                         println!(
                             "{} ({}/{}): {}",
                             color_primary("Fetched"),
@@ -420,16 +426,19 @@ impl Client {
                             color_secondary(&package.package)
                         );
                     }
-                    client::Signal::PackageFetching(package) => {
+
+                    Signal::PackageFetching(package) => {
                         println!("{} {}", color_primary("Fetching"), color_secondary(&package));
                     }
-                    client::Signal::PackageUpgrade(event) => {
+
+                    Signal::PackageUpgrade(event) => {
                         match AptUpgradeEvent::from_dbus_map(event.clone().into_iter()) {
                             Ok(event) => write_apt_event(event),
                             Err(()) => error!("failed to unpack the upgrade event: {:?}", event),
                         }
                     }
-                    client::Signal::RecoveryDownloadProgress(progress) => {
+
+                    Signal::RecoveryDownloadProgress(progress) => {
                         print!(
                             "\r{} {}/{} {}",
                             color_primary("Fetched"),
@@ -442,7 +451,8 @@ impl Client {
 
                         reset = true;
                     }
-                    client::Signal::RecoveryEvent(event) => {
+
+                    Signal::RecoveryEvent(event) => {
                         if reset {
                             print!("\r{}", color_primary("Fetch Complete"));
                             reset = false;
@@ -455,7 +465,24 @@ impl Client {
                             <&'static str>::from(event)
                         );
                     }
-                    client::Signal::ReleaseResult(status) => {
+
+                    Signal::RecoveryResult(status) => {
+                        log_result(
+                            status.status,
+                            RECOVERY_RESULT_STR,
+                            RECOVERY_RESULT_SUCCESS,
+                            RECOVERY_RESULT_ERROR,
+                            &status.why,
+                        );
+
+                        if status.status != 0 {
+                            return Err(client::Error::Status(status.why));
+                        }
+                    }
+
+                    Signal::ReleaseResult(status) => {
+                        println!("{}: {:?}", color_primary("Upgrade Status"), status);
+
                         if !*recall {
                             log_result(
                                 status.status,
@@ -466,16 +493,22 @@ impl Client {
                             );
                         }
 
-                        return Ok(client::Continue(false));
+                        if status.status != 0 {
+                            return Err(client::Error::Status(status.why));
+                        }
+
+                        return Ok(client::Continue::False);
                     }
-                    client::Signal::ReleaseEvent(event) => {
+
+                    Signal::ReleaseEvent(event) => {
                         println!(
                             "{}: {}",
                             color_primary("Event"),
                             color_secondary(<&'static str>::from(event))
                         );
                     }
-                    client::Signal::NoConnection => {
+
+                    Signal::NoConnection => {
                         println!(
                             "{}",
                             color_error(
@@ -489,13 +522,12 @@ impl Client {
                         if prompt::get_bool(&prompt, false) {
                             *recall = true;
                         } else {
-                            return Ok(client::Continue(false));
+                            return Ok(client::Continue::False);
                         }
                     }
-                    client::Signal::RecoveryResult(_) => (),
                 }
 
-                Ok(client::Continue(true))
+                Ok(client::Continue::True)
             },
         );
 
