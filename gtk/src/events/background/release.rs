@@ -36,24 +36,18 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: &ReleaseInfo) {
         return;
     }
 
-    let error = &mut None;
-    let ignore_error = &mut false;
-    let status_broken = &mut false;
-
     use pop_upgrade::client::Progress;
 
-    let _ = client.event_listen(
+    let result = client.event_listen(
         Client::release_upgrade_status,
         |status| {
-            *status_broken = true;
             status_changed(send, status, DaemonStatus::ReleaseUpgrade);
         },
         |_client, signal| {
             match signal {
                 Signal::PackageFetchResult(status) | Signal::RecoveryResult(status) => {
                     if status.status != 0 {
-                        *error = Some(status.why);
-                        return Ok(client::Continue(false));
+                        return Err(client::Error::Status(status.why));
                     }
                 }
                 Signal::PackageFetched(status) => {
@@ -85,30 +79,21 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: &ReleaseInfo) {
                 }
                 Signal::ReleaseResult(status) => {
                     if status.status != 0 {
-                        *error = Some(status.why);
+                        return Err(client::Error::Status(status.why));
                     }
 
-                    return Ok(client::Continue(false));
+                    return Ok(client::Continue::False);
                 }
                 _ => (),
             }
 
-            Ok(client::Continue(true))
+            Ok(client::Continue::True)
         },
     );
 
-    if *ignore_error {
-        return;
-    }
-
-    send(if let Some(why) = error.take() {
-        UiEvent::Error(UiError::Upgrade(why.into()))
-    } else if *status_broken {
-        UiEvent::Error(UiError::Upgrade(
-            Box::<str>::from("Upgrade service status changed unexpectedly").into(),
-        ))
-    } else {
-        UiEvent::Completed(CompletedEvent::Download)
+    send(match result {
+        Ok(()) => UiEvent::Completed(CompletedEvent::Download),
+        Err(why) => UiEvent::Error(UiError::Upgrade(why.into())),
     });
 }
 
@@ -140,7 +125,7 @@ pub fn update(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
                             *error = Some(status.why);
                         }
 
-                        return Ok(client::Continue(false));
+                        return Ok(client::Continue::False);
                     }
                     Signal::PackageFetched(status) => {
                         send(UiEvent::Progress(ProgressEvent::Fetching(
@@ -165,7 +150,7 @@ pub fn update(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
                     _ => (),
                 }
 
-                Ok(client::Continue(true))
+                Ok(client::Continue::True)
             },
         );
 

@@ -56,7 +56,10 @@ pub enum Signal {
 
 /// Designates if the signal event loop should continue listening for signals.
 #[derive(Clone, Debug)]
-pub struct Continue(pub bool);
+pub enum Continue {
+    True,
+    False,
+}
 
 /// The status of the daemon that was retrieved.
 #[derive(Clone, Debug)]
@@ -119,6 +122,9 @@ pub enum Error {
 
     #[error("failed to create {} method call", _0)]
     NewMethodCall(&'static str, String),
+
+    #[error("{}", _0)]
+    Status(Box<str>),
 }
 
 pub struct Client {
@@ -341,6 +347,7 @@ impl Client {
                     }
 
                     log_cb(status_func(self)?);
+                    error!("breaking connection to pop-upgrade daemon due to inactivity");
                     break;
                 }
 
@@ -417,7 +424,8 @@ impl Client {
 
                 inactivity_count = 0;
 
-                if !event(self, signal)?.0 {
+                if let Continue::False = event(self, signal)? {
+                    debug!("requested to stop listening to pop-upgrade");
                     break;
                 }
             }
