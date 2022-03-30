@@ -296,9 +296,6 @@ impl Client {
                             color_secondary(status.package)
                         );
                     }
-                    client::Signal::PackageFetching(package) => {
-                        println!("{} {}", color_primary("Fetching"), color_secondary(package));
-                    }
                     client::Signal::PackageUpgrade(event) => {
                         if let Ok(event) = AptUpgradeEvent::from_dbus_map(event.into_iter()) {
                             write_apt_event(event);
