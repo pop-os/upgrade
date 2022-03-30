@@ -194,11 +194,11 @@ where
 
     // The system which fetches packages we send requests to
     let (fetcher, mut events) = async_fetcher::Fetcher::default()
-        .connections_per_file(CONCURRENT_FETCHES as u16)
         .retries(RETRIES)
         .timeout(std::time::Duration::from_secs(5))
         .shutdown(shutdown.clone())
         .into_package_fetcher()
+        .concurrent(CONCURRENT_FETCHES)
         .fetch(
             tokio_stream::wrappers::ReceiverStream::new(fetch_rx),
             Arc::from(Path::new(ARCHIVES)),
