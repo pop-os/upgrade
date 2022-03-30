@@ -325,6 +325,7 @@ impl Daemon {
 
                         Event::ReleaseUpgrade { how, from, to, await_recovery } => {
                             if await_recovery && !recovery_upgraded {
+                                let _ = fg_tx.send(FgEvent::SetUpgradeState(Err(ReleaseError::Canceled), how, from.into(), to.into()));
                                 let _ = fg_tx.send(FgEvent::StatusInactive);
                                 continue
                             }
