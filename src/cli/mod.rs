@@ -510,7 +510,7 @@ impl Client {
                         );
 
                         let prompt = format!("    {} y/N", color_primary("Try again?"));
-
+                
                         if prompt::get_bool(&prompt, false) {
                             *recall = true;
                         } else {
