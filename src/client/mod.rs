@@ -334,7 +334,7 @@ impl Client {
         mut event: impl FnMut(&Self, Signal) -> Result<Continue, Error>,
     ) -> Result<(), Error> {
         let mut inactivity_count = 0;
-        for item in self.bus.iter(500) {
+        for item in self.bus.iter(1000) {
             if sighandler::status().is_some() {
                 let _ = self.cancel();
             }
