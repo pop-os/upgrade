@@ -15,17 +15,6 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: &ReleaseInfo) {
     }
 
     let &ReleaseInfo { ref current, ref next, .. } = &info;
-    // TODO: Re-enable this when QA is ready for testing this behavior.
-    //    let how = if client.recovery_exists() {
-    //        // Upgrade the recovery partition in addition to the OS.
-    //        if !upgrade_recovery(client, send, next) {
-    //            return;
-    //        }
-    //
-    //        UpgradeMethod::Recovery
-    //    } else {
-    //        UpgradeMethod::Offline
-    //    };
 
     let how = UpgradeMethod::Offline;
 
@@ -45,11 +34,6 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: &ReleaseInfo) {
         },
         |_client, signal| {
             match signal {
-                Signal::PackageFetchResult(status) | Signal::RecoveryResult(status) => {
-                    if status.status != 0 {
-                        return Err(client::Error::Status(status.why));
-                    }
-                }
                 Signal::PackageFetched(status) => {
                     send(UiEvent::Progress(ProgressEvent::Fetching(
                         status.completed.into(),
