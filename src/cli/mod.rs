@@ -411,10 +411,6 @@ impl Client {
                             FETCH_RESULT_ERROR,
                             &status.why,
                         );
-
-                        if status.status != 0 {
-                            return Err(client::Error::Status(status.why));
-                        }
                     }
 
                     Signal::PackageFetched(package) => {
@@ -474,10 +470,6 @@ impl Client {
                             RECOVERY_RESULT_ERROR,
                             &status.why,
                         );
-
-                        if status.status != 0 {
-                            return Err(client::Error::Status(status.why));
-                        }
                     }
 
                     Signal::ReleaseResult(status) => {
