@@ -135,6 +135,8 @@ struct SharedState {
     shutdown:       Mutex<Shutdown>,
     // Development release
     force_next:     AtomicBool,
+    // Indicates that it is now uncancellable
+    release_upgrade_began: AtomicBool,
 }
 
 pub struct Daemon {
@@ -165,6 +167,7 @@ impl Daemon {
             fetching_state: Atomic::new((0, 0)),
             shutdown:       Mutex::new(Shutdown::new()),
             force_next:     AtomicBool::new(false),
+            release_upgrade_began: AtomicBool::new(false),
         });
 
         let http_client = reqwest::Client::new();
@@ -342,6 +345,8 @@ impl Daemon {
                                 let _ = dbus_tx.send(SignalEvent::ReleaseUpgradeEvent(event));
                                 shared_state.sub_status.store(event as u8, Ordering::SeqCst);
                             });
+
+                            shared_state.release_upgrade_began.store(true, Ordering::SeqCst);
 
                             let result = crate::release::upgrade(
                                 how,
@@ -809,7 +814,10 @@ impl Daemon {
                             Self::signal_message(signals::RELEASE_RESULT).append2(status, why)
                         })
                     }
-                    FgEvent::StatusInactive => set_status_inactive = true,
+                    FgEvent::StatusInactive => {
+                        set_status_inactive = true;
+                        daemon.shared_state.release_upgrade_began.store(false, Ordering::SeqCst);
+                    },
                 }
             }
 
@@ -931,6 +939,11 @@ impl Daemon {
     }
 
     async fn cancel(&mut self) {
+        if self.shared_state.release_upgrade_began.load(Ordering::SeqCst) {
+            info!("cannot cancel a release upgrade that's now ongoing");
+            return
+        }
+
         info!("canceling a process which is in progress");
 
         // Grab the active task shutdown notifier.
