@@ -473,8 +473,6 @@ impl Client {
                     }
 
                     Signal::ReleaseResult(status) => {
-                        println!("{}: {:?}", color_primary("Upgrade Status"), status);
-
                         if !*recall {
                             log_result(
                                 status.status,
