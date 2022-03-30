@@ -169,7 +169,7 @@ impl From<UpgradeEvent> for &'static str {
 }
 
 /// Get a list of APT URIs to fetch for this operation, and then fetch them.
-pub async fn apt_fetch<H>(
+pub async fn apt_fetch<H: Send + 'static>(
     shutdown: Shutdown,
     uris: HashSet<AptRequest, H>,
     func: &dyn Fn(FetchEvent),
@@ -212,15 +212,8 @@ where
                 .context("failed to create partial debian directory")?;
         }
 
-        let packages = AptGet::new()
-            .noninteractive()
-            .fetch_uris(&["full-upgrade"])
-            .await
-            .context("failed to spawn apt-get command")?
-            .context("failed to fetch package URIs from apt-get")?;
-
-        for package in packages {
-            let _ = fetch_tx.send(Arc::new(package)).await;
+        for request in uris {
+            let _ = fetch_tx.send(Arc::new(request)).await;
         }
 
         Ok::<(), anyhow::Error>(())
@@ -248,6 +241,7 @@ where
                 EventKind::Fetched => (),
 
                 EventKind::Retrying => {
+                    info!("{}: retrying fetch", event.package.name);
                     func(FetchEvent::Retrying((*event.package).clone()));
                 }
             }

@@ -126,15 +126,15 @@ pub struct ReleaseUpgradeState {
 struct SharedState {
     // In case a UI is being constructed after a task has already started, it may request
     // for the curernt progress of a task.
-    fetching_state: Atomic<(u64, u64)>,
+    fetching_state:        Atomic<(u64, u64)>,
     // The status of the event loop thread, which indicates the current task, or lack thereof.
-    status:         Atomic<DaemonStatus>,
+    status:                Atomic<DaemonStatus>,
     // As well as the current sub-status, if relevant.
-    sub_status:     AtomicU8,
+    sub_status:            AtomicU8,
     // Cancels a process that is currently active.
-    shutdown:       Mutex<Shutdown>,
+    shutdown:              Mutex<Shutdown>,
     // Development release
-    force_next:     AtomicBool,
+    force_next:            AtomicBool,
     // Indicates that it is now uncancellable
     release_upgrade_began: AtomicBool,
 }
@@ -162,11 +162,11 @@ impl Daemon {
 
         // State shared between the background task thread, and the foreground DBus event loop.
         let shared_state = Arc::new(SharedState {
-            status:         Atomic::new(DaemonStatus::Inactive),
-            sub_status:     AtomicU8::new(0),
-            fetching_state: Atomic::new((0, 0)),
-            shutdown:       Mutex::new(Shutdown::new()),
-            force_next:     AtomicBool::new(false),
+            status:                Atomic::new(DaemonStatus::Inactive),
+            sub_status:            AtomicU8::new(0),
+            fetching_state:        Atomic::new((0, 0)),
+            shutdown:              Mutex::new(Shutdown::new()),
+            force_next:            AtomicBool::new(false),
             release_upgrade_began: AtomicBool::new(false),
         });
 
@@ -817,7 +817,7 @@ impl Daemon {
                     FgEvent::StatusInactive => {
                         set_status_inactive = true;
                         daemon.shared_state.release_upgrade_began.store(false, Ordering::SeqCst);
-                    },
+                    }
                 }
             }
 
@@ -941,7 +941,7 @@ impl Daemon {
     async fn cancel(&mut self) {
         if self.shared_state.release_upgrade_began.load(Ordering::SeqCst) {
             info!("cannot cancel a release upgrade that's now ongoing");
-            return
+            return;
         }
 
         info!("canceling a process which is in progress");
