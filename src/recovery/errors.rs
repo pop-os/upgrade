@@ -11,7 +11,7 @@ pub enum RecoveryError {
     #[error("failed to fetch release data from server")]
     ApiError(#[from] ApiError),
 
-    #[error("generic error")]
+    #[error("{:?}", _0)]
     Anyhow(#[from] anyhow::Error),
 
     #[error("process has been cancelled")]
