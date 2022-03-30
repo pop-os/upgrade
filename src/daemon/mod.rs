@@ -68,7 +68,7 @@ use std::{
     fs,
     path::PathBuf,
     sync::{
-        atomic::{AtomicU8, Ordering},
+        atomic::{AtomicU8, Ordering, AtomicBool},
         Arc,
     },
 };
@@ -133,6 +133,8 @@ struct SharedState {
     sub_status:     AtomicU8,
     // Cancels a process that is currently active.
     shutdown:       Mutex<Shutdown>,
+    // Development release
+    force_next:     AtomicBool,
 }
 
 pub struct Daemon {
@@ -162,6 +164,7 @@ impl Daemon {
             sub_status:     AtomicU8::new(0),
             fetching_state: Atomic::new((0, 0)),
             shutdown:       Mutex::new(Shutdown::new()),
+            force_next:    AtomicBool::new(false),
         });
 
         let http_client = reqwest::Client::new();
@@ -324,7 +327,7 @@ impl Daemon {
                         }
 
                         Event::ReleaseUpgrade { how, from, to, await_recovery } => {
-                            if await_recovery && !recovery_upgraded {
+                            if await_recovery && !recovery_upgraded && !shared_state.force_next.load(Ordering::SeqCst) {
                                 let _ = fg_tx.send(FgEvent::SetUpgradeState(Err(ReleaseError::Canceled), how, from.into(), to.into()));
                                 let _ = fg_tx.send(FgEvent::StatusInactive);
                                 continue
@@ -609,6 +612,8 @@ impl Daemon {
                 ("current", "next", "build", "urgent", "is_lts"),
                 |_ctx: &mut Context, daemon: &mut Daemon, (development,): (bool,)| {
                     futures::executor::block_on(async {
+                        daemon.shared_state.force_next.store(development, Ordering::SeqCst);
+
                         let status = daemon
                             .release_check(development)
                             .await
