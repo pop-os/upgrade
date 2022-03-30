@@ -54,7 +54,7 @@ pub enum ReleaseError {
     #[error("failed to switch Ubuntu repos to old-releases")]
     OldReleaseSwitch(#[source] io::Error),
 
-    #[error("fetch of package failed: {:?}", _0)]
+    #[error("{:?}", _0)]
     PackageFetch(#[source] anyhow::Error),
 
     #[error("failed to apply pre-upgrade fixes")]
