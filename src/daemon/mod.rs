@@ -231,7 +231,10 @@ impl Daemon {
                     match event {
                         Event::FetchUpdates { apt_uris, download_only } => {
                             info!("fetching packages for {:?}", apt_uris);
-                            shared_state.status.store(DaemonStatus::FetchingPackages, Ordering::SeqCst);
+                            if !is_performing_release_upgrade() {
+                                shared_state.status.store(DaemonStatus::FetchingPackages, Ordering::SeqCst);
+                            }
+
                             let npackages = apt_uris.len() as u32;
                             shared_state.fetching_state.store((0, u64::from(npackages)), Ordering::SeqCst);
 
@@ -247,7 +250,9 @@ impl Daemon {
                                         let perform_upgrade = || async {
                                             info!("performing upgrade");
 
-                                            shared_state.status.store(DaemonStatus::PackageUpgrade, Ordering::SeqCst);
+                                            if !is_performing_release_upgrade() {
+                                                shared_state.status.store(DaemonStatus::PackageUpgrade, Ordering::SeqCst);
+                                            }
 
                                             let (mut child, events) = crate::misc::apt_get()
                                                 .stream_upgrade()
@@ -283,7 +288,11 @@ impl Daemon {
 
                         Event::PackageUpgrade => {
                             info!("upgrading packages");
-                            shared_state.status.store(DaemonStatus::PackageUpgrade, Ordering::SeqCst);
+
+                            if !is_performing_release_upgrade() {
+                                shared_state.status.store(DaemonStatus::PackageUpgrade, Ordering::SeqCst);
+                            }
+                            
                             let _ = crate::release::package_upgrade(|event| {
                                 let _ = dbus_tx.send(SignalEvent::Upgrade(event));
                             });
@@ -307,7 +316,7 @@ impl Daemon {
 
                             let _ = dbus_tx.send(SignalEvent::RecoveryUpgradeResult(result));
 
-                            if !recovery_upgraded && is_performing_release_upgrade() {
+                            if !is_performing_release_upgrade()  {
                                 let _ = fg_tx.send(FgEvent::StatusInactive);
                             }
 
@@ -317,10 +326,8 @@ impl Daemon {
                         Event::ReleaseUpgrade { how, from, to, await_recovery } => {
                             if await_recovery && !recovery_upgraded {
                                 let _ = fg_tx.send(FgEvent::StatusInactive);
-                                info!("finished processing message");
+                                continue
                             }
-
-                            shared_state.status.store(DaemonStatus::ReleaseUpgrade, Ordering::SeqCst);
 
                             info!(
                                 "attempting release upgrade, using a {}",
@@ -742,6 +749,7 @@ impl Daemon {
             }
 
             if set_status_inactive {
+                info!("setting status as inactive");
                 set_status_inactive = false;
                 daemon.shared_state.status.store(DaemonStatus::Inactive, Ordering::SeqCst);
             }
@@ -1000,6 +1008,8 @@ impl Daemon {
     }
 
     fn release_upgrade(&mut self, how: u8, from: &str, to: &str) -> anyhow::Result<()> {
+        self.shared_state.status.store(DaemonStatus::ReleaseUpgrade, Ordering::SeqCst);
+
         let mut await_recovery = false;
         if recovery::recovery_exists()? {
             await_recovery = true;
