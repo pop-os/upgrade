@@ -180,15 +180,7 @@ async fn main() {
             SubCommand::with_name("status").about("get the status of the pop upgrade daemon"),
         );
 
-    if let Err(why) = main_(&clap.get_matches()).await {
-        eprintln!("pop-upgrade: {}", why);
-
-        let mut source = why.source();
-        while let Some(why) = source {
-            eprintln!("  caused by: {}", why);
-            source = why.source();
-        }
-
+    if main_(&clap.get_matches()).await.is_err() {
         exit(1);
     }
 }
