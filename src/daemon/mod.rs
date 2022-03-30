@@ -68,7 +68,7 @@ use std::{
     fs,
     path::PathBuf,
     sync::{
-        atomic::{AtomicU8, Ordering, AtomicBool},
+        atomic::{AtomicBool, AtomicU8, Ordering},
         Arc,
     },
 };
@@ -164,7 +164,7 @@ impl Daemon {
             sub_status:     AtomicU8::new(0),
             fetching_state: Atomic::new((0, 0)),
             shutdown:       Mutex::new(Shutdown::new()),
-            force_next:    AtomicBool::new(false),
+            force_next:     AtomicBool::new(false),
         });
 
         let http_client = reqwest::Client::new();
@@ -295,7 +295,7 @@ impl Daemon {
                             if !is_performing_release_upgrade() {
                                 shared_state.status.store(DaemonStatus::PackageUpgrade, Ordering::SeqCst);
                             }
-                            
+
                             let _ = crate::release::package_upgrade(|event| {
                                 let _ = dbus_tx.send(SignalEvent::Upgrade(event));
                             });
@@ -937,9 +937,11 @@ impl Daemon {
         let mut shutdown = self.shared_state.shutdown.lock().await;
 
         // Initiate shutdown of any background tasks.
+        info!("sending shutdown signal");
         shutdown.shutdown();
 
         // Wait for active tasks to complete before returning.
+        info!("waiting for shutdown to complete");
         shutdown.wait_shutdown_complete().await;
 
         // Insert a new shutdown notifier so it can be reused.

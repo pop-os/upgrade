@@ -269,6 +269,7 @@ where
 
     let cancel = async {
         let _ = shutdown.wait_shutdown_triggered().await;
+        info!("canceled download");
         Err(ReleaseError::Canceled)
     };
 
