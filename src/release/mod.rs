@@ -185,20 +185,18 @@ where
     const ARCHIVES: &str = "/var/cache/apt/archives/";
     const PARTIAL: &str = "/var/cache/apt/archives/partial/";
 
-    const CONCURRENT_FETCHES: usize = 4;
-    const RETRIES: u16 = 3;
-
-    let (fetch_tx, fetch_rx) = tokio::sync::mpsc::channel(CONCURRENT_FETCHES);
+    let (fetch_tx, fetch_rx) = tokio::sync::mpsc::channel(1);
 
     use apt_cmd::fetch::{EventKind, FetcherExt};
 
     // The system which fetches packages we send requests to
     let (fetcher, mut events) = async_fetcher::Fetcher::default()
-        .retries(RETRIES)
-        .timeout(std::time::Duration::from_secs(5))
+        .retries(5)
+        .connections_per_file(2)
+        .timeout(std::time::Duration::from_secs(15))
         .shutdown(shutdown.clone())
         .into_package_fetcher()
-        .concurrent(CONCURRENT_FETCHES)
+        .concurrent(4)
         .fetch(
             tokio_stream::wrappers::ReceiverStream::new(fetch_rx),
             Arc::from(Path::new(ARCHIVES)),
