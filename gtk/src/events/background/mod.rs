@@ -118,7 +118,7 @@ fn status_recovery_upgrade(client: &Client) -> UiEvent {
     match client.recovery_upgrade_release_status() {
         Ok(status) => {
             if status.status == 0 {
-                UiEvent::Completed(CompletedEvent::Recovery)
+                UiEvent::Completed(CompletedEvent::Recovery(true))
             } else {
                 UiEvent::Error(UiError::Recovery(status.why.into()))
             }
