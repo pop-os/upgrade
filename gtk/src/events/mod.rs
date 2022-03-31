@@ -65,6 +65,7 @@ pub enum OsUpgradeEvent {
 #[derive(Debug)]
 pub enum OsRecoveryEvent {
     Event(RecoveryEvent),
+    Failed,
     Refresh,
     Update,
 }
@@ -226,11 +227,18 @@ pub async fn on_event(widgets: &mut EventWidgets, state: &mut State, event: UiEv
                         .label(&fl!("recovery-verify"))
                         .hide_widgets();
                 }
+
                 RecoveryEvent::Syncing => {
                     widgets.recovery.options[RECOVERY_PARTITION].label(&fl!("recovery-sync"));
                 }
+
                 _ => (),
             },
+
+            OsRecoveryEvent::Failed => {
+                widgets.recovery.options[RECOVERY_PARTITION].show_button();
+                widgets.recovery.show();
+            }
 
             OsRecoveryEvent::Refresh => {
                 if gtk::ResponseType::Accept == RefreshDialog::new().run() {
