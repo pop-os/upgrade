@@ -101,17 +101,10 @@ impl Client {
                 }
             }
             ("check", _) => {
-                let mut buffer = String::new();
                 let (current, next, available, is_lts) = self.release_check(false)?;
 
                 if atty::is(atty::Stream::Stdout) {
-                    println!(
-                        "      Current Release: {}\n         Next Release: {}\nNew Release \
-                         Available: {}",
-                        current,
-                        next,
-                        misc::format_build_number(available, &mut buffer)
-                    );
+                    println!("Checking if {} can be upgraded to {}", current, next);
                 } else if available >= 0 {
                     if is_lts && (self.dismissed(&next) || self.dismiss_by_timestamp(&next)?) {
                         return Ok(());
