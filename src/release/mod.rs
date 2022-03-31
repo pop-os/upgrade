@@ -169,7 +169,7 @@ impl From<UpgradeEvent> for &'static str {
 }
 
 /// Get a list of APT URIs to fetch for this operation, and then fetch them.
-pub async fn apt_fetch<H: Send + 'static>(
+pub async fn apt_fetch<H: Clone + Send + 'static>(
     shutdown: Shutdown,
     uris: HashSet<AptRequest, H>,
     func: &dyn Fn(FetchEvent),
@@ -182,6 +182,42 @@ where
     apt_lock_wait().await;
     let _lock_files = hold_apt_locks()?;
 
+    let task = async {
+        let mut result = Ok(());
+
+        for _ in 0..3 {
+            let uris = uris.clone();
+            result = apt_fetch_(shutdown.clone(), uris, func).await;
+            if result.is_ok() {
+                break;
+            }
+        }
+
+        result
+    };
+
+    let cancel = async {
+        let _ = shutdown.wait_shutdown_triggered().await;
+        info!("canceled download");
+        Err(ReleaseError::Canceled)
+    };
+
+    futures::pin_mut!(task);
+    futures::pin_mut!(cancel);
+
+    let result = future::select(cancel, task).await.factor_first().0;
+
+    result
+}
+
+async fn apt_fetch_<H: Send + 'static>(
+    shutdown: Shutdown,
+    uris: HashSet<AptRequest, H>,
+    func: &dyn Fn(FetchEvent),
+) -> RelResult<()>
+where
+    H: std::hash::BuildHasher,
+{
     const ARCHIVES: &str = "/var/cache/apt/archives/";
     const PARTIAL: &str = "/var/cache/apt/archives/partial/";
 
@@ -191,7 +227,7 @@ where
 
     let client = reqwest::Client::builder()
         .pool_idle_timeout(std::time::Duration::from_secs(20))
-        .pool_max_idle_per_host(8)
+        .pool_max_idle_per_host(2)
         .build()
         .unwrap();
 
@@ -259,24 +295,7 @@ where
         Ok(())
     };
 
-    let task = async move {
-        futures::try_join!(fetcher, sender, receiver)
-            .map(|_| ())
-            .map_err(ReleaseError::PackageFetch)
-    };
-
-    let cancel = async {
-        let _ = shutdown.wait_shutdown_triggered().await;
-        info!("canceled download");
-        Err(ReleaseError::Canceled)
-    };
-
-    futures::pin_mut!(task);
-    futures::pin_mut!(cancel);
-
-    let result = future::select(cancel, task).await.factor_first().0;
-
-    result
+    futures::try_join!(fetcher, sender, receiver).map(|_| ()).map_err(ReleaseError::PackageFetch)
 }
 
 /// Check if release files can be upgraded, and then overwrite them with the new release.
