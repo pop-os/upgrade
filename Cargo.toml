@@ -63,6 +63,7 @@ whitespace-conf = "1.0.0"
 yansi = "0.5.1"
 reqwest = { version = "0.11.10", default-features = false, features = ["rustls-tls", "trust-dns"]}
 isahc = "1.7.0"
+mimalloc = "0.1.28"
 
 [dependencies.apt-cmd]
 git = "https://github.com/pop-os/apt-cmd"
