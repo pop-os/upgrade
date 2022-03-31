@@ -824,8 +824,6 @@ impl Daemon {
             while let Ok(dbus_event) = receiver.try_recv() {
                 Self::send_signal_message(&connection, {
                     match &dbus_event {
-                        SignalEvent::Fetched(..)
-                        | SignalEvent::Fetching(_)
                         | SignalEvent::RecoveryUpgradeEvent(_)
                         | SignalEvent::RecoveryUpgradeResult(_)
                         | SignalEvent::ReleaseUpgradeEvent(_)
