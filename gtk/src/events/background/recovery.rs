@@ -26,9 +26,7 @@ pub fn upgrade(client: &Client, send: &dyn Fn(UiEvent), version: &str) -> bool {
 }
 
 pub fn upgrade_listen(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
-    let error = &mut None;
-
-    let _ = client.event_listen(
+    let result = client.event_listen(
         Client::recovery_upgrade_release_status,
         |status| status_changed(send, status, DaemonStatus::RecoveryUpgrade),
         |_client, signal| {
@@ -42,7 +40,7 @@ pub fn upgrade_listen(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
                 }
                 Signal::RecoveryResult(status) => {
                     if status.status != 0 {
-                        *error = Some(status.why);
+                        return Err(client::Error::Status(status.why));
                     }
 
                     return Ok(client::Continue::False);
@@ -54,7 +52,7 @@ pub fn upgrade_listen(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
         },
     );
 
-    if let Some(why) = error.take() {
+    if let Err(why) = result {
         send(UiEvent::Error(UiError::Recovery(why.into())));
         return false;
     }
