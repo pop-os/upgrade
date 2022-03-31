@@ -425,7 +425,6 @@ impl Client {
                 inactivity_count = 0;
 
                 if let Continue::False = event(self, signal)? {
-                    info!("requested to stop listening to pop-upgrade");
                     break;
                 }
             }
