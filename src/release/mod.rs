@@ -192,7 +192,8 @@ where
     let client = reqwest::Client::builder()
         .pool_idle_timeout(std::time::Duration::from_secs(20))
         .pool_max_idle_per_host(8)
-        .build();
+        .build()
+        .unwrap();
 
     // The system which fetches packages we send requests to
     let (fetcher, mut events) = async_fetcher::Fetcher::new(client)
