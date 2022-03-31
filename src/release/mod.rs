@@ -202,7 +202,7 @@ where
         .timeout(std::time::Duration::from_secs(15))
         .shutdown(shutdown.clone())
         .into_package_fetcher()
-        .concurrent(4)
+        .concurrent(2)
         .fetch(
             tokio_stream::wrappers::ReceiverStream::new(fetch_rx),
             Arc::from(Path::new(ARCHIVES)),
