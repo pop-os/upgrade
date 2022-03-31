@@ -57,7 +57,7 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: &ReleaseInfo) {
                 }
 
                 Signal::RecoveryResult(status) => send(if status.status == 0 {
-                    UiEvent::Completed(CompletedEvent::Recovery)
+                    UiEvent::Completed(CompletedEvent::Recovery(false))
                 } else {
                     UiEvent::Recovery(OsRecoveryEvent::Failed)
                 }),
