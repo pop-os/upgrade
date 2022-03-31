@@ -81,7 +81,7 @@ pub enum InitiatedEvent {
 #[derive(Debug)]
 pub enum CompletedEvent {
     Download,
-    Recovery,
+    Recovery(bool),
     Refresh,
     Scan(ScanEvent),
 }
@@ -256,9 +256,9 @@ pub async fn on_event(widgets: &mut EventWidgets, state: &mut State, event: UiEv
                 download_complete(state, &widgets);
             }
 
-            CompletedEvent::Recovery => {
+            CompletedEvent::Recovery(enable_refresh) => {
                 widgets.upgrade.options[0].sensitive(true);
-                widgets.recovery.options[REFRESH_OS].sensitive(true);
+                widgets.recovery.options[REFRESH_OS].sensitive(enable_refresh);
                 widgets.recovery.options[RECOVERY_PARTITION]
                     .label(&fl!("recovery-header"))
                     .sublabel(Some(&fl!("most-current-recovery")))

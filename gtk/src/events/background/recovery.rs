@@ -57,6 +57,6 @@ pub fn upgrade_listen(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
         return false;
     }
 
-    send(UiEvent::Completed(CompletedEvent::Recovery));
+    send(UiEvent::Completed(CompletedEvent::Recovery(true)));
     true
 }
