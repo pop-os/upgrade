@@ -227,7 +227,7 @@ where
 
     let client = reqwest::Client::builder()
         .pool_idle_timeout(std::time::Duration::from_secs(20))
-        .pool_max_idle_per_host(2)
+        .pool_max_idle_per_host(0)
         .build()
         .unwrap();
 
