@@ -413,10 +413,6 @@ impl Client {
                         );
                     }
 
-                    Signal::PackageFetching(package) => {
-                        println!("{} {}", color_primary("Fetching"), color_secondary(&package));
-                    }
-
                     Signal::PackageUpgrade(event) => {
                         match AptUpgradeEvent::from_dbus_map(event.clone().into_iter()) {
                             Ok(event) => write_apt_event(event),
@@ -505,6 +501,8 @@ impl Client {
                             return Ok(client::Continue::False);
                         }
                     }
+
+                    _ => (),
                 }
 
                 Ok(client::Continue::True)
