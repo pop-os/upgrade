@@ -378,6 +378,7 @@ impl Client {
     fn event_listen_release_upgrade(&self) -> Result<bool, client::Error> {
         let mut reset = false;
         let recall = &mut false;
+        let total = &mut 0;
 
         let result = self.event_listen(
             client::Client::release_upgrade_status,
@@ -421,11 +422,12 @@ impl Client {
                     }
 
                     Signal::RecoveryDownloadProgress(progress) => {
+                        *total = progress.total / 1024;
                         print!(
                             "\r{} {}/{} {}",
                             color_primary("Fetched"),
                             color_info(progress.progress / 1024),
-                            color_info(progress.total / 1024),
+                            color_info(*total),
                             color_primary("MiB")
                         );
 
@@ -436,9 +438,15 @@ impl Client {
 
                     Signal::RecoveryEvent(event) => {
                         if reset {
-                            print!("\r{}", color_primary("Fetch Complete"));
+                            println!(
+                                "\r{} {}/{} {}",
+                                color_primary("Fetched"),
+                                color_info(*total),
+                                color_info(*total),
+                                color_primary("MiB")
+                            );
+
                             reset = false;
-                            println!();
                         }
 
                         println!(
