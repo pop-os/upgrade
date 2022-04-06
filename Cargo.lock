@@ -2046,9 +2046,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.121"
+version = "0.2.122"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efaa7b300f3b5fe8eb6bf21ce3895e1751d9665086af2d64b42f19701015ff4f"
+checksum = "ec647867e2bf0772e28c8bcde4f0d19a9216916e890543b5a03ed8ef27b8f259"
 
 [[package]]
 name = "libdbus-sys"
@@ -2721,7 +2721,7 @@ checksum = "5da3b0203fd7ee5720aa0b5e790b591aa5d3f41c3ed2c34a3a393382198af2f7"
 [[package]]
 name = "pop-system-updater"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/system-updater#a2843eed0c45853a5c9fdca62f9b705fddd76edd"
+source = "git+https://github.com/pop-os/system-updater#44748b79ed1bff2eb0d2880642f7e905be6b422d"
 dependencies = [
  "anyhow",
  "apt-cmd 0.3.0",
@@ -2758,10 +2758,11 @@ dependencies = [
 [[package]]
 name = "pop-system-updater-gtk"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/system-updater#a2843eed0c45853a5c9fdca62f9b705fddd76edd"
+source = "git+https://github.com/pop-os/system-updater#44748b79ed1bff2eb0d2880642f7e905be6b422d"
 dependencies = [
  "cascade 1.0.0",
  "chrono",
+ "flume",
  "futures",
  "gio",
  "glib",
@@ -2953,9 +2954,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.36"
+version = "1.0.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7342d5883fbccae1cc37a2353b09c87c9b0f3afd73f5fb9bba687a1f733b029"
+checksum = "ec757218438d5fda206afc041538b2f6d889286160d649a86a24d37e1235afd1"
 dependencies = [
  "unicode-xid",
 ]
@@ -3726,9 +3727,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.90"
+version = "1.0.91"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "704df27628939572cd88d33f171cd6f896f4eaca85252c6e0a72d8d8287ee86f"
+checksum = "b683b2b825c8eef438b77c36a06dc262294da3d5a5813fac20da149241dcd44d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4455,9 +4456,9 @@ dependencies = [
 
 [[package]]
 name = "webpki-roots"
-version = "0.22.2"
+version = "0.22.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "552ceb903e957524388c4d3475725ff2c8b7960922063af6ce53c9a43da07449"
+checksum = "44d8de8415c823c8abd270ad483c6feeac771fad964890779f9a8cb24fbbc1bf"
 dependencies = [
  "webpki",
 ]
