@@ -4,6 +4,7 @@ DefaultDependencies=no
 Requires=sysinit.target
 After=sysinit.target system-update-pre.target systemd-journald.socket
 Before=shutdown.target system-update.target pop-upgrade.service
+ConditionPathExists=/system-update
 
 [Service]
 Type=oneshot
