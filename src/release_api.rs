@@ -11,9 +11,6 @@ pub enum ApiError {
     #[error("failed to GET release API")]
     Get(#[from] isahc::Error),
 
-    #[error("I/O error on reading response from release API")]
-    Io(#[from] std::io::Error),
-
     #[error("failed to parse JSON response")]
     Json(#[from] serde_json::Error),
 
@@ -54,38 +51,29 @@ pub struct Release {
 }
 
 impl Release {
-    pub async fn get_release(version: &str, channel: &str) -> Result<Release, ApiError> {
+    pub fn get_release(version: &str, channel: &str) -> Result<Release, ApiError> {
         info!("checking for build {} in channel {}", version, channel);
         let url = [BASE, "builds/", version, "/", channel].concat();
 
-        let mut response = crate::misc::network_reconnect(|| async {
-            crate::misc::http_client()
-                .map_err(ApiError::Get)?
-                .get_async(&url)
-                .await
-                .map_err(ApiError::Get)
-        })
-        .await?;
+        let response = isahc::get(&url).map_err(ApiError::Get)?;
 
         let status = response.status();
         if !status.is_success() {
             return Err(ApiError::Status(status));
         }
 
-        use isahc::AsyncReadResponseExt;
-
-        let bytes = response.bytes().await?;
-
-        serde_json::from_slice::<RawRelease>(&*bytes).map_err(ApiError::Json)?.into_release()
+        serde_json::from_reader::<_, RawRelease>(response.into_body())
+            .map_err(ApiError::Json)?
+            .into_release()
     }
 
-    pub async fn build_exists(version: &str, channel: &str) -> Result<u16, ApiError> {
-        Self::get_release(version, channel).await.map(|r| r.build)
+    pub fn build_exists(version: &str, channel: &str) -> Result<u16, ApiError> {
+        Self::get_release(version, channel).map(|r| r.build)
     }
 }
 
-#[tokio::test]
-async fn release_exists() {
-    let result = Release::get_release("20.04", "intel").await;
+#[test]
+pub fn release_exists() {
+    let result = Release::get_release("20.04", "intel");
     assert!(result.is_ok());
 }

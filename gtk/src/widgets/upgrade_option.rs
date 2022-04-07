@@ -21,10 +21,10 @@ pub struct UpgradeOption {
 
 impl UpgradeOption {
     pub fn new() -> Self {
-        let button_label = gtk::Label::builder().margin(4).build();
+        let button_label = gtk::LabelBuilder::new().margin(4).build();
 
         let button = cascade! {
-            gtk::Button::builder()
+            gtk::ButtonBuilder::new()
                 .can_focus(true)
                 .halign(gtk::Align::End)
                 .hexpand(true)
@@ -33,17 +33,16 @@ impl UpgradeOption {
             ..add(&button_label);
         };
 
-        let label = gtk::Label::builder()
-            .xalign(0.0)
-            .hexpand(true)
-            .vexpand(true)
-            .mnemonic_widget(&button)
-            .build();
+        let label = cascade! {
+            gtk::Label::new(None);
+            ..set_xalign(0.0);
+            ..set_vexpand(true);
+            ..set_mnemonic_widget(Some(&button));
+        };
 
         let sublabel = cascade! {
             let label = gtk::Label::new(None);
             ..set_line_wrap(true);
-            ..set_hexpand(true);
             ..set_xalign(0.0);
             ..set_yalign(0.0);
             ..style_context().add_class(&gtk::STYLE_CLASS_DIM_LABEL);
@@ -67,7 +66,14 @@ impl UpgradeOption {
         };
 
         let container = cascade! {
-            super::option_container();
+            gtk::Grid::new();
+            ..set_margin_start(20);
+            ..set_margin_end(20);
+            ..set_margin_top(9);
+            ..set_margin_bottom(9);
+            ..set_column_spacing(24);
+            ..set_row_spacing(4);
+            ..set_size_request(-1, 32);
             ..attach(&labels,   0, 0, 1, 1);
             ..attach(&button,   1, 0, 1, 1);
             ..attach(&progress, 0, 1, 2, 1);

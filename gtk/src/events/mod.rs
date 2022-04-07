@@ -9,7 +9,7 @@ use crate::{
     widgets::{
         dialogs::{RefreshDialog, UpgradeDialog},
         permissions::PermissionDenied,
-        Dismisser, UpgradeSection,
+        Dismisser, Section,
     },
     RECOVERY_PARTITION, REFRESH_OS,
 };
@@ -65,7 +65,6 @@ pub enum OsUpgradeEvent {
 #[derive(Debug)]
 pub enum OsRecoveryEvent {
     Event(RecoveryEvent),
-    Failed,
     Refresh,
     Update,
 }
@@ -81,7 +80,7 @@ pub enum InitiatedEvent {
 #[derive(Debug)]
 pub enum CompletedEvent {
     Download,
-    Recovery(bool),
+    Recovery,
     Refresh,
     Scan(ScanEvent),
 }
@@ -107,8 +106,8 @@ pub struct EventWidgets {
     pub stack:         gtk::Stack,
     pub loading_label: gtk::Label,
 
-    pub recovery: UpgradeSection,
-    pub upgrade:  UpgradeSection,
+    pub recovery: Section,
+    pub upgrade:  Section,
 }
 
 impl EventWidgets {
@@ -123,167 +122,167 @@ impl EventWidgets {
     }
 }
 
-pub async fn on_event(widgets: &mut EventWidgets, state: &mut State, event: UiEvent) {
-    debug!("{:?}", event);
-    match event {
-        UiEvent::Progress(event) => match event {
-            ProgressEvent::Fetching(progress, total) => {
-                let progress = state.calculate_fetching_progress(progress, total);
-                widgets.upgrade.options[0].progress_exact(progress as u8).show_progress();
-            }
+pub fn attach(gui_receiver: flume::Receiver<UiEvent>, widgets: EventWidgets, mut state: State) {
+    let event_handler = async move {
+        while let Ok(event) = gui_receiver.recv_async().await {
+            debug!("{:?}", event);
+            match event {
+                UiEvent::Progress(event) => match event {
+                    ProgressEvent::Fetching(progress, total) => {
+                        let progress = state.calculate_fetching_progress(progress, total);
+                        widgets.upgrade.options[0].progress_exact(progress as u8).show_progress();
+                    }
 
-            ProgressEvent::Recovery(progress, total) => {
-                widgets.recovery.options[RECOVERY_PARTITION]
-                    .label(&fl!(
-                        "recovery-progress",
-                        current = (progress / 1024),
-                        total = (total / 1024)
-                    ))
-                    .sublabel(None)
-                    .progress(progress, total)
-                    .show_progress();
-            }
+                    ProgressEvent::Recovery(progress, total) => {
+                        widgets.recovery.options[RECOVERY_PARTITION]
+                            .label(&fl!(
+                                "recovery-progress",
+                                current = (progress / 1024),
+                                total = (total / 1024)
+                            ))
+                            .sublabel(None)
+                            .progress(progress, total)
+                            .show_progress();
+                    }
 
-            ProgressEvent::Updates(percent) => {
-                widgets.upgrade.options[0].progress_exact(percent / 4 + 25).show_progress();
-            }
-        },
+                    ProgressEvent::Updates(percent) => {
+                        widgets.upgrade.options[0].progress_exact(percent / 4 + 25).show_progress();
+                    }
+                },
 
-        // Signals that a process in the background has begun.
-        UiEvent::Initiated(event) => match event {
-            InitiatedEvent::Download(version) => {
-                widgets.upgrade.options[0]
-                    .label(&fl!("download-os", version = (&*version)))
-                    .reset_progress()
-                    .show_progress();
+                // Signals that a process in the background has begun.
+                UiEvent::Initiated(event) => match event {
+                    InitiatedEvent::Download(version) => {
+                        widgets.upgrade.options[0]
+                            .label(&fl!("download-os", version = (&*version)))
+                            .reset_progress()
+                            .show_progress();
 
-                state.upgrading_to = version;
-            }
+                        state.upgrading_to = version;
+                    }
 
-            InitiatedEvent::Refresh => {
-                get_upgrade_row(&widgets.upgrade.list).hide();
-            }
+                    InitiatedEvent::Refresh => {
+                        get_upgrade_row(&widgets.upgrade.list).hide();
+                    }
 
-            InitiatedEvent::Scanning => {
-                widgets.upgrade.options[0].reset_progress();
-                widgets.loading_label.set_label(&fl!("checking-for-updates"));
-                widgets.stack.set_visible_child_name("loading");
-                widgets.recovery.options[RECOVERY_PARTITION].reset_progress();
-                widgets.upgrade.options[RECOVERY_PARTITION].hide_widgets();
-            }
+                    InitiatedEvent::Scanning => {
+                        widgets.upgrade.options[0].reset_progress();
+                        widgets.loading_label.set_label(&fl!("checking-for-updates"));
+                        widgets.stack.set_visible_child_name("loading");
+                        widgets.recovery.options[RECOVERY_PARTITION].reset_progress();
+                        widgets.upgrade.options[RECOVERY_PARTITION].hide_widgets();
+                    }
 
-            InitiatedEvent::Recovery => {
-                widgets.recovery.options[RECOVERY_PARTITION]
-                    .label(&fl!("recovery-downloading"))
-                    .sublabel(None)
-                    .progress_exact(0)
-                    .show_progress();
-            }
-        },
+                    InitiatedEvent::Recovery => {
+                        widgets.recovery.options[RECOVERY_PARTITION]
+                            .label(&fl!("recovery-downloading"))
+                            .sublabel(None)
+                            .progress_exact(0)
+                            .show_progress();
+                    }
+                },
 
-        // Events pertaining to the upgrade section
-        UiEvent::Upgrade(event) => match event {
-            OsUpgradeEvent::Cancelled => cancelled_upgrade(state, &widgets),
+                // Events pertaining to the upgrade section
+                UiEvent::Upgrade(event) => match event {
+                    OsUpgradeEvent::Cancelled => cancelled_upgrade(&mut state, &widgets),
 
-            OsUpgradeEvent::Dialog => release_upgrade_dialog(state, &widgets),
+                    OsUpgradeEvent::Dialog => release_upgrade_dialog(&mut state, &widgets),
 
-            OsUpgradeEvent::Dismissed(dismissed) => {
-                info!("{} release", if dismissed { "dismissed" } else { "un-dismissed" });
-                if let Some(dismisser) = state.dismisser.as_mut() {
-                    dismisser.set_dismissed(dismissed);
+                    OsUpgradeEvent::Dismissed(dismissed) => {
+                        info!("{} release", if dismissed { "dismissed" } else { "un-dismissed" });
+                        if let Some(dismisser) = state.dismisser.as_mut() {
+                            dismisser.set_dismissed(dismissed);
+                        }
+                    }
+
+                    OsUpgradeEvent::Event(UpgradeEvent::UpgradingPackages) => {
+                        widgets.upgrade.options[0].progress_exact(25);
+                    }
+
+                    OsUpgradeEvent::Event(UpgradeEvent::UpdatingSourceLists) => {
+                        widgets.upgrade.options[0].progress_exact(50);
+                        state.fetching_release = true;
+                    }
+
+                    OsUpgradeEvent::Event(_) => (),
+
+                    OsUpgradeEvent::Notification => (state.callback_ready.borrow())(),
+
+                    OsUpgradeEvent::Upgrade => upgrade_clicked(&mut state, &widgets),
+                },
+
+                UiEvent::Updating => {
+                    widgets.loading_label.set_label(&fl!("daemon-updating"));
+                    widgets.stack.set_visible_child_name("loading");
                 }
+
+                UiEvent::Updated => {
+                    widgets.stack.set_visible_child_name("updated");
+                }
+
+                // Events pertaining to the recovery section
+                UiEvent::Recovery(event) => match event {
+                    OsRecoveryEvent::Event(event) => match event {
+                        RecoveryEvent::Verifying => {
+                            widgets.recovery.options[RECOVERY_PARTITION]
+                                .label(&fl!("recovery-verify"))
+                                .hide_widgets();
+                        }
+                        RecoveryEvent::Syncing => {
+                            widgets.recovery.options[RECOVERY_PARTITION]
+                                .label(&fl!("recovery-sync"));
+                        }
+                        _ => (),
+                    },
+
+                    OsRecoveryEvent::Refresh => {
+                        if gtk::ResponseType::Accept == RefreshDialog::new().run() {
+                            let _ = state.sender.send(BackgroundEvent::RefreshOS);
+                        } else {
+                            widgets.recovery.options[REFRESH_OS].show_button();
+                        }
+                    }
+
+                    OsRecoveryEvent::Update => recovery::clicked(&mut state, &widgets),
+                },
+
+                UiEvent::Completed(event) => match event {
+                    CompletedEvent::Download => {
+                        download_complete(&mut state, &widgets);
+                    }
+
+                    CompletedEvent::Recovery => {
+                        widgets.upgrade.options[0].sensitive(true);
+                        widgets.recovery.options[REFRESH_OS].sensitive(true);
+                        widgets.recovery.options[RECOVERY_PARTITION]
+                            .label(&fl!("recovery-header"))
+                            .sublabel(Some(&fl!("most-current-recovery")))
+                            .hide_widgets();
+                    }
+
+                    CompletedEvent::Refresh => reboot(),
+
+                    CompletedEvent::Scan(event) => {
+                        widgets.stack.set_visible_child_name("updated");
+                        scan_event(&mut state, &widgets, event);
+                    }
+                },
+
+                UiEvent::StatusChanged(from, to, why) => {
+                    warn!("status changed from {} to {}: {}", from, to, why);
+                    let _ = state.sender.send(BackgroundEvent::GetStatus(from));
+                }
+
+                UiEvent::Error(why) => error(&mut state, &widgets, &why),
+
+                UiEvent::WaitingOnLock => (),
+
+                UiEvent::Shutdown => return,
             }
-
-            OsUpgradeEvent::Event(UpgradeEvent::UpgradingPackages) => {
-                widgets.upgrade.options[0].progress_exact(25);
-            }
-
-            OsUpgradeEvent::Event(UpgradeEvent::UpdatingSourceLists) => {
-                widgets.upgrade.options[0].progress_exact(50);
-                state.fetching_release = true;
-            }
-
-            OsUpgradeEvent::Event(_) => (),
-
-            OsUpgradeEvent::Notification => (state.callback_ready.borrow())(),
-
-            OsUpgradeEvent::Upgrade => upgrade_clicked(state, &widgets),
-        },
-
-        UiEvent::Updating => {
-            widgets.loading_label.set_label(&fl!("daemon-updating"));
-            widgets.stack.set_visible_child_name("loading");
         }
+    };
 
-        UiEvent::Updated => {
-            widgets.stack.set_visible_child_name("updated");
-        }
-
-        // Events pertaining to the recovery section
-        UiEvent::Recovery(event) => match event {
-            OsRecoveryEvent::Event(event) => match event {
-                RecoveryEvent::Verifying => {
-                    widgets.recovery.options[RECOVERY_PARTITION]
-                        .label(&fl!("recovery-verify"))
-                        .hide_widgets();
-                }
-
-                RecoveryEvent::Syncing => {
-                    widgets.recovery.options[RECOVERY_PARTITION].label(&fl!("recovery-sync"));
-                }
-
-                _ => (),
-            },
-
-            OsRecoveryEvent::Failed => {
-                widgets.recovery.options[RECOVERY_PARTITION].show_button();
-                widgets.recovery.show();
-            }
-
-            OsRecoveryEvent::Refresh => {
-                if gtk::ResponseType::Accept == RefreshDialog::new().run() {
-                    let _ = state.sender.send(BackgroundEvent::RefreshOS);
-                } else {
-                    widgets.recovery.options[REFRESH_OS].show_button();
-                }
-            }
-
-            OsRecoveryEvent::Update => recovery::clicked(state, &widgets),
-        },
-
-        UiEvent::Completed(event) => match event {
-            CompletedEvent::Download => {
-                download_complete(state, &widgets);
-            }
-
-            CompletedEvent::Recovery(enable_refresh) => {
-                widgets.upgrade.options[0].sensitive(true);
-                widgets.recovery.options[REFRESH_OS].sensitive(enable_refresh);
-                widgets.recovery.options[RECOVERY_PARTITION]
-                    .label(&fl!("recovery-header"))
-                    .sublabel(Some(&fl!("most-current-recovery")))
-                    .hide_widgets();
-            }
-
-            CompletedEvent::Refresh => reboot(),
-
-            CompletedEvent::Scan(event) => {
-                widgets.stack.set_visible_child_name("updated");
-                scan_event(state, &widgets, event);
-            }
-        },
-
-        UiEvent::StatusChanged(from, to, why) => {
-            warn!("status changed from {} to {}: {}", from, to, why);
-            let _ = state.sender.send(BackgroundEvent::GetStatus(from));
-        }
-
-        UiEvent::Error(why) => error(state, &widgets, &why),
-
-        UiEvent::WaitingOnLock => (),
-
-        UiEvent::Shutdown => return,
-    }
+    glib::MainContext::default().spawn_local(event_handler);
 }
 
 /// On a cancelled upgrade, reset the widget to its pre-upgrade status.

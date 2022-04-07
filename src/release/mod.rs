@@ -20,7 +20,6 @@ use apt_cmd::{
     lock::apt_lock_wait, request::Request as AptRequest, AptGet, AptMark, AptUpgradeEvent, Dpkg,
     DpkgQuery,
 };
-use async_shutdown::Shutdown;
 
 use futures::prelude::*;
 
@@ -42,7 +41,7 @@ pub const STARTUP_UPGRADE_FILE: &str = "/pop-upgrade";
 ///
 /// - `gnome-software` conflicts with `pop-desktop` and its `sessioninstaller` dependency
 /// - `ureadahead` was deprecated and removed from the repositories
-const REMOVE_PACKAGES: &[&str] = &["irqbalance", "ureadahead", "backport-iwlwifi-dkms"];
+const REMOVE_PACKAGES: &[&str] = &["gnome-software", "ureadahead", "backport-iwlwifi-dkms"];
 
 /// Packages which should be installed before upgrading.
 ///
@@ -169,11 +168,7 @@ impl From<UpgradeEvent> for &'static str {
 }
 
 /// Get a list of APT URIs to fetch for this operation, and then fetch them.
-pub async fn apt_fetch<H: Clone + Send + 'static>(
-    shutdown: Shutdown,
-    uris: HashSet<AptRequest, H>,
-    func: &dyn Fn(FetchEvent),
-) -> RelResult<()>
+pub async fn apt_fetch<H>(uris: HashSet<AptRequest, H>, func: &dyn Fn(FetchEvent)) -> RelResult<()>
 where
     H: std::hash::BuildHasher,
 {
@@ -182,91 +177,63 @@ where
     apt_lock_wait().await;
     let _lock_files = hold_apt_locks()?;
 
-    let task = async {
-        let mut result = Ok(());
-
-        for _ in 0..3 {
-            let uris = uris.clone();
-            result = apt_fetch_(shutdown.clone(), uris, func).await;
-            if result.is_ok() {
-                break;
-            }
-        }
-
-        result
-    };
-
-    let cancel = async {
-        let _ = shutdown.wait_shutdown_triggered().await;
-        info!("canceled download");
-        Err(ReleaseError::Canceled)
-    };
-
-    futures::pin_mut!(task);
-    futures::pin_mut!(cancel);
-
-    let result = future::select(cancel, task).await.factor_first().0;
-
-    result
-}
-
-async fn apt_fetch_<H: Send + 'static>(
-    shutdown: Shutdown,
-    uris: HashSet<AptRequest, H>,
-    func: &dyn Fn(FetchEvent),
-) -> RelResult<()>
-where
-    H: std::hash::BuildHasher,
-{
     const ARCHIVES: &str = "/var/cache/apt/archives/";
     const PARTIAL: &str = "/var/cache/apt/archives/partial/";
 
-    let (fetch_tx, fetch_rx) = tokio::sync::mpsc::channel(1);
+    const CONCURRENT_FETCHES: usize = 4;
+    const DELAY_BETWEEN: u64 = 100;
+    const RETRIES: u32 = 3;
 
-    use apt_cmd::fetch::{EventKind, FetcherExt};
+    let client = isahc::HttpClient::new().expect("failed to create HTTP Client");
 
-    let client = reqwest::Client::builder()
-        .pool_idle_timeout(std::time::Duration::from_secs(20))
-        .pool_max_idle_per_host(0)
-        .build()
-        .unwrap();
+    let (fetch_tx, fetch_rx) = flume::bounded(CONCURRENT_FETCHES);
+
+    use apt_cmd::fetch::{EventKind, PackageFetcher};
 
     // The system which fetches packages we send requests to
-    let (fetcher, mut events) = async_fetcher::Fetcher::new(client)
-        .retries(5)
-        .connections_per_file(2)
-        .timeout(std::time::Duration::from_secs(15))
-        .shutdown(shutdown.clone())
-        .into_package_fetcher()
-        .concurrent(2)
+    let mut events = PackageFetcher::new(client)
+        .concurrent(CONCURRENT_FETCHES)
+        .delay_between(DELAY_BETWEEN)
+        .retries(RETRIES)
         .fetch(
-            tokio_stream::wrappers::ReceiverStream::new(fetch_rx),
+            fetch_rx.into_stream(),
+            Arc::from(Path::new(PARTIAL)),
             Arc::from(Path::new(ARCHIVES)),
         );
 
     // The system which sends package-fetching requests
-    let sender = tokio::spawn(async move {
+    let sender = async move {
         if !Path::new(PARTIAL).exists() {
-            tokio::fs::create_dir_all(PARTIAL)
+            async_fs::create_dir_all(PARTIAL)
                 .await
                 .context("failed to create partial debian directory")?;
         }
 
-        for request in uris {
-            let _ = fetch_tx.send(Arc::new(request)).await;
+        let packages = AptGet::new()
+            .noninteractive()
+            .fetch_uris(&["full-upgrade"])
+            .await
+            .context("failed to spawn apt-get command")?
+            .context("failed to fetch package URIs from apt-get")?;
+
+        for package in packages {
+            info!("sending package");
+            let _ = fetch_tx.send_async(Arc::new(package)).await;
+            info!("sending package");
         }
 
         Ok::<(), anyhow::Error>(())
-    });
-
-    let sender = async move { sender.await.unwrap() };
+    };
 
     // The system that handles events received from the package-fetcher
     let receiver = async move {
-        while let Some(event) = events.recv().await {
+        info!("receiving packages");
+        while let Some(event) = events.next().await {
+            debug!("Package Fetch Event: {:#?}", event);
+
             match event.kind {
                 EventKind::Fetching => {
-                    func(FetchEvent::Fetching((*event.package.uri).to_owned()));
+                    func(FetchEvent::Fetching((*event.package).clone()));
                 }
 
                 EventKind::Validated => {
@@ -274,28 +241,17 @@ where
                 }
 
                 EventKind::Error(why) => {
-                    error!("{}: fetch error: {:?}", event.package.name, why);
                     return Err(why).context("package fetching failed");
                 }
 
                 EventKind::Fetched => (),
-
-                EventKind::Retrying => {
-                    info!("{}: retrying fetch", event.package.name);
-                    func(FetchEvent::Retrying((*event.package).clone()));
-                }
             }
         }
 
         Ok::<(), anyhow::Error>(())
     };
 
-    let fetcher = async move {
-        fetcher.await;
-        Ok(())
-    };
-
-    futures::try_join!(fetcher, sender, receiver).map(|_| ()).map_err(ReleaseError::PackageFetch)
+    futures::try_join!(sender, receiver).map(|_| ()).map_err(ReleaseError::PackageFetch)
 }
 
 /// Check if release files can be upgraded, and then overwrite them with the new release.
@@ -319,11 +275,11 @@ pub async fn release_upgrade<'b>(
     let update_sources = async move {
         (logger)(UpgradeEvent::AptFilesLocked);
 
-        apt_lock_wait().await;
+        apt_cmd::lock::apt_lock_wait().await;
 
         (logger)(UpgradeEvent::UpdatingPackageLists);
 
-        repos::apply_default_source_lists(new).await?;
+        repos::apply_default_source_lists(new)?;
 
         apt_lock_wait().await;
         AptGet::new().noninteractive().update().await.context("failed to update source lists")
@@ -332,7 +288,7 @@ pub async fn release_upgrade<'b>(
     if let Err(why) = update_sources.await {
         error!("failed to update sources: {}", why);
 
-        if let Err(why) = repos::restore(current).await {
+        if let Err(why) = repos::restore(current) {
             error!("failed to restore source lists: {:?}", why);
         }
 
@@ -355,7 +311,7 @@ pub async fn package_upgrade<C: Fn(AptUpgradeEvent)>(callback: C) -> RelResult<(
             callback(event);
         }
 
-        child.wait().await
+        child.status().await
     };
 
     apt_lock_wait().await;
@@ -431,12 +387,12 @@ pub async fn upgrade<'a>(
     .map_err(ReleaseError::Repair)?;
 
     info!("creating backup of source lists");
-    repos::backup(version).await.map_err(ReleaseError::BackupPPAs)?;
+    repos::backup(version).map_err(ReleaseError::BackupPPAs)?;
 
     info!("disabling third party sources");
-    repos::disable_third_parties(version).await.map_err(ReleaseError::DisablePPAs)?;
+    repos::disable_third_parties(version).map_err(ReleaseError::DisablePPAs)?;
 
-    if repos::is_old_release(<&'static str>::from(from_codename)).await {
+    if repos::is_old_release(<&'static str>::from(from_codename)) {
         info!("switching to old-releases repositories");
         repos::replace_with_old_releases().map_err(ReleaseError::OldReleaseSwitch)?;
     }
@@ -453,7 +409,7 @@ pub async fn upgrade<'a>(
         }
 
         // NOTE: This is okay to fail since it just means a package is not found
-        let _ = child.wait().await;
+        let _ = child.status().await;
 
         Ok::<_, std::io::Error>(packages)
     })
@@ -474,14 +430,10 @@ pub async fn upgrade<'a>(
     // Fetch required packages for upgrading the current release.
     (*logger)(UpgradeEvent::FetchingPackages);
 
-    // Fetch apt packages and retry if network connections are changed.
-    use crate::fetch::apt::ExtraPackages;
-    let packages = Some(ExtraPackages::Static(CORE_PACKAGES));
-    let uris = crate::fetch::apt::fetch_uris(Shutdown::new(), packages)
-        .await
-        .map_err(ReleaseError::AptList)?;
+    let uris =
+        crate::fetch::apt::fetch_uris(Some(CORE_PACKAGES)).await.map_err(ReleaseError::AptList)?;
 
-    apt_fetch(Shutdown::new(), uris, fetch).await?;
+    apt_fetch(uris, fetch).await?;
 
     // Upgrade the current release to the latest packages.
     (*logger)(UpgradeEvent::UpgradingPackages);
@@ -547,18 +499,15 @@ fn terminate_background_applications() {
 }
 
 async fn attempt_fetch<'a>(
-    shutdown: &Shutdown,
     logger: &'a dyn Fn(UpgradeEvent),
     fetch: &'a dyn Fn(FetchEvent),
 ) -> RelResult<()> {
     info!("fetching packages for the new release");
     (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
 
-    let uris = crate::fetch::apt::fetch_uris(shutdown.clone(), None)
-        .await
-        .map_err(ReleaseError::AptList)?;
+    let uris = crate::fetch::apt::fetch_uris(None).await.map_err(ReleaseError::AptList)?;
 
-    apt_fetch(shutdown.clone(), uris, fetch).await
+    apt_fetch(uris, fetch).await
 }
 
 /// Update the release files and fetch packages for the new release.
@@ -584,7 +533,7 @@ async fn fetch_new_release_packages<'b>(
 
         snapd::hold_transitional_packages().await?;
 
-        attempt_fetch(&Shutdown::new(), logger, fetch).await?;
+        attempt_fetch(logger, fetch).await?;
 
         info!("packages fetched successfully");
 
@@ -597,7 +546,7 @@ async fn fetch_new_release_packages<'b>(
     match updated_list_ops().await {
         Ok(_) => Ok(()),
         Err(why) => {
-            rollback(codename_from_version(current), &why).await;
+            rollback(codename_from_version(current), &why);
 
             Err(why)
         }
@@ -616,10 +565,10 @@ pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResul
     }
 }
 
-async fn rollback(release: &str, why: &(dyn std::error::Error + 'static)) {
+fn rollback(release: &str, why: &(dyn std::error::Error + 'static)) {
     error!("failed to fetch packages: {}", crate::misc::format_error(why));
     warn!("attempting to roll back apt release files");
-    if let Err(why) = repos::restore(release).await {
+    if let Err(why) = repos::restore(release) {
         error!(
             "failed to revert release name changes to source lists in /etc/apt/: {}",
             crate::misc::format_error(why.as_ref())
@@ -628,10 +577,9 @@ async fn rollback(release: &str, why: &(dyn std::error::Error + 'static)) {
 }
 
 pub enum FetchEvent {
-    Fetching(String),
+    Fetching(AptRequest),
     Fetched(AptRequest),
     Init(usize),
-    Retrying(AptRequest),
 }
 
 /// Check if certain files exist at the time of starting this daemon.

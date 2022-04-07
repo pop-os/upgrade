@@ -1,6 +1,5 @@
 use crate::release_api::{ApiError, Release};
 use anyhow::Context;
-use std::future::Future;
 use ubuntu_version::{Version, VersionError};
 
 #[derive(Debug)]
@@ -62,21 +61,17 @@ impl ReleaseStatus {
     pub fn is_lts(&self) -> bool { self.is_lts }
 }
 
-pub async fn next(development: bool) -> Result<ReleaseStatus, VersionError> {
-    let current = Version::detect()?;
-
-    Ok(next_(current, development, &|build: String| async move {
-        Release::build_exists(&build, "intel").await.into()
+pub fn next(development: bool) -> Result<ReleaseStatus, VersionError> {
+    Version::detect().map(|current| {
+        next_(current, development, |build| Release::build_exists(build, "intel").into())
     })
-    .await)
 }
 
-pub async fn current(version: Option<&str>) -> anyhow::Result<(Box<str>, u16)> {
+pub fn current(version: Option<&str>) -> anyhow::Result<(Box<str>, u16)> {
     info!("Checking for current release of {:?}", version);
 
     if let Some(version) = version {
         let build = Release::build_exists(version, "intel")
-            .await
             .with_context(|| fomat!("failed to find build for "(version)))?;
 
         return Ok((version.into(), build));
@@ -86,7 +81,6 @@ pub async fn current(version: Option<&str>) -> anyhow::Result<(Box<str>, u16)> {
     let release_str = release_str(current.major, current.minor);
 
     let build = Release::build_exists(release_str, "intel")
-        .await
         .with_context(|| fomat!("failed to find build for "(release_str)))?;
 
     Ok((release_str.into(), build))
@@ -113,35 +107,40 @@ pub fn release_str(major: u8, minor: u8) -> &'static str {
     }
 }
 
-async fn next_<Check: Fn(String) -> Status, Status: Future<Output = BuildStatus>>(
+fn next_(
     current: Version,
     development: bool,
-    release_check: &Check,
+    release_check: impl Fn(&str) -> BuildStatus,
 ) -> ReleaseStatus {
     // Enables a release upgrade from current to next, if a next ISO exists
-    let available = |is_lts: bool, current: &'static str, next: &'static str| async move {
-        ReleaseStatus { build: release_check(next.into()).await, current, is_lts, next }
+    let available = |is_lts: bool, current: &'static str, next: &'static str| ReleaseStatus {
+        build: release_check(next),
+        current,
+        is_lts,
+        next,
     };
 
     // Disables any form of upgrades from occurring on this release
-    let blacklisted = |is_lts: bool, current: &'static str, next: &'static str| async move {
-        ReleaseStatus { build: BuildStatus::Blacklisted, current, is_lts, next }
+    let blacklisted = |is_lts: bool, current: &'static str, next: &'static str| ReleaseStatus {
+        build: BuildStatus::Blacklisted,
+        current,
+        is_lts,
+        next,
     };
 
     // Only permits an upgrade if the development flag is passed
-    let development_enabled = |is_lts: bool, current: &'static str, next: &'static str| async move {
-        let build =
-            if development { release_check(next.into()).await } else { BuildStatus::Blacklisted };
+    let development_enabled = |is_lts: bool, current: &'static str, next: &'static str| {
+        let build = if development { release_check(next) } else { BuildStatus::Blacklisted };
         ReleaseStatus { current, next, build, is_lts }
     };
 
     match (current.major, current.minor) {
-        (18, 4) => available(true, BIONIC, FOCAL).await,
-        (20, 4) => available(true, FOCAL, IMPISH).await,
-        (20, 10) => available(false, GROOVY, HIRSUTE).await,
-        (21, 4) => available(false, HIRSUTE, IMPISH).await,
-        (21, 10) => development_enabled(false, IMPISH, JAMMY).await,
-        (22, 4) => blacklisted(true, JAMMY, UNKNOWN).await,
+        (18, 4) => available(true, BIONIC, FOCAL),
+        (20, 4) => available(true, FOCAL, IMPISH),
+        (20, 10) => available(false, GROOVY, HIRSUTE),
+        (21, 4) => available(false, HIRSUTE, IMPISH),
+        (21, 10) => development_enabled(false, IMPISH, JAMMY),
+        (22, 4) => blacklisted(true, JAMMY, UNKNOWN),
         _ => panic!("this version of pop-upgrade is not supported on this release"),
     }
 }

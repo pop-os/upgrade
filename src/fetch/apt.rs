@@ -1,68 +1,33 @@
 use anyhow::Context;
 use apt_cmd::{lock::apt_lock_wait, request::Request as AptRequest, AptGet};
-use async_shutdown::Shutdown;
 use std::collections::HashSet;
 
-pub enum ExtraPackages {
-    Static(&'static [&'static str]),
-    Dynamic(Vec<String>),
-}
+pub async fn fetch_uris(packages: Option<&[&str]>) -> anyhow::Result<HashSet<AptRequest>> {
+    apt_lock_wait().await;
+    let mut uris = AptGet::new()
+        .noninteractive()
+        .fetch_uris(&["full-upgrade"])
+        .await
+        .context("failed to exec `apt-get full-upgrade --print-uris`")?
+        .context("failed to fetch package URIs from apt-get full-upgrade")?;
 
-pub async fn fetch_uris(
-    shutdown: Shutdown,
-    packages: Option<ExtraPackages>,
-) -> anyhow::Result<HashSet<AptRequest>> {
-    let task = tokio::spawn(async move {
+    if let Some(packages) = packages {
         apt_lock_wait().await;
-
-        let mut uris = AptGet::new()
+        let install_uris = AptGet::new()
             .noninteractive()
-            .fetch_uris(&["full-upgrade"])
+            .fetch_uris(&{
+                let mut args = vec!["install"];
+                args.extend_from_slice(packages);
+                args
+            })
             .await
-            .context("failed to exec `apt-get full-upgrade --print-uris`")?
-            .context("failed to fetch package URIs from apt-get full-upgrade")?;
+            .context("failed to exec `apt-get install --print-uris`")?
+            .context("failed to fetch package URIs from `apt-get install`")?;
 
-        if let Some(packages) = packages {
-            let mut args = vec!["install"];
-            match packages {
-                ExtraPackages::Static(packages) => {
-                    args.extend_from_slice(packages);
-                }
-                ExtraPackages::Dynamic(ref packages) => {
-                    if packages.is_empty() {
-                        return Ok(uris);
-                    }
-
-                    args.extend(packages.iter().map(String::as_str));
-                }
-            }
-
-            apt_lock_wait().await;
-
-            let install_uris = AptGet::new()
-                .noninteractive()
-                .fetch_uris(&args)
-                .await
-                .context("failed to exec `apt-get install --print-uris`")?
-                .context("failed to fetch package URIs from `apt-get install`")?;
-
-            for uri in install_uris {
-                uris.insert(uri);
-            }
+        for uri in install_uris {
+            uris.insert(uri);
         }
+    }
 
-        Ok(uris)
-    });
-
-    let task = async move { task.await.unwrap() };
-
-    let cancel = async move {
-        shutdown.wait_shutdown_triggered().await;
-        Err(anyhow::anyhow!("process interrupted by cancelation"))
-    };
-
-    futures::pin_mut!(cancel);
-    futures::pin_mut!(task);
-
-    futures::future::select(cancel, task).await.factor_first().0
+    Ok(uris)
 }

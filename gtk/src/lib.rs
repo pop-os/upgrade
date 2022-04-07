@@ -28,9 +28,9 @@ mod widgets;
 pub use localize::localizer;
 
 use self::{
-    events::*,
+    events::{BackgroundEvent, Event, EventWidgets},
     state::State,
-    widgets::{UpgradeOption, UpgradeSection},
+    widgets::Section,
 };
 use gtk::prelude::*;
 use std::{
@@ -72,37 +72,43 @@ impl UpgradeWidget {
         }));
 
         let button_sg = gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
+        let option_sg = gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
+        let sublab_sg = gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
+
+        let mut upgrade = Section::new(&fomat!("<b>" (fl!("os-upgrade")) "</b>"));
+        let mut recovery = Section::new(&fomat!("<b>" (fl!("os-recovery")) "</b>"));
+
+        upgrade.add_option(&option_sg, &button_sg, &sublab_sg, |option| {
+            option.button_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION);
+        });
+
+        recovery
+            .add_option(&option_sg, &button_sg, &sublab_sg, |option| {
+                option
+                    .button_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION)
+                    .label(&fl!("recovery-header"))
+                    .sublabel(Some(&fl!("checking-for-updates")));
+            })
+            .add_option(&option_sg, &button_sg, &sublab_sg, |option| {
+                option
+                    .button_label(&fl!("button-refresh"))
+                    .label(&fl!("refresh-header"))
+                    .sublabel(Some(&fl!("refresh-description")));
+            });
 
         let dismisser = gtk::ListBoxRow::new();
-
-        let upgrade = cascade! {
-            UpgradeSection::new(&fomat!("<b>" (fl!("os-upgrade")) "</b>"));
-            ..add_option(cascade! {
-                let option = UpgradeOption::new();
-                ..button_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION);
-                button_sg.add_widget(&option.button);
-            });
-        };
-
         upgrade.list.add(&dismisser);
-        upgrade.frame.show_all();
 
-        let recovery = cascade! {
-            UpgradeSection::new(&fomat!("<b>" (fl!("os-recovery")) "</b>"));
-            ..add_option(cascade! {
-                let option = UpgradeOption::new();
-                ..button_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION);
-                ..label(&fl!("recovery-header"));
-                ..sublabel(Some(&fl!("checking-for-updates")));
-                button_sg.add_widget(&option.button);
-            });
-            ..add_option(cascade! {
-                let option = UpgradeOption::new();
-                ..button_label(&fl!("button-refresh"));
-                ..label(&fl!("refresh-header"));
-                ..sublabel(Some(&fl!("refresh-description")));
-                button_sg.add_widget(&option.button);
-            });
+        // let button_sg = cascade! {
+        //     gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
+        //     ..add_widget(&upgrade.options[0].button);
+        //     ..add_widget(&recovery.options[REFRESH_OS].button);
+        // };
+
+        cascade! {
+            gtk::SizeGroup::new(gtk::SizeGroupMode::Both);
+            ..add_widget(upgrade.options[0].as_ref());
+            ..add_widget(recovery.options[REFRESH_OS].as_ref());
         };
 
         let loading_label = gtk::Label::new(None);
@@ -119,6 +125,8 @@ impl UpgradeWidget {
             });
             ..show_all();
         };
+
+        upgrade.frame.show_all();
 
         let container = cascade! {
             gtk::Box::new(gtk::Orientation::Vertical, 12);
@@ -143,39 +151,33 @@ impl UpgradeWidget {
         let callback_event: EventCallback = Rc::new(RefCell::new(Box::new(|_| ())));
         let callback_ready: ReadyCallback = Rc::new(RefCell::new(Box::new(|| ())));
 
-        let mut widgets = EventWidgets {
-            button_sg,
-            container,
-            dismisser,
-            loading_label,
-            recovery,
-            stack: stack.clone(),
-            upgrade,
-        };
-
-        let mut state = State::new(
-            bg_sender.clone(),
-            Arc::downgrade(&gui_sender),
-            callback_error.clone(),
-            callback_event.clone(),
-            callback_ready.clone(),
+        events::attach(
+            gui_receiver,
+            EventWidgets {
+                button_sg,
+                container,
+                dismisser,
+                loading_label,
+                recovery,
+                stack: stack.clone(),
+                upgrade,
+            },
+            State::new(
+                bg_sender.clone(),
+                Arc::downgrade(&gui_sender),
+                callback_error.clone(),
+                callback_event.clone(),
+                callback_ready.clone(),
+            ),
         );
 
-        let widget = Self {
+        Self {
             container: stack.upcast::<gtk::Container>(),
             sender: bg_sender,
             callback_error,
             callback_event,
             callback_ready,
-        };
-
-        glib::MainContext::default().spawn_local(async move {
-            while let Ok(event) = gui_receiver.recv_async().await {
-                events::on_event(&mut widgets, &mut state, event).await;
-            }
-        });
-
-        widget
+        }
     }
 
     pub fn scan(&self) { let _ = self.sender.send(BackgroundEvent::Scan); }

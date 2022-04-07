@@ -37,18 +37,16 @@ pub fn run(
 ) {
     let send: &dyn Fn(UiEvent) = &send;
     if let Ok(ref mut client) = Client::new() {
-        if std::env::var_os("S76_TEST").is_none() {
-            info!("Checking for updates to daemon");
-            if client.update_and_restart().unwrap_or(false) {
-                send(UiEvent::Updating);
-                let file = std::path::Path::new(pop_upgrade::RESTART_SCHEDULED);
-                while file.exists() {
-                    std::thread::sleep(std::time::Duration::from_secs(1));
-                }
+        info!("Checking for updates to daemon");
+        if client.update_and_restart().unwrap_or(false) {
+            send(UiEvent::Updating);
+            let file = std::path::Path::new(pop_upgrade::RESTART_SCHEDULED);
+            while file.exists() {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
 
-                if let Ok(c) = Client::new() {
-                    *client = c;
-                }
+            if let Ok(c) = Client::new() {
+                *client = c;
             }
         }
 
@@ -118,7 +116,7 @@ fn status_recovery_upgrade(client: &Client) -> UiEvent {
     match client.recovery_upgrade_release_status() {
         Ok(status) => {
             if status.status == 0 {
-                UiEvent::Completed(CompletedEvent::Recovery(true))
+                UiEvent::Completed(CompletedEvent::Recovery)
             } else {
                 UiEvent::Error(UiError::Recovery(status.why.into()))
             }

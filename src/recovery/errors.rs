@@ -1,4 +1,7 @@
-use crate::{release_api::ApiError, release_architecture::ReleaseArchError, repair::RepairError};
+use crate::{
+    checksum::ValidateError, release_api::ApiError, release_architecture::ReleaseArchError,
+    repair::RepairError,
+};
 
 use std::{io, path::PathBuf};
 use thiserror::Error;
@@ -11,20 +14,20 @@ pub enum RecoveryError {
     #[error("failed to fetch release data from server")]
     ApiError(#[from] ApiError),
 
-    #[error("{:?}", _0)]
+    #[error("generic error")]
     Anyhow(#[from] anyhow::Error),
 
     #[error("process has been cancelled")]
     Cancelled,
 
     #[error("checksum for {:?} failed: {}", path, source)]
-    Checksum { path: PathBuf, source: async_fetcher::ChecksumError },
+    Checksum { path: PathBuf, source: ValidateError },
 
-    #[error("checksum is not SHA256: {}", checksum)]
-    ChecksumInvalid { checksum: String, source: hex::FromHexError },
+    #[error("failed to download ISO")]
+    Download(#[source] Box<RecoveryError>),
 
     #[error("fetching from {} failed: {}", url, source)]
-    Fetch { url: String, source: async_fetcher::Error },
+    Fetch { url: String, source: anyhow::Error },
 
     #[error("ISO does not exist at path")]
     IsoNotFound,
@@ -52,9 +55,6 @@ pub enum RecoveryError {
 
     #[error("failed to fetch release versions")]
     ReleaseVersion(#[from] VersionError),
-
-    #[error("failed to get status of recovery fetch task")]
-    TokioJoin(#[from] tokio::task::JoinError),
 
     #[error("the recovery feature is limited to EFI installs")]
     Unsupported,

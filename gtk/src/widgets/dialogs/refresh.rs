@@ -31,9 +31,13 @@ impl RefreshDialog {
 }
 
 fn battery_notice() -> gtk::Label {
-    gtk::Label::builder().label(&fl!("battery-notice")).use_markup(true).xalign(0.0).build()
+    gtk::LabelBuilder::new().label(&fl!("battery-notice")).use_markup(true).xalign(0.0).build()
 }
 
 fn refresh_description() -> gtk::Label {
-    gtk::Label::builder().label(&fl!("dialog-refresh-description")).wrap(true).xalign(0.0).build()
+    gtk::LabelBuilder::new()
+        .label(&fl!("dialog-refresh-description"))
+        .wrap(true)
+        .xalign(0.0)
+        .build()
 }

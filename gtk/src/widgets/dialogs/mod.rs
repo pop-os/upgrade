@@ -24,18 +24,19 @@ impl DialogTemplate {
         let accept = cascade! {
             gtk::Button::with_label(accept);
             ..style_context().add_class(accept_style);
-            ..style_context().add_class(&accept_style);
         };
 
-        let dialog = gtk::Dialog::builder()
+        let dialog = gtk::DialogBuilder::new()
             .accept_focus(true)
             .deletable(true)
             .destroy_with_parent(true)
             .use_header_bar(1i32)
             .build();
 
-        let title =
-            gtk::Label::builder().label(&*["<b>", title, "</b>"].concat()).use_markup(true).build();
+        let title = gtk::LabelBuilder::new()
+            .label(&*["<b>", title, "</b>"].concat())
+            .use_markup(true)
+            .build();
 
         cascade! {
             dialog
@@ -55,7 +56,7 @@ impl DialogTemplate {
             ..set_vexpand(true);
         };
 
-        let icon = gtk::Image::builder()
+        let icon = gtk::ImageBuilder::new()
             .icon_name(icon)
             .icon_size(gtk::IconSize::Dialog)
             .valign(gtk::Align::Start)

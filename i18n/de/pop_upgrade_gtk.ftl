@@ -27,7 +27,7 @@ dialog-refresh-description =
      - Der Tastaturbelegung des Systems
      - Netzwerkeinstellungen, konfiguriert mithile des Netzwerkmanagers
  
- Bitte speichern Sie Ihre Arbeit bevor sie fortfahren
+Bitte speichern Sie Ihre Arbeit bevor sie fortfahren
 
 daemon-checking = Prüfe auf Aktualisierungen des Systemdienstes
 daemon-updating = Aktualisiere den Aktualisierungsdienst
@@ -68,8 +68,8 @@ os-upgrade = Betriebssystemaktualisierung
 os-recovery = Ursprungszustand wiederherstellen
 
 permission-denied = Es wird eine Berechtigung benötigt
- 
- Nur Admin-Accounts können das Betriebssystem aktualisieren.
+
+Nur Admin-Accounts können das Betriebssystem aktualisieren.
 
 recovery-downloading = Herunterladen des Updates bezüglich der Wiederherstellungspartition
 recovery-header = Wiederherstellungspartition

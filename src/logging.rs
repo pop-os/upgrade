@@ -36,33 +36,15 @@ pub fn setup_logging(filter: LevelFilter) -> Result<(), InitError> {
         .level_for("pop_upgrade", filter)
         .level_for("pop_upgrade_gtk", LevelFilter::Trace)
         .level_for("apt_fetcher", filter)
-        .level_for("apt_cmd", filter)
-        .level_for("async_fetcher", filter)
         .format(move |out, message, record| {
             out.finish(format_args!(
                 "[{:5}] {}: {}",
                 format_level(record),
-                strip_src(&location(record)),
+                location(record),
                 message
             ));
         })
         .chain(io::stderr())
         .apply()?;
     Ok(())
-}
-
-fn strip_src(input: &str) -> &str { input.split("src/").nth(1).unwrap_or_default() }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn strip_src() {
-        assert_eq!(
-            super::strip_src(
-                "/home/user/Sources/pop/upgrade/target/cargo/git/checkouts/\
-                 async-fetcher-3eeb08c00d25dece/2cf133c/src/concatenator.rs"
-            ),
-            "concatenator.rs"
-        )
-    }
 }

@@ -15,8 +15,7 @@ pub async fn repair(release: &str) -> anyhow::Result<()> {
                     .replace(<&str>::from(Codename::Focal), release)
                     .replace(<&str>::from(Codename::Groovy), release)
                     .replace(<&str>::from(Codename::Hirsute), release)
-                    .replace(<&str>::from(Codename::Impish), release)
-                    .replace(<&str>::from(Codename::Jammy), release);
+                    .replace(<&str>::from(Codename::Impish), release);
 
                 if modified != contents {
                     let _ = fs::write(&path, modified.as_bytes());
@@ -25,7 +24,7 @@ pub async fn repair(release: &str) -> anyhow::Result<()> {
         }
     }
 
-    if crate::release::repos::is_old_release(release).await {
+    if crate::release::repos::is_old_release(release) {
         info!("switching to old-releases repositories");
         let _ = crate::release::repos::replace_with_old_releases();
     }
@@ -90,7 +89,7 @@ async fn base_requirements() -> anyhow::Result<()> {
         }
     }
 
-    let _ = child.wait();
+    let _ = child.status();
 
     info!("installing required prerequisites: {:?}", to_install);
 

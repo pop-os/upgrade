@@ -6,32 +6,32 @@ edition = "2018"
 
 [dependencies]
 apt-cmd = { git = "https://github.com/pop-os/apt-cmd/" }
-better-panic = "0.3.0"
-cascade = "1.0.0"
-chrono = "0.4.19"
-clap = "2.34.0"
-derive_more = "0.99.17"
-derive-new = "0.5.9"
-enclose = "1.1.8"
-fern = "0.6.0"
-flume = "0.10.12"
-fomat-macros = "0.3.1"
-gio = "0.15.10"
-glib = "0.15.10"
-gtk = { version = "0.15.4", features = [ "v3_22" ] }
-i18n-embed = { version = "0.13.4", features = ["fluent-system", "desktop-requester"] }
-i18n-embed-fl = "0.6.4"
-log = "0.4.14"
-notify-rust = { version = "4.5.7", default-features = false, features = ["dbus"] }
-num-traits = "0.2.14"
-once_cell = "1.10.0"
-os-release = "0.1.0"
-pango = "0.15.10"
+better-panic = "0.2"
+cascade = "1.0"
+chrono = "0.4"
+clap = "2"
+derive_more = "0.99"
+derive-new = "0.5"
+enclose = "1"
+fern = "0.6"
+flume = "0.10.5"
+fomat-macros = "0.3"
+gio = "0.14"
+glib = "0.14"
+gtk = { version = "0.14", features = [ "v3_22" ] }
+i18n-embed = { version = "0.13", features = ["fluent-system", "desktop-requester"] }
+i18n-embed-fl = "0.6.0"
+log = "0.4"
+notify-rust = { version = "4.0", default-features = false, features = ["dbus"] }
+num-traits = "0.2"
+once_cell = "1.7"
+os-release = "0.1"
+pango = "0.14"
 pop-upgrade = { path = "../" }
-rust-embed = { version = "6.3.0", features = ["debug-embed"] }
-shrinkwraprs = "0.3.0"
-thiserror = "1.0.30"
+rust-embed = { version = "6.2", features = ["debug-embed"] }
+shrinkwraprs = "0.3"
+thiserror = "1.0"
 ubuntu-version = "0.2.5"
-upower_dbus = "0.1.0"
-users = "0.11.0"
-yansi = "0.5.0"
+upower_dbus = "0.1"
+users = "0.11"
+yansi = "0.5"

@@ -13,11 +13,6 @@ extern crate shrinkwraprs;
 #[macro_use]
 extern crate thiserror;
 
-use mimalloc::MiMalloc;
-
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
-
 mod cli;
 mod logging;
 mod notify;
@@ -62,11 +57,7 @@ use std::{path::Path, process::exit};
 
 use self::error::InitError;
 
-#[tokio::main]
-async fn main() {
-    // Ensure file system caches are synced to prevent recovery ISO download corruption.
-    nix::unistd::sync();
-
+pub fn main() {
     // Service shall not run in a live environment.
     if Path::new("/cdrom/casper/filesystem.squashfs").exists() {
         exit(0);
@@ -185,39 +176,41 @@ async fn main() {
             SubCommand::with_name("status").about("get the status of the pop upgrade daemon"),
         );
 
-    if main_(&clap.get_matches()).await.is_err() {
+    if let Err(why) = main_(&clap.get_matches()) {
+        eprintln!("pop-upgrade: {}", why);
+
+        let mut source = why.source();
+        while let Some(why) = source {
+            eprintln!("  caused by: {}", why);
+            source = why.source();
+        }
+
         exit(1);
     }
 }
 
-async fn main_(matches: &ArgMatches<'_>) -> anyhow::Result<()> {
+fn main_(matches: &ArgMatches) -> anyhow::Result<()> {
     init()?;
 
     match matches.subcommand() {
         ("cancel", _) => Client::new()?.cancel()?,
-        ("daemon", _) => Daemon::init().await?,
+        ("daemon", _) => Daemon::init()?,
         (other, Some(matches)) => {
             let mut client = Client::new()?;
 
-            if std::env::var_os("S76_TEST").is_none() {
-                println!("checking if pop-upgrade requires an update");
-                if client.update_and_restart()? {
-                    println!("waiting for daemon to update and restart");
+            println!("checking if pop-upgrade requires an update");
+            if client.update_and_restart()? {
+                println!("waiting for daemon to update and restart");
 
-                    let file = std::path::Path::new(pop_upgrade::RESTART_SCHEDULED);
-                    while file.exists() {
-                        if crate::sighandler::status().is_some() {
-                            std::process::exit(1);
-                        }
-
-                        std::thread::sleep(std::time::Duration::from_secs(1));
-                    }
-
+                let file = std::path::Path::new(pop_upgrade::RESTART_SCHEDULED);
+                while file.exists() {
                     std::thread::sleep(std::time::Duration::from_secs(1));
-
-                    println!("reconnecting to pop-upgrade daemon");
-                    client = Client::new()?;
                 }
+
+                std::thread::sleep(std::time::Duration::from_secs(1));
+
+                println!("reconnecting to pop-upgrade daemon");
+                client = Client::new()?;
             }
 
             let func = match other {

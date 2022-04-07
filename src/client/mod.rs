@@ -40,7 +40,6 @@ pub struct RepoCompatError {
 }
 
 /// A signal received by the daemon.
-#[derive(Debug)]
 pub enum Signal {
     NoConnection,
     PackageFetchResult(Status),
@@ -56,10 +55,7 @@ pub enum Signal {
 
 /// Designates if the signal event loop should continue listening for signals.
 #[derive(Clone, Debug)]
-pub enum Continue {
-    True,
-    False,
-}
+pub struct Continue(pub bool);
 
 /// The status of the daemon that was retrieved.
 #[derive(Clone, Debug)]
@@ -122,9 +118,6 @@ pub enum Error {
 
     #[error("failed to create {} method call", _0)]
     NewMethodCall(&'static str, String),
-
-    #[error("{}", _0)]
-    Status(Box<str>),
 }
 
 pub struct Client {
@@ -333,25 +326,22 @@ impl Client {
         mut log_cb: impl FnMut(Status),
         mut event: impl FnMut(&Self, Signal) -> Result<Continue, Error>,
     ) -> Result<(), Error> {
-        let mut inactivity_count = 0;
-        for item in self.bus.iter(1000) {
+        let mut break_on_next = false;
+        for item in self.bus.iter(3000) {
             if sighandler::status().is_some() {
                 let _ = self.cancel();
             }
 
             if let ConnectionItem::Nothing = item {
                 if self.is_inactive()? {
-                    if inactivity_count < 6 {
-                        inactivity_count += 1;
-                        continue;
+                    if break_on_next {
+                        log_cb(status_func(self)?);
+
+                        break;
                     }
 
-                    log_cb(status_func(self)?);
-                    error!("breaking connection to pop-upgrade daemon due to inactivity");
-                    break;
+                    break_on_next = true;
                 }
-
-                inactivity_count = 0;
             } else if let Some(signal) = filter_signal(item) {
                 let signal = match &*signal.member().unwrap() {
                     signals::NO_CONNECTION => Signal::NoConnection,
@@ -416,15 +406,10 @@ impl Client {
                         .map_err(|why| Error::ArgumentMismatch(signals::RELEASE_RESULT, why))
                         .map(|(status, why)| Status { status, why: why.into() })
                         .map(Signal::ReleaseResult)?,
-                    _ => {
-                        inactivity_count = 0;
-                        continue;
-                    }
+                    _ => continue,
                 };
 
-                inactivity_count = 0;
-
-                if let Continue::False = event(self, signal)? {
+                if !event(self, signal)?.0 {
                     break;
                 }
             }

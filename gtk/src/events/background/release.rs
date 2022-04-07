@@ -15,6 +15,17 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: &ReleaseInfo) {
     }
 
     let &ReleaseInfo { ref current, ref next, .. } = &info;
+    // TODO: Re-enable this when QA is ready for testing this behavior.
+    //    let how = if client.recovery_exists() {
+    //        // Upgrade the recovery partition in addition to the OS.
+    //        if !upgrade_recovery(client, send, next) {
+    //            return;
+    //        }
+    //
+    //        UpgradeMethod::Recovery
+    //    } else {
+    //        UpgradeMethod::Offline
+    //    };
 
     let how = UpgradeMethod::Offline;
 
@@ -25,15 +36,26 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: &ReleaseInfo) {
         return;
     }
 
+    let error = &mut None;
+    let ignore_error = &mut false;
+    let status_broken = &mut false;
+
     use pop_upgrade::client::Progress;
 
-    let result = client.event_listen(
+    let _ = client.event_listen(
         Client::release_upgrade_status,
         |status| {
+            *status_broken = true;
             status_changed(send, status, DaemonStatus::ReleaseUpgrade);
         },
         |_client, signal| {
             match signal {
+                Signal::PackageFetchResult(status) | Signal::RecoveryResult(status) => {
+                    if status.status != 0 {
+                        *error = Some(status.why);
+                        return Ok(client::Continue(false));
+                    }
+                }
                 Signal::PackageFetched(status) => {
                     send(UiEvent::Progress(ProgressEvent::Fetching(
                         status.completed.into(),
@@ -55,13 +77,6 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: &ReleaseInfo) {
                     println!("Progress {}/{}", progress, total);
                     send(UiEvent::Progress(ProgressEvent::Recovery(progress, total)));
                 }
-
-                Signal::RecoveryResult(status) => send(if status.status == 0 {
-                    UiEvent::Completed(CompletedEvent::Recovery(false))
-                } else {
-                    UiEvent::Recovery(OsRecoveryEvent::Failed)
-                }),
-
                 Signal::RecoveryEvent(event) => {
                     send(UiEvent::Recovery(OsRecoveryEvent::Event(event)));
                 }
@@ -70,22 +85,30 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: &ReleaseInfo) {
                 }
                 Signal::ReleaseResult(status) => {
                     if status.status != 0 {
-                        return Err(client::Error::Status(status.why));
+                        *error = Some(status.why);
                     }
 
-                    return Ok(client::Continue::False);
+                    return Ok(client::Continue(false));
                 }
                 _ => (),
             }
 
-            Ok(client::Continue::True)
+            Ok(client::Continue(true))
         },
     );
 
-    send(match result {
-        Ok(()) => UiEvent::Completed(CompletedEvent::Download),
-        Err(why) => UiEvent::Error(UiError::Upgrade(why.into())),
-    });
+    if *ignore_error {
+        return;
+    }
+
+    if let Some(why) = error.take() {
+        send(UiEvent::Error(UiError::Upgrade(why.into())));
+        return;
+    }
+
+    if !*status_broken {
+        send(UiEvent::Completed(CompletedEvent::Download));
+    }
 }
 
 pub fn update(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
@@ -116,7 +139,7 @@ pub fn update(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
                             *error = Some(status.why);
                         }
 
-                        return Ok(client::Continue::False);
+                        return Ok(client::Continue(false));
                     }
                     Signal::PackageFetched(status) => {
                         send(UiEvent::Progress(ProgressEvent::Fetching(
@@ -141,7 +164,7 @@ pub fn update(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
                     _ => (),
                 }
 
-                Ok(client::Continue::True)
+                Ok(client::Continue(true))
             },
         );
 

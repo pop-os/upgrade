@@ -17,9 +17,6 @@ pub enum ReleaseError {
     #[allow(clippy::upper_case_acronyms)]
     BackupPPAs(#[source] anyhow::Error),
 
-    #[error("process canceled")]
-    Canceled,
-
     #[error("unable to upgrade to next release: {:?}", _0)]
     Check(#[source] anyhow::Error),
 
@@ -54,7 +51,7 @@ pub enum ReleaseError {
     #[error("failed to switch Ubuntu repos to old-releases")]
     OldReleaseSwitch(#[source] io::Error),
 
-    #[error("{:?}", _0)]
+    #[error("fetch of package failed: {:?}", _0)]
     PackageFetch(#[source] anyhow::Error),
 
     #[error("failed to apply pre-upgrade fixes")]
