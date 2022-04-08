@@ -91,6 +91,3 @@ testing = []
 
 [dev-dependencies]
 test-case = "2.0.1"
-
-[build-dependencies]
-fomat-macros = "0.3.1"

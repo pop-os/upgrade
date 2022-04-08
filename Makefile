@@ -1,5 +1,5 @@
 export prefix ?= /usr
-sysconfdir ?= /etc
+sysconfdir ?= /usr/share
 bindir = $(prefix)/bin
 includedir = $(prefix)/include
 libdir = $(prefix)/lib
@@ -38,7 +38,7 @@ STARTUP_DESKTOP = $(NOTIFY_APPID).desktop
 
 .PHONY: all clean distclean install uninstall update vendor
 
-all: $(BINARY) $(LIBRARY) $(PKGCONFIG) target/$(NOTIFY).service target/$(STARTUP_DESKTOP)
+all: $(BINARY) $(LIBRARY) $(PKGCONFIG)
 
 clean:
 	cargo clean
@@ -61,15 +61,16 @@ endif
 install:
 	install -Dm04755 "$(BINARY)" "$(DESTDIR)$(bindir)/$(BIN)"
 	install -Dm04755 "data/$(BIN).sh" "$(DESTDIR)$(libdir)/$(BIN)/upgrade.sh"
-	install -Dm0644 "data/$(BIN).service" "$(DESTDIR)$(libdir)/systemd/system/$(BIN).service"
-	install -Dm0644 "data/$(BIN)-init.service" "$(DESTDIR)$(libdir)/systemd/system/$(BIN)-init.service"
-	install -Dm0644 "data/$(BIN).conf" "$(DESTDIR)$(sysconfdir)/dbus-1/system.d/$(BIN).conf"
+	install -Dm0644 "$(HEADER)" "$(DESTDIR)$(includedir)/$(PACKAGE).h"
 	install -Dm0644 "$(LIBRARY)" "$(DESTDIR)$(libdir)/$(LIB)"
 	install -Dm0644 "$(PKGCONFIG)" "$(DESTDIR)$(libdir)/pkgconfig/$(PACKAGE).pc"
-	install -Dm0644 "$(HEADER)" "$(DESTDIR)$(includedir)/$(PACKAGE).h"
-	install -Dm0644 "target/$(NOTIFY).service" "$(DESTDIR)$(libdir)/systemd/user/$(NOTIFY).service"
-	install -Dm0644 "target/$(NOTIFY).timer" "$(DESTDIR)$(libdir)/systemd/user/$(NOTIFY).timer"
-	install -Dm0644 "target/$(STARTUP_DESKTOP)" "$(DESTDIR)/etc/xdg/autostart/$(STARTUP_DESKTOP)"
+	install -Dm0644 "data/$(BIN)-init.service" "$(DESTDIR)$(libdir)/systemd/system/$(BIN)-init.service"
+	install -Dm0644 "data/$(BIN).conf" "$(DESTDIR)$(sysconfdir)/dbus-1/system.d/$(BIN).conf"
+	install -Dm0644 "data/$(BIN).service" "$(DESTDIR)$(libdir)/systemd/system/$(BIN).service"
+	install -Dm0644 "data/dbus-$(BIN).service" "$(DESTDIR)$(sysconfdir)/dbus-1/system-services/$(BIN).service"
+	install -Dm0644 "data/$(NOTIFY).service" "$(DESTDIR)$(libdir)/systemd/user/$(NOTIFY).service"
+	install -Dm0644 "data/$(NOTIFY).timer" "$(DESTDIR)$(libdir)/systemd/user/$(NOTIFY).timer"
+	install -Dm0644 "data/$(STARTUP_DESKTOP)" "$(DESTDIR)/etc/xdg/autostart/$(STARTUP_DESKTOP)"
 
 $(BINARY): $(SRC) extract-vendor
 	cargo build $(ARGS)

@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=com.system76.PopUpgrade
+Exec=/usr/bin/pop-upgrade daemon
+User=root
+SystemdService=pop-upgrade.service

@@ -1,0 +1,11 @@
+[Unit]
+Description=Checks for new OS releases every day
+Requires=pop-upgrade-notify.service
+
+[Timer]
+Unit=pop-upgrade-notify.service
+OnUnitInactiveSec=1440m
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

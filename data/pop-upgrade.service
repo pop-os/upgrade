@@ -3,8 +3,10 @@ Requires=network.target multi-user.target
 Description=Pop Upgrade Daemon
 
 [Service]
+Type=dbus
+BusName=com.system76.PopUpgrade
 ExecStart=/usr/bin/pop-upgrade daemon
 Restart=on-failure
 
 [Install]
-WantedBy=multi-user.target
+Alias=com.system76.PopUpgrade.service

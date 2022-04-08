@@ -4,4 +4,4 @@ Name=Pop!_OS Release Check
 Icon=distributor-logo-upgrade-symbolic
 Comment=Check for a new OS release, and display notification if found
 Categories=System
-Exec={{exec}}
+Exec=/usr/bin/pop-upgrade release check
