@@ -138,10 +138,17 @@ struct SharedState {
     release_upgrade_began: AtomicBool,
 }
 
+enum ReleaseCheck {
+    NotChecked,
+    NotFound,
+    Found,
+}
+
 pub struct Daemon {
     event_tx:        UnboundedSender<Event>,
     last_known:      LastKnown,
     perform_upgrade: bool,
+    release_check:   ReleaseCheck,
     release_upgrade: Option<ReleaseUpgradeState>,
     shared_state:    Arc<SharedState>,
 }
@@ -374,6 +381,7 @@ impl Daemon {
                 last_known: Default::default(),
                 release_upgrade: None,
                 perform_upgrade: false,
+                release_check: ReleaseCheck::NotChecked,
                 shared_state,
             },
             fg_rx,
@@ -631,6 +639,12 @@ impl Daemon {
                             urgent = urgent.max(14);
                         }
 
+                        daemon.release_check = if status.build.status_code() >= 0 {
+                            ReleaseCheck::Found
+                        } else {
+                            ReleaseCheck::NotFound
+                        };
+
                         Ok((
                             String::from(status.current),
                             String::from(status.next),
@@ -741,7 +755,6 @@ impl Daemon {
 
         let path = dbus::strings::Path::from_slice("/com/system76/PopUpgrade\0").unwrap();
         let mut shutdown_triggered = false;
-        let mut set_status_inactive = false;
 
         loop {
             let _ = connection.process(std::time::Duration::from_millis(500));
@@ -750,6 +763,10 @@ impl Daemon {
 
             if shutdown_triggered {
                 break Ok(());
+            }
+
+            if let ReleaseCheck::NotFound = daemon.release_check {
+                shutdown_triggered = true;
             }
 
             if daemon.perform_upgrade {
