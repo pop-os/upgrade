@@ -73,7 +73,7 @@ install:
 	install -Dm0644 "data/$(STARTUP_DESKTOP)" "$(DESTDIR)/etc/xdg/autostart/$(STARTUP_DESKTOP)"
 
 $(BINARY): $(SRC) extract-vendor
-	cargo build $(ARGS)
+	cargo build $(ARGS) -p pop-upgrade
 
 $(LIBRARY): $(LIB_SRC) extract-vendor
 	cargo build $(ARGS) -p pop-upgrade-gtk-ffi
