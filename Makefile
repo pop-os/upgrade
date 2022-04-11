@@ -4,9 +4,6 @@ bindir = $(prefix)/bin
 includedir = $(prefix)/include
 libdir = $(prefix)/lib
 
-SRC = Cargo.lock Cargo.toml $(shell find src -type f -wholename '*src/*.rs')
-LIB_SRC = $(SRC) gtk/Cargo.toml gtk/ffi/Cargo.toml $(shell find gtk -type f -wholename '*src/*.rs')
-
 PACKAGE=pop_upgrade_gtk
 LIB=lib$(PACKAGE).so
 BIN=pop-upgrade
@@ -72,10 +69,10 @@ install:
 	install -Dm0644 "data/$(NOTIFY).timer" "$(DESTDIR)$(libdir)/systemd/user/$(NOTIFY).timer"
 	install -Dm0644 "data/$(STARTUP_DESKTOP)" "$(DESTDIR)/etc/xdg/autostart/$(STARTUP_DESKTOP)"
 
-$(BINARY): $(SRC) extract-vendor
+$(BINARY): extract-vendor
 	cargo build $(ARGS) -p pop-upgrade
 
-$(LIBRARY): $(LIB_SRC) extract-vendor
+$(LIBRARY): extract-vendor
 	cargo build $(ARGS) -p pop-upgrade-gtk-ffi
 
 $(PKGCONFIG):
