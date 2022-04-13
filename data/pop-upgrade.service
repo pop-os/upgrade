@@ -1,6 +1,7 @@
 [Unit]
 Requires=network.target multi-user.target
 Description=Pop Upgrade Daemon
+After=network-online.target
 
 [Service]
 Type=dbus
@@ -10,3 +11,4 @@ Restart=on-failure
 
 [Install]
 Alias=com.system76.PopUpgrade.service
+WantedBy=network-online.target
