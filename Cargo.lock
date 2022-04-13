@@ -221,17 +221,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-net"
-version = "1.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5373304df79b9b4395068fb080369ec7178608827306ce4d081cba51cac551df"
-dependencies = [
- "async-io",
- "blocking",
- "futures-lite",
-]
-
-[[package]]
 name = "async-oneshot"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2731,7 +2720,7 @@ checksum = "5da3b0203fd7ee5720aa0b5e790b591aa5d3f41c3ed2c34a3a393382198af2f7"
 [[package]]
 name = "pop-system-updater"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/system-updater?branch=system-updater#08c99be5c885c5f324f130679d2aa9047124781f"
+source = "git+https://github.com/pop-os/system-updater?branch=system-updater#7bc70734fbe7ac0514945fa1823fc22e878664cc"
 dependencies = [
  "anyhow",
  "apt-cmd 0.3.0",
@@ -2764,7 +2753,7 @@ dependencies = [
 [[package]]
 name = "pop-system-updater-gtk"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/system-updater?branch=system-updater#08c99be5c885c5f324f130679d2aa9047124781f"
+source = "git+https://github.com/pop-os/system-updater?branch=system-updater#7bc70734fbe7ac0514945fa1823fc22e878664cc"
 dependencies = [
  "cascade 1.0.0",
  "chrono",
@@ -2780,7 +2769,6 @@ dependencies = [
  "postage",
  "ron",
  "rust-embed",
- "smol",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -2790,7 +2778,7 @@ dependencies = [
 [[package]]
 name = "pop-task-scheduler"
 version = "1.0.0"
-source = "git+https://github.com/pop-os/system-updater?branch=system-updater#08c99be5c885c5f324f130679d2aa9047124781f"
+source = "git+https://github.com/pop-os/system-updater?branch=system-updater#7bc70734fbe7ac0514945fa1823fc22e878664cc"
 dependencies = [
  "chrono",
  "cron",
@@ -3607,24 +3595,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "smol"
-version = "1.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85cf3b5351f3e783c1d79ab5fc604eeed8b8ae9abd36b166e8b87a089efd85e4"
-dependencies = [
- "async-channel",
- "async-executor",
- "async-fs",
- "async-io",
- "async-lock",
- "async-net",
- "async-process",
- "blocking",
- "futures-lite",
- "once_cell",
 ]
 
 [[package]]

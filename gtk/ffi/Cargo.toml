@@ -5,15 +5,15 @@ authors = ["Michael Aaron Murphy <mmstick@pm.me>"]
 edition = "2018"
 
 [build-dependencies]
-cdylib-link-lines = "0.1"
+cdylib-link-lines = "0.1.4"
 
 [dependencies]
 pop-upgrade-gtk = { path = "../" }
-glib = "0.15"
-gtk-sys = "0.15"
-gtk = { version = "0.15", features = [ "v3_22" ] }
-i18n-embed = { version = "0.13", features = ["fluent-system", "desktop-requester"] }
-i18n-embed-fl = "0.6"
+glib = "0.15.10"
+gtk-sys = "0.15.3"
+gtk = { version = "0.15.4", features = [ "v3_22" ] }
+i18n-embed = { version = "0.13.4", features = ["fluent-system", "desktop-requester"] }
+i18n-embed-fl = "0.6.4"
 
 [lib]
 name = "pop_upgrade_gtk"
