@@ -2,6 +2,8 @@
 
 * COSMIC
 ** GNOME 42 support has been added for COSMIC.
+** The Shell Theme for GNOME 42 has been updated.
+** Icons are now SVG-based instead of PNG-based.
 ** Dark and light modes can have independent backgrounds.
 ** Settings for Desktop Options, Background, Appearance, Dock, and Workspaces are now searchable in Launcher.
 ** The Pop robot face has been added as the default avatar.
