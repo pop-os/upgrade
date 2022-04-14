@@ -1,6 +1,6 @@
 [Unit]
-Requires=network.target multi-user.target
 Description=Pop Upgrade Daemon
+Wants=network-online.target
 After=network-online.target
 
 [Service]
@@ -11,4 +11,4 @@ Restart=on-failure
 
 [Install]
 Alias=com.system76.PopUpgrade.service
-WantedBy=network-online.target
+WantedBy=default.target
