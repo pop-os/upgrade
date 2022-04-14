@@ -7,6 +7,7 @@ libdir = $(prefix)/lib
 PACKAGE=pop_upgrade_gtk
 LIB=lib$(PACKAGE).so
 BIN=pop-upgrade
+ID=com.system76.PopUpgrade
 
 TESTING ?= 0
 ifeq ($(TESTING),1)
@@ -30,7 +31,7 @@ LIBRARY=target/$(TARGET)/$(LIB)
 PKGCONFIG = target/$(PACKAGE).pc
 HEADER = gtk/ffi/$(PACKAGE).h
 NOTIFY = pop-upgrade-notify
-NOTIFY_APPID = com.system76.PopUpgrade.Notify
+NOTIFY_APPID = $(ID).Notify
 STARTUP_DESKTOP = $(NOTIFY_APPID).desktop
 
 .PHONY: all clean distclean install uninstall update vendor
@@ -64,7 +65,7 @@ install:
 	install -Dm0644 "data/$(BIN)-init.service" "$(DESTDIR)$(libdir)/systemd/system/$(BIN)-init.service"
 	install -Dm0644 "data/$(BIN).conf" "$(DESTDIR)$(sysconfdir)/dbus-1/system.d/$(BIN).conf"
 	install -Dm0644 "data/$(BIN).service" "$(DESTDIR)$(libdir)/systemd/system/$(BIN).service"
-	install -Dm0644 "data/dbus-$(BIN).service" "$(DESTDIR)$(sysconfdir)/dbus-1/system-services/$(BIN).service"
+	install -Dm0644 "data/dbus-$(BIN).service" "$(DESTDIR)$(sysconfdir)/dbus-1/system-services/$(ID).service"
 	install -Dm0644 "data/$(NOTIFY).service" "$(DESTDIR)$(libdir)/systemd/user/$(NOTIFY).service"
 	install -Dm0644 "data/$(NOTIFY).timer" "$(DESTDIR)$(libdir)/systemd/user/$(NOTIFY).timer"
 	install -Dm0644 "data/$(STARTUP_DESKTOP)" "$(DESTDIR)/etc/xdg/autostart/$(STARTUP_DESKTOP)"
