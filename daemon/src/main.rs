@@ -58,7 +58,7 @@ pub mod error {
 }
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
-use std::{path::Path, process::exit};
+use std::{path::Path, process::exit, time::Duration};
 
 use self::error::InitError;
 
@@ -66,6 +66,9 @@ use self::error::InitError;
 async fn main() {
     // Ensure file system caches are synced to prevent recovery ISO download corruption.
     nix::unistd::sync();
+
+    // Fixes a panic in `reqwest::Client::new`
+    wait_for_systemd_resolvd().await;
 
     // Service shall not run in a live environment.
     if Path::new("/cdrom/casper/filesystem.squashfs").exists() {
@@ -240,4 +243,14 @@ fn init() -> Result<(), InitError> {
 
     ::std::fs::create_dir_all("/var/cache/apt/archives/partial/")
         .map_err(InitError::AptCacheDirectories)
+}
+
+/// Ensure that the systemd DNS resolv file is generated before proceeding.
+async fn wait_for_systemd_resolvd() {
+    let resolv = Path::new("/etc/resolv.conf");
+
+    while !resolv.exists() {
+        info!("waiting for resolv.conf to be generated");
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
 }
