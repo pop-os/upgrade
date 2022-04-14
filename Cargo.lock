@@ -701,7 +701,7 @@ dependencies = [
 [[package]]
 name = "cron"
 version = "0.10.1"
-source = "git+https://github.com/mmstick/cron?branch=iterator#b801fdf1557e4960c40dcb2866f3dec2b4d4d72e"
+source = "git+https://github.com/zslayton/cron#86f7f3ec3a639b62bf076839de8cca71dd201fd2"
 dependencies = [
  "chrono",
  "nom",
@@ -2720,7 +2720,7 @@ checksum = "5da3b0203fd7ee5720aa0b5e790b591aa5d3f41c3ed2c34a3a393382198af2f7"
 [[package]]
 name = "pop-system-updater"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/system-updater?branch=system-updater#7bc70734fbe7ac0514945fa1823fc22e878664cc"
+source = "git+https://github.com/pop-os/system-updater?branch=system-updater#5348667b16755a1525734101a21112f07f0b86fa"
 dependencies = [
  "anyhow",
  "apt-cmd 0.3.0",
@@ -2753,7 +2753,7 @@ dependencies = [
 [[package]]
 name = "pop-system-updater-gtk"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/system-updater?branch=system-updater#7bc70734fbe7ac0514945fa1823fc22e878664cc"
+source = "git+https://github.com/pop-os/system-updater?branch=system-updater#5348667b16755a1525734101a21112f07f0b86fa"
 dependencies = [
  "cascade 1.0.0",
  "chrono",
@@ -2778,7 +2778,7 @@ dependencies = [
 [[package]]
 name = "pop-task-scheduler"
 version = "1.0.0"
-source = "git+https://github.com/pop-os/system-updater?branch=system-updater#7bc70734fbe7ac0514945fa1823fc22e878664cc"
+source = "git+https://github.com/pop-os/system-updater?branch=system-updater#5348667b16755a1525734101a21112f07f0b86fa"
 dependencies = [
  "chrono",
  "cron",
@@ -3049,9 +3049,9 @@ dependencies = [
 
 [[package]]
 name = "rayon"
-version = "1.5.1"
+version = "1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c06aca804d41dbc8ba42dfd964f0d01334eceb64314b9ecf7c5fad5188a06d90"
+checksum = "fd249e82c21598a9a426a4e00dd7adc1d640b22445ec8545feef801d1a74c221"
 dependencies = [
  "autocfg",
  "crossbeam-deque",
@@ -3061,14 +3061,13 @@ dependencies = [
 
 [[package]]
 name = "rayon-core"
-version = "1.9.1"
+version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d78120e2c850279833f1dd3582f730c4ab53ed95aeaaaa862a2a5c71b1656d8e"
+checksum = "9f51245e1e62e1f1629cbfec37b5793bbabcaeb90f30e94d2ba03564687353e4"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-deque",
  "crossbeam-utils 0.8.8",
- "lazy_static",
  "num_cpus",
 ]
 
