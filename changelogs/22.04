@@ -5,7 +5,7 @@
 ** The Shell Theme for GNOME 42 has been updated.
 ** Icons are now SVG-based instead of PNG-based.
 ** Dark and light modes can have independent backgrounds.
-** Settings for Desktop Options, Background, Appearance, Dock, and Workspaces are now searchable in Launcher.
+** Settings for Desktop Options, Background, Appearance, Dock, and Workspaces are now searchable in the Launcher.
 ** The Pop robot face has been added as the default avatar.
 ** Improvements to cosmic-workspaces:
     ** An issue with the location of the Workspace picker on secondary displays has been fixed.
@@ -16,9 +16,9 @@
 ** COSMIC logging has been limited, resulting in increased system performance.
 
 * Pop!_OS System Updater
-** New upgrade and options for installing upgrades are now available in Settings > OS Upgrade and Recovery.
+** New options for installing updates are now available in Settings > OS Upgrade and Recovery.
     ** To reduce distractions, update notifications are now set to show weekly and can be set to daily or monthly.
-    ** Upgrades can be scheduled and installed automatically (includes Debian, Flatpak, and *nix packages).
+    ** Updates can be scheduled and installed automatically (includes Debian, Flatpak, and *nix packages).
 ** The Pop upgrade service will now only be active when checking for release upgrades and doing a release upgrade, instead of being active 24/7.
 ** Pop upgrade Debian package downloads are now resumable.
 
