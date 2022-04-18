@@ -731,6 +731,11 @@ impl Daemon {
                 (),
                 ("status",),
                 |_ctx: &mut Context, daemon: &mut Daemon, _inputs: ()| {
+                    // Prohibit activating this method while service is busy.
+                    if daemon.shared_state.status.load(Ordering::SeqCst) != DaemonStatus::Inactive {
+                        return Ok((0,));
+                    }
+
                     Ok((futures::executor::block_on(daemon.update_and_restart()),))
                 },
             );
