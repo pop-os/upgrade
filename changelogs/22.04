@@ -31,7 +31,6 @@
 ** PipeWire replaces the PulseAudio audio system.
 ** Mesa 22 has been added.
 ** Irqbalance has been removed from the default installation.
-** Rust is now packaged in the default installation, and will be kept up-to-date with upstream releases.
 
 * System Improvements
 ** The journald log max disk capacity is now limited to 1GB.
