@@ -169,7 +169,7 @@ impl From<UpgradeEvent> for &'static str {
 }
 
 /// Get a list of APT URIs to fetch for this operation, and then fetch them.
-pub async fn apt_fetch<H: Clone + Send + 'static>(
+pub async fn apt_fetch<H: Send + 'static>(
     shutdown: Shutdown,
     uris: HashSet<AptRequest, H>,
     func: &dyn Fn(FetchEvent),
@@ -182,42 +182,6 @@ where
     apt_lock_wait().await;
     let _lock_files = hold_apt_locks()?;
 
-    let task = async {
-        let mut result = Ok(());
-
-        for _ in 0..3 {
-            let uris = uris.clone();
-            result = apt_fetch_(shutdown.clone(), uris, func).await;
-            if result.is_ok() {
-                break;
-            }
-        }
-
-        result
-    };
-
-    let cancel = async {
-        let _ = shutdown.wait_shutdown_triggered().await;
-        info!("canceled download");
-        Err(ReleaseError::Canceled)
-    };
-
-    futures::pin_mut!(task);
-    futures::pin_mut!(cancel);
-
-    let result = future::select(cancel, task).await.factor_first().0;
-
-    result
-}
-
-async fn apt_fetch_<H: Send + 'static>(
-    shutdown: Shutdown,
-    uris: HashSet<AptRequest, H>,
-    func: &dyn Fn(FetchEvent),
-) -> RelResult<()>
-where
-    H: std::hash::BuildHasher,
-{
     const ARCHIVES: &str = "/var/cache/apt/archives/";
     const PARTIAL: &str = "/var/cache/apt/archives/partial/";
 
@@ -233,9 +197,9 @@ where
 
     // The system which fetches packages we send requests to
     let (fetcher, mut events) = async_fetcher::Fetcher::new(client)
-        .retries(5)
+        .retries(3)
         .connections_per_file(2)
-        .timeout(std::time::Duration::from_secs(15))
+        .timeout(std::time::Duration::from_secs(5))
         .shutdown(shutdown.clone())
         .into_package_fetcher()
         .concurrent(2)
@@ -474,14 +438,7 @@ pub async fn upgrade<'a>(
     // Fetch required packages for upgrading the current release.
     (*logger)(UpgradeEvent::FetchingPackages);
 
-    // Fetch apt packages and retry if network connections are changed.
-    use crate::fetch::apt::ExtraPackages;
-    let packages = Some(ExtraPackages::Static(CORE_PACKAGES));
-    let uris = crate::fetch::apt::fetch_uris(Shutdown::new(), packages)
-        .await
-        .map_err(ReleaseError::AptList)?;
-
-    apt_fetch(Shutdown::new(), uris, fetch).await?;
+    fetch_packages(&Shutdown::new(), fetch).await?;
 
     // Upgrade the current release to the latest packages.
     (*logger)(UpgradeEvent::UpgradingPackages);
@@ -546,21 +503,6 @@ fn terminate_background_applications() {
     }
 }
 
-async fn attempt_fetch<'a>(
-    shutdown: &Shutdown,
-    logger: &'a dyn Fn(UpgradeEvent),
-    fetch: &'a dyn Fn(FetchEvent),
-) -> RelResult<()> {
-    info!("fetching packages for the new release");
-    (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
-
-    let uris = crate::fetch::apt::fetch_uris(shutdown.clone(), None)
-        .await
-        .map_err(ReleaseError::AptList)?;
-
-    apt_fetch(shutdown.clone(), uris, fetch).await
-}
-
 /// Update the release files and fetch packages for the new release.
 ///
 /// On failure, the original release files will be restored.
@@ -584,7 +526,9 @@ async fn fetch_new_release_packages<'b>(
 
         snapd::hold_transitional_packages().await?;
 
-        attempt_fetch(&Shutdown::new(), logger, fetch).await?;
+        info!("fetching packages for the new release");
+        (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
+        fetch_packages(&Shutdown::new(), fetch).await?;
 
         info!("packages fetched successfully");
 
@@ -691,4 +635,56 @@ fn codename_from_version(version: &str) -> &str {
         .and_then(|x| Codename::try_from(x).ok())
         .map(<&'static str>::from)
         .unwrap_or(version)
+}
+
+// Fetch apt packages and retry if network connections are changed.
+async fn fetch_packages(
+    shutdown: &Shutdown,
+    fetch: &dyn Fn(FetchEvent),
+) -> Result<(), ReleaseError> {
+    let task = async {
+        use crate::fetch::apt::ExtraPackages;
+
+        let action = || async {
+            let packages = Some(ExtraPackages::Static(CORE_PACKAGES));
+            let uris = crate::fetch::apt::fetch_uris(Shutdown::new(), packages)
+                .await
+                .map_err(ReleaseError::AptList)?;
+
+            apt_fetch(shutdown.clone(), uris, fetch).await
+        };
+
+        let mut result = Ok(());
+
+        for _ in 0..3 {
+            result = action().await;
+
+            if result.is_ok() {
+                return result;
+            }
+
+            apt_lock_wait().await;
+            AptGet::new()
+                .noninteractive()
+                .update()
+                .await
+                .context("failed to update source lists")
+                .map_err(ReleaseError::AptList)?;
+        }
+
+        result
+    };
+
+    let cancel = async {
+        let _ = shutdown.wait_shutdown_triggered().await;
+        info!("canceled download");
+        Err(ReleaseError::Canceled)
+    };
+
+    futures::pin_mut!(task);
+    futures::pin_mut!(cancel);
+
+    let result = future::select(cancel, task).await.factor_first().0;
+
+    result
 }
