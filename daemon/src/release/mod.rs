@@ -415,7 +415,7 @@ pub async fn upgrade<'a>(
         UpgradeMethod::Offline => systemd::upgrade_prereq()?,
     }
 
-    let _ = AptMark::new().hold(&["pop-upgrade"]).await;
+    let _ = AptMark::new().hold(&["pop-upgrade", "pop-system-updater"]).await;
 
     let version = codename_from_version(from);
 
@@ -494,7 +494,7 @@ pub async fn upgrade<'a>(
     // Apply any fixes necessary before the upgrade.
     repair::pre_upgrade().map_err(ReleaseError::PreUpgrade)?;
 
-    let _ = AptMark::new().unhold(&["pop-upgrade"]).await;
+    let _ = AptMark::new().unhold(&["pop-upgrade", "pop-system-updater"]).await;
 
     // Update the source lists to the new release,
     // then fetch the packages required for the upgrade.
