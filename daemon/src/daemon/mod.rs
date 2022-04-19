@@ -176,8 +176,6 @@ impl Daemon {
             release_upgrade_began: AtomicBool::new(false),
         });
 
-        let http_client = reqwest::Client::new();
-
         let handle = Handle::current();
 
         // Tracks if a successful recovery upgrade was performed.
@@ -307,7 +305,6 @@ impl Daemon {
                             info!("attempting recovery upgrade with {:?}", action);
                             let result = recovery::recovery(
                                 shutdown.clone(),
-                                http_client.clone(),
                                 &action,
                                 dbus_tx.clone(),
                             ).await;

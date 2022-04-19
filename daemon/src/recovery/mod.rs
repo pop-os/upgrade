@@ -59,7 +59,6 @@ pub enum UpgradeMethod {
 
 pub async fn recovery(
     cancel: Shutdown,
-    http_client: reqwest::Client,
     action: &UpgradeMethod,
     sender: UnboundedSender<SignalEvent>,
 ) -> RecResult<()> {
@@ -89,9 +88,7 @@ pub async fn recovery(
             .unwrap_or(false)
     }
 
-    if let Some((version, build)) =
-        fetch_iso(cancel, http_client, verify, action, sender, "/recovery").await?
-    {
+    if let Some((version, build)) = fetch_iso(cancel, verify, action, sender, "/recovery").await? {
         let data = fomat!((version) " " (build));
         tokio::fs::write(RECOVERY_VERSION, data.as_bytes())
             .await
@@ -116,7 +113,6 @@ pub fn recovery_exists() -> Result<bool, RecoveryError> {
 
 async fn fetch_iso<P: AsRef<Path>>(
     cancel: Shutdown,
-    http_client: reqwest::Client,
     verify: fn(&str, u16) -> bool,
     action: &UpgradeMethod,
     sender: UnboundedSender<SignalEvent>,
@@ -180,7 +176,6 @@ async fn fetch_iso<P: AsRef<Path>>(
 
                 let iso_path = from_remote(
                     cancel.clone(),
-                    http_client,
                     sender.clone(),
                     release.url.into(),
                     &release.sha_sum,
@@ -255,7 +250,6 @@ async fn fetch_iso<P: AsRef<Path>>(
 /// Once downloaded, the ISO will be verfied against the given checksum.
 async fn from_remote(
     cancel: Shutdown,
-    http_client: reqwest::Client,
     sender: UnboundedSender<SignalEvent>,
     url: Box<str>,
     checksum_str: &str,
@@ -288,7 +282,7 @@ async fn from_remote(
 
         nix::unistd::sync();
 
-        Fetcher::new(http_client)
+        Fetcher::default()
             // Timeout if a read takes more than 5 seconds.
             .timeout(std::time::Duration::from_secs(5))
             // Download at most 4 parts at a time.
