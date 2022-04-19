@@ -226,16 +226,16 @@ where
     use apt_cmd::fetch::{EventKind, FetcherExt};
 
     let client = reqwest::Client::builder()
-        .pool_idle_timeout(std::time::Duration::from_secs(20))
+        .pool_idle_timeout(std::time::Duration::from_secs(5))
         .pool_max_idle_per_host(0)
         .build()
         .unwrap();
 
     // The system which fetches packages we send requests to
     let (fetcher, mut events) = async_fetcher::Fetcher::new(client)
-        .retries(5)
-        .connections_per_file(2)
-        .timeout(std::time::Duration::from_secs(15))
+        .retries(3)
+        .connections_per_file(1)
+        .timeout(std::time::Duration::from_secs(5))
         .shutdown(shutdown.clone())
         .into_package_fetcher()
         .concurrent(2)
