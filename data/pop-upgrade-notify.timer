@@ -4,7 +4,6 @@ Requires=pop-upgrade-notify.service
 
 [Timer]
 Unit=pop-upgrade-notify.service
-OnUnitActiveSec=1m
 OnUnitInactiveSec=1440m
 AccuracySec=1s
 

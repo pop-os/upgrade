@@ -3,6 +3,7 @@ Description=Check for a new OS release, and display a notification if found
 Wants=pop-upgrade-notify.timer
 
 [Service]
+ExecStartPre=/usr/bin/sleep 60
 ExecStart=/usr/bin/pop-upgrade release check
 
 [Install]
