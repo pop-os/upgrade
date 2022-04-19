@@ -15,8 +15,6 @@ pub async fn fetch_uris(
     let task = tokio::spawn(async move {
         apt_lock_wait().await;
 
-        AptGet::new().noninteractive().update().await.context("failed to update package lists")?;
-
         let mut uris = AptGet::new()
             .noninteractive()
             .fetch_uris(&["full-upgrade"])
