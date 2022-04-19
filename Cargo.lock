@@ -43,33 +43,6 @@ checksum = "4361135be9122e0870de935d7c439aef945b9f9ddd4199a553b5270b49c82a27"
 
 [[package]]
 name = "apt-cmd"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b267effdd056b3b6a157e563e4a690e771264f0a052c98b6a39f90ad0020954"
-dependencies = [
- "anyhow",
- "as-result",
- "async-barrier",
- "async-fs",
- "async-io",
- "async-process",
- "async-stream",
- "async-task",
- "derive_more",
- "flume",
- "futures",
- "futures-util",
- "hex",
- "isahc",
- "md-5",
- "procfs",
- "sha-1",
- "smolscale",
- "thiserror",
-]
-
-[[package]]
-name = "apt-cmd"
 version = "0.4.0"
 source = "git+https://github.com/pop-os/apt-cmd#24eb8daa0cf0397c28e1eb99c7262883a0766125"
 dependencies = [
@@ -98,16 +71,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3702cac3c1601410cd655ae41650c4c87f7c3183dca6d1cd9acc4220ed56a8b7"
 
 [[package]]
-name = "async-barrier"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04b50fe84d0aea412a4e751cb01b9e26e2be533b2708607c2a2a739b192ee45a"
-dependencies = [
- "async-mutex",
- "event-listener",
-]
-
-[[package]]
 name = "async-broadcast"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -132,13 +95,14 @@ dependencies = [
 [[package]]
 name = "async-cron-scheduler"
 version = "1.0.0"
-source = "git+https://github.com/pop-os/system-updater?branch=system-updater#4a2024515d172e96121841476f987eaa814dda59"
+source = "git+https://github.com/pop-os/system-updater?branch=system-updater#bf18d3cbf8a2f2f65c31149f68e07b1a4d1f478e"
 dependencies = [
  "chrono",
  "cron",
  "flume",
  "futures",
  "slotmap",
+ "tracing",
 ]
 
 [[package]]
@@ -185,17 +149,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-fs"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b3ca4f8ff117c37c278a2f7415ce9be55560b846b5bc4412aaa5d29c1c3dae2"
-dependencies = [
- "async-lock",
- "blocking",
- "futures-lite",
-]
-
-[[package]]
 name = "async-io"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -221,41 +174,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e97a171d191782fba31bb902b14ad94e24a68145032b7eedf871ab0bc0d077b6"
 dependencies = [
  "event-listener",
-]
-
-[[package]]
-name = "async-mutex"
-version = "1.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "479db852db25d9dbf6204e6cb6253698f175c15726470f78af0d918e99d6156e"
-dependencies = [
- "event-listener",
-]
-
-[[package]]
-name = "async-oneshot"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50f4770cbbff928c30a991de67fb3976f44d8e3e202f8c79ef91b47006e04904"
-dependencies = [
- "futures-micro",
-]
-
-[[package]]
-name = "async-process"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83137067e3a2a6a06d67168e49e68a0957d215410473a740cea95a2425c0b7c6"
-dependencies = [
- "async-io",
- "blocking",
- "cfg-if 1.0.0",
- "event-listener",
- "futures-lite",
- "libc",
- "once_cell",
- "signal-hook",
- "winapi",
 ]
 
 [[package]]
@@ -345,12 +263,6 @@ checksum = "b88d82667eca772c4aa12f0f1348b3ae643424c8876448f3f7bd5787032e234c"
 dependencies = [
  "autocfg",
 ]
-
-[[package]]
-name = "atomic-waker"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "065374052e7df7ee4047b1160cca5e1467a12351a40b3da123c870ba0b8eda2a"
 
 [[package]]
 name = "atty"
@@ -453,20 +365,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bf7fe51849ea569fd452f37822f606a5cabb684dc918707a0193fd4664ff324"
 dependencies = [
  "generic-array",
-]
-
-[[package]]
-name = "blocking"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6ccb65d468978a086b69884437ded69a90faab3bbe6e67f242173ea728acccc"
-dependencies = [
- "async-channel",
- "async-task",
- "atomic-waker",
- "fastrand",
- "futures-lite",
- "once_cell",
 ]
 
 [[package]]
@@ -1353,17 +1251,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "futures-intrusive"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62007592ac46aa7c2b6416f7deb9a8a8f63a01e0f1d6e1787d5630170db2b63e"
-dependencies = [
- "futures-core",
- "lock_api",
- "parking_lot 0.11.2",
-]
-
-[[package]]
 name = "futures-io"
 version = "0.3.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1394,12 +1281,6 @@ dependencies = [
  "quote",
  "syn",
 ]
-
-[[package]]
-name = "futures-micro"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61e9325be55c5581082cd110294fa988c1f920bc573ec370ef201e33c469a95a"
 
 [[package]]
 name = "futures-sink"
@@ -2723,12 +2604,13 @@ checksum = "5da3b0203fd7ee5720aa0b5e790b591aa5d3f41c3ed2c34a3a393382198af2f7"
 [[package]]
 name = "pop-system-updater"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/system-updater?branch=system-updater#4a2024515d172e96121841476f987eaa814dda59"
+source = "git+https://github.com/pop-os/system-updater?branch=system-updater#bf18d3cbf8a2f2f65c31149f68e07b1a4d1f478e"
 dependencies = [
  "anyhow",
- "apt-cmd 0.3.0",
+ "apt-cmd",
  "as-result",
  "async-cron-scheduler",
+ "async-fetcher",
  "async-stream",
  "better-panic",
  "bytesize",
@@ -2737,10 +2619,10 @@ dependencies = [
  "flume",
  "fork",
  "futures",
- "isahc",
  "libc",
  "notify-rust",
  "os-release",
+ "reqwest",
  "ron",
  "serde",
  "serde_repr",
@@ -2756,7 +2638,7 @@ dependencies = [
 [[package]]
 name = "pop-system-updater-gtk"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/system-updater?branch=system-updater#4a2024515d172e96121841476f987eaa814dda59"
+source = "git+https://github.com/pop-os/system-updater?branch=system-updater#bf18d3cbf8a2f2f65c31149f68e07b1a4d1f478e"
 dependencies = [
  "cascade 1.0.0",
  "chrono",
@@ -2783,7 +2665,7 @@ name = "pop-upgrade"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "apt-cmd 0.4.0",
+ "apt-cmd",
  "as-result",
  "async-fetcher",
  "async-shutdown",
@@ -2849,7 +2731,7 @@ dependencies = [
 name = "pop-upgrade-gtk"
 version = "1.0.0"
 dependencies = [
- "apt-cmd 0.4.0",
+ "apt-cmd",
  "better-panic",
  "cascade 1.0.0",
  "chrono",
@@ -2897,13 +2779,14 @@ dependencies = [
 
 [[package]]
 name = "postage"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a63d25391d04a097954b76aba742b6b5b74f213dfe3dbaeeb36e8ddc1c657f0b"
+checksum = "af3fb618632874fb76937c2361a7f22afd393c982a2165595407edc75b06d3c1"
 dependencies = [
  "atomic",
  "crossbeam-queue",
  "log",
+ "parking_lot 0.12.0",
  "pin-project",
  "pollster",
  "static_assertions",
@@ -3203,15 +3086,6 @@ dependencies = [
  "base64",
  "bitflags 1.3.2",
  "serde",
-]
-
-[[package]]
-name = "rtrb"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "318256ac02f7e11a48a10339ba5dca8bd7eb17496abf384e8ea909bb2ae5275f"
-dependencies = [
- "cache-padded",
 ]
 
 [[package]]
@@ -3526,16 +3400,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "signal-hook"
-version = "0.3.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "647c97df271007dcea485bb74ffdb57f2e683f1306c854f468a0c244badabf2d"
-dependencies = [
- "libc",
- "signal-hook-registry",
-]
-
-[[package]]
 name = "signal-hook-registry"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3585,36 +3449,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "smolscale"
-version = "0.3.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b9571af063153b36a0de6fd9569c23d7b919886608d1d60558b8eaaa0b697d8"
-dependencies = [
- "anyhow",
- "async-channel",
- "async-executor",
- "async-io",
- "async-oneshot",
- "async-task",
- "backtrace",
- "cache-padded",
- "concurrent-queue",
- "crossbeam-deque",
- "event-listener",
- "fastrand",
- "futures-intrusive",
- "futures-lite",
- "log",
- "num_cpus",
- "once_cell",
- "pin-project-lite",
- "rtrb",
- "scopeguard",
- "slab",
- "thread_local",
 ]
 
 [[package]]
@@ -4648,6 +4482,7 @@ dependencies = [
  "serde_repr",
  "sha1",
  "static_assertions",
+ "tokio",
  "winapi",
  "zbus_macros",
  "zbus_names",
