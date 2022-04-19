@@ -501,6 +501,11 @@ fn terminate_background_applications() {
             }
         }
     }
+
+    let _ = std::process::Command::new("systemctl")
+        .arg("stop")
+        .arg("com.system76.SystemUpdater")
+        .status();
 }
 
 /// Update the release files and fetch packages for the new release.
