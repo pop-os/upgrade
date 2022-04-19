@@ -664,12 +664,14 @@ async fn fetch_packages(
             }
 
             apt_lock_wait().await;
-            AptGet::new()
+            if let Err(why) = AptGet::new()
                 .noninteractive()
                 .update()
                 .await
                 .context("failed to update source lists")
-                .map_err(ReleaseError::AptList)?;
+            {
+                info!("fetch_packages: {}", why);
+            }
         }
 
         result
