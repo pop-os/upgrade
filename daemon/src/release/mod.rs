@@ -234,7 +234,7 @@ where
         .delay_between_requests(100)
         .shutdown(shutdown.clone())
         .into_package_fetcher()
-        .concurrent(2)
+        .concurrent(1)
         .fetch(
             tokio_stream::wrappers::ReceiverStream::new(fetch_rx),
             Arc::from(Path::new(ARCHIVES)),
