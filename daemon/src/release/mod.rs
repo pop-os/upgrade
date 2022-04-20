@@ -174,7 +174,7 @@ impl From<UpgradeEvent> for &'static str {
 /// Get a list of APT URIs to fetch for this operation, and then fetch them.
 pub async fn apt_fetch(
     shutdown: Shutdown,
-    mut uris: HashSet<AptRequest, std::collections::hash_map::RandomState>,
+    uris: HashSet<AptRequest, std::collections::hash_map::RandomState>,
     func: &dyn Fn(FetchEvent),
 ) -> RelResult<()> {
     apt_lock_wait().await;
@@ -222,7 +222,7 @@ where
     const ARCHIVES: &str = "/var/cache/apt/archives/";
     const PARTIAL: &str = "/var/cache/apt/archives/partial/";
 
-    let (fetch_tx, fetch_rx) = tokio::sync::mpsc::channel(1);
+    let (fetch_tx, fetch_rx) = flume::unbounded();
 
     use apt_cmd::fetch::{EventKind, FetcherExt};
 
@@ -236,7 +236,7 @@ where
         .into_package_fetcher()
         .concurrent(1)
         .fetch(
-            tokio_stream::wrappers::ReceiverStream::new(fetch_rx),
+            fetch_rx.into_stream(),
             Arc::from(Path::new(ARCHIVES)),
         );
 
@@ -249,7 +249,7 @@ where
         }
 
         for request in uris {
-            let _ = fetch_tx.send(Arc::new(request)).await;
+            let _ = fetch_tx.send_async(Arc::new(request)).await;
         }
 
         Ok::<(), anyhow::Error>(())

@@ -60,6 +60,7 @@ whitespace-conf = "1.0.0"
 yansi = "0.5.1"
 isahc = "1.7.0"
 mimalloc = "0.1.28"
+flume = "0.10.12"
 
 [dependencies.apt-cmd]
 git = "https://github.com/pop-os/apt-cmd"

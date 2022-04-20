@@ -2607,6 +2607,7 @@ dependencies = [
  "envfile",
  "exec",
  "fern",
+ "flume",
  "fomat-macros",
  "futures",
  "futures-util",
