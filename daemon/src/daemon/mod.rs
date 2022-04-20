@@ -209,10 +209,7 @@ impl Daemon {
                         FetchEvent::Init(total) => {
                             shared_state.fetching_state.store((0, total as u64), Ordering::SeqCst);
                         }
-                        FetchEvent::Retrying(_uri) => {
-                            let (current, npackages) = shared_state.fetching_state.load(Ordering::SeqCst);
-                            shared_state.fetching_state.store((current - 1, npackages), Ordering::SeqCst);
-                        }
+                        FetchEvent::Retrying(_uri) => (),
                     }
                 });
 
