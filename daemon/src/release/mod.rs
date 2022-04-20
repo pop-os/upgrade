@@ -13,7 +13,10 @@ pub use self::{
     check::{BuildStatus, ReleaseStatus},
     errors::{RelResult, ReleaseError},
 };
-use crate::repair::{self, RepairError};
+use crate::{
+    fetch::apt::ExtraPackages,
+    repair::{self, RepairError},
+};
 
 use anyhow::Context;
 use apt_cmd::{
@@ -169,16 +172,11 @@ impl From<UpgradeEvent> for &'static str {
 }
 
 /// Get a list of APT URIs to fetch for this operation, and then fetch them.
-pub async fn apt_fetch<H: Clone + Send + 'static>(
+pub async fn apt_fetch(
     shutdown: Shutdown,
-    uris: HashSet<AptRequest, H>,
+    mut uris: HashSet<AptRequest, std::collections::hash_map::RandomState>,
     func: &dyn Fn(FetchEvent),
-) -> RelResult<()>
-where
-    H: std::hash::BuildHasher,
-{
-    (*func)(FetchEvent::Init(uris.len()));
-
+) -> RelResult<()> {
     apt_lock_wait().await;
     let _lock_files = hold_apt_locks()?;
 
@@ -186,10 +184,13 @@ where
         let mut result = Ok(());
 
         for _ in 0..3 {
-            let uris = uris.clone();
-            result = apt_fetch_(shutdown.clone(), uris, func).await;
-            if result.is_ok() {
-                break;
+            (*func)(FetchEvent::Init(uris.len()));
+            result = apt_fetch_(shutdown.clone(), uris.clone(), func).await;
+            match result {
+                Ok(()) => break,
+                Err(ref why) => {
+                    error!("package fetching failed: {}", why);
+                }
             }
         }
 
@@ -229,7 +230,7 @@ where
     let (fetcher, mut events) = async_fetcher::Fetcher::default()
         .retries(3)
         .connections_per_file(1)
-        .timeout(std::time::Duration::from_secs(5))
+        .timeout(std::time::Duration::from_secs(15))
         .shutdown(shutdown.clone())
         .into_package_fetcher()
         .concurrent(2)
@@ -469,7 +470,6 @@ pub async fn upgrade<'a>(
     (*logger)(UpgradeEvent::FetchingPackages);
 
     // Fetch apt packages and retry if network connections are changed.
-    use crate::fetch::apt::ExtraPackages;
     let packages = Some(ExtraPackages::Static(CORE_PACKAGES));
     let uris = crate::fetch::apt::fetch_uris(Shutdown::new(), packages)
         .await
