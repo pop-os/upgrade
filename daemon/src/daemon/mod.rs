@@ -717,8 +717,6 @@ impl Daemon {
                 |_ctx: &mut Context, daemon: &mut Daemon, _inputs: ()| {
                     let status = daemon.shared_state.status.load(Ordering::SeqCst) as u8;
                     let sub_status = daemon.shared_state.sub_status.load(Ordering::SeqCst) as u8;
-
-                    debug!("status {}:{}", status, sub_status);
                     Ok((status, sub_status))
                 },
             );
