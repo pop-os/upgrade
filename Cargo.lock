@@ -95,7 +95,7 @@ dependencies = [
 [[package]]
 name = "async-cron-scheduler"
 version = "1.0.0"
-source = "git+https://github.com/pop-os/system-updater?branch=system-updater#1072703a86f78d870f0cf107b5b6878a0add1419"
+source = "git+https://github.com/pop-os/system-updater?branch=master#1072703a86f78d870f0cf107b5b6878a0add1419"
 dependencies = [
  "chrono",
  "cron",
@@ -2528,7 +2528,7 @@ checksum = "5da3b0203fd7ee5720aa0b5e790b591aa5d3f41c3ed2c34a3a393382198af2f7"
 [[package]]
 name = "pop-system-updater"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/system-updater?branch=system-updater#1072703a86f78d870f0cf107b5b6878a0add1419"
+source = "git+https://github.com/pop-os/system-updater?branch=master#1072703a86f78d870f0cf107b5b6878a0add1419"
 dependencies = [
  "anyhow",
  "apt-cmd",
@@ -2561,7 +2561,7 @@ dependencies = [
 [[package]]
 name = "pop-system-updater-gtk"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/system-updater?branch=system-updater#1072703a86f78d870f0cf107b5b6878a0add1419"
+source = "git+https://github.com/pop-os/system-updater?branch=master#1072703a86f78d870f0cf107b5b6878a0add1419"
 dependencies = [
  "cascade 1.0.0",
  "chrono",
