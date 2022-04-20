@@ -44,7 +44,7 @@ checksum = "4361135be9122e0870de935d7c439aef945b9f9ddd4199a553b5270b49c82a27"
 [[package]]
 name = "apt-cmd"
 version = "0.4.0"
-source = "git+https://github.com/pop-os/apt-cmd#9d0204b4ae6f2c59eab9f8dcd430fd9ffdedd10b"
+source = "git+https://github.com/pop-os/apt-cmd#f2b068739c70bc56b5c906e369b297537733ac41"
 dependencies = [
  "anyhow",
  "as-result",
@@ -122,7 +122,7 @@ dependencies = [
 [[package]]
 name = "async-fetcher"
 version = "0.9.0"
-source = "git+https://github.com/pop-os/async-fetcher#eef32263fa1c54e756b0b961ca1a9d4b957565e2"
+source = "git+https://github.com/pop-os/async-fetcher#41c991b8a2f9e19a9c184291353a0c231d222327"
 dependencies = [
  "async-shutdown",
  "derive-new",
