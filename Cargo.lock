@@ -95,7 +95,7 @@ dependencies = [
 [[package]]
 name = "async-cron-scheduler"
 version = "1.0.0"
-source = "git+https://github.com/pop-os/system-updater?branch=system-updater#94fe57d7aeb936a35e8ea4a2e785a4d9472bf53c"
+source = "git+https://github.com/pop-os/system-updater?branch=system-updater#1072703a86f78d870f0cf107b5b6878a0add1419"
 dependencies = [
  "chrono",
  "cron",
@@ -122,7 +122,7 @@ dependencies = [
 [[package]]
 name = "async-fetcher"
 version = "0.9.0"
-source = "git+https://github.com/pop-os/async-fetcher#41c991b8a2f9e19a9c184291353a0c231d222327"
+source = "git+https://github.com/pop-os/async-fetcher#41e6f2451be828a30e593037213a06b3dee0b86c"
 dependencies = [
  "async-shutdown",
  "derive-new",
@@ -2528,13 +2528,12 @@ checksum = "5da3b0203fd7ee5720aa0b5e790b591aa5d3f41c3ed2c34a3a393382198af2f7"
 [[package]]
 name = "pop-system-updater"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/system-updater?branch=system-updater#94fe57d7aeb936a35e8ea4a2e785a4d9472bf53c"
+source = "git+https://github.com/pop-os/system-updater?branch=system-updater#1072703a86f78d870f0cf107b5b6878a0add1419"
 dependencies = [
  "anyhow",
  "apt-cmd",
  "as-result",
  "async-cron-scheduler",
- "async-fetcher",
  "async-stream",
  "better-panic",
  "bytesize",
@@ -2562,7 +2561,7 @@ dependencies = [
 [[package]]
 name = "pop-system-updater-gtk"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/system-updater?branch=system-updater#94fe57d7aeb936a35e8ea4a2e785a4d9472bf53c"
+source = "git+https://github.com/pop-os/system-updater?branch=system-updater#1072703a86f78d870f0cf107b5b6878a0add1419"
 dependencies = [
  "cascade 1.0.0",
  "chrono",
