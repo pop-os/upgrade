@@ -174,27 +174,38 @@ impl From<UpgradeEvent> for &'static str {
 /// Get a list of APT URIs to fetch for this operation, and then fetch them.
 pub async fn apt_fetch(
     shutdown: Shutdown,
-    uris: HashSet<AptRequest, std::collections::hash_map::RandomState>,
+    mut uris: HashSet<AptRequest, std::collections::hash_map::RandomState>,
     func: &dyn Fn(FetchEvent),
 ) -> RelResult<()> {
     apt_lock_wait().await;
     let _lock_files = hold_apt_locks()?;
 
     let task = async {
-        let mut result = Ok(());
+        let mut result = Ok(HashSet::new());
 
         for _ in 0..3 {
             (*func)(FetchEvent::Init(uris.len()));
+
             result = apt_fetch_(shutdown.clone(), uris.clone(), func).await;
-            match result {
-                Ok(()) => break,
-                Err(ref why) => {
+
+            match result.as_mut() {
+                Ok(borrowed) => {
+                    let mut errored = HashSet::new();
+
+                    std::mem::swap(&mut errored, borrowed);
+                    if errored.is_empty() {
+                        break;
+                    }
+
+                    uris = errored;
+                }
+                Err(why) => {
                     error!("package fetching failed: {}", why);
                 }
             }
         }
 
-        result
+        result.map(|_| ())
     };
 
     let cancel = async {
@@ -211,20 +222,19 @@ pub async fn apt_fetch(
     result
 }
 
-async fn apt_fetch_<H: Send + 'static>(
+async fn apt_fetch_(
     shutdown: Shutdown,
-    uris: HashSet<AptRequest, H>,
+    uris: HashSet<AptRequest, std::collections::hash_map::RandomState>,
     func: &dyn Fn(FetchEvent),
-) -> RelResult<()>
-where
-    H: std::hash::BuildHasher,
-{
+) -> Result<HashSet<AptRequest, std::collections::hash_map::RandomState>, ReleaseError> {
     const ARCHIVES: &str = "/var/cache/apt/archives/";
     const PARTIAL: &str = "/var/cache/apt/archives/partial/";
 
     let (fetch_tx, fetch_rx) = flume::unbounded();
 
     use apt_cmd::fetch::{EventKind, FetcherExt};
+
+    let mut errored = HashSet::new();
 
     // The system which fetches packages we send requests to
     let (fetcher, mut events) = async_fetcher::Fetcher::default()
@@ -235,10 +245,9 @@ where
         .shutdown(shutdown.clone())
         .into_package_fetcher()
         .concurrent(1)
-        .fetch(
-            fetch_rx.into_stream(),
-            Arc::from(Path::new(ARCHIVES)),
-        );
+        .fetch(fetch_rx.into_stream(), Arc::from(Path::new(ARCHIVES)));
+
+    tokio::spawn(fetcher);
 
     // The system which sends package-fetching requests
     let sender = tokio::spawn(async move {
@@ -258,7 +267,7 @@ where
     let sender = async move { sender.await.unwrap() };
 
     // The system that handles events received from the package-fetcher
-    let receiver = async move {
+    let receiver = async {
         while let Some(event) = events.recv().await {
             match event.kind {
                 EventKind::Fetching => {
@@ -271,7 +280,7 @@ where
 
                 EventKind::Error(why) => {
                     error!("{}: fetch error: {:?}", event.package.name, why);
-                    return Err(why).context("package fetching failed");
+                    errored.insert(event.package.as_ref().clone());
                 }
 
                 EventKind::Fetched => (),
@@ -286,12 +295,8 @@ where
         Ok::<(), anyhow::Error>(())
     };
 
-    let fetcher = async move {
-        fetcher.await;
-        Ok(())
-    };
-
-    futures::try_join!(fetcher, sender, receiver).map(|_| ()).map_err(ReleaseError::PackageFetch)
+    let _ = futures::try_join!(sender, receiver).map(|_| ()).map_err(ReleaseError::PackageFetch)?;
+    Ok(errored)
 }
 
 /// Check if release files can be upgraded, and then overwrite them with the new release.
