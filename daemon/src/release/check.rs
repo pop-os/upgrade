@@ -124,7 +124,7 @@ async fn next_<Check: Fn(String) -> Status, Status: Future<Output = BuildStatus>
     };
 
     // Disables any form of upgrades from occurring on this release
-    let blacklisted = |is_lts: bool, current: &'static str, next: &'static str| async move {
+    let blocked = |is_lts: bool, current: &'static str, next: &'static str| async move {
         ReleaseStatus { build: BuildStatus::Blacklisted, current, is_lts, next }
     };
 
@@ -137,17 +137,15 @@ async fn next_<Check: Fn(String) -> Status, Status: Future<Output = BuildStatus>
 
     match (current.major, current.minor) {
         (18, 4) => available(true, BIONIC, FOCAL).await,
-        (20, 4) => {
-            if development {
-                development_enabled(true, FOCAL, JAMMY).await
-            } else {
-                available(true, FOCAL, IMPISH).await
-            }
-        }
+        (20, 4) => available(true, FOCAL, JAMMY).await,
         (20, 10) => available(false, GROOVY, HIRSUTE).await,
         (21, 4) => available(false, HIRSUTE, IMPISH).await,
-        (21, 10) => development_enabled(false, IMPISH, JAMMY).await,
-        (22, 4) => blacklisted(true, JAMMY, UNKNOWN).await,
+        (21, 10) => if cfg!(target_arch = "x86_64") {
+            available(false, IMPISH, JAMMY).await
+        } else {
+            development_enabled(false, IMPISH, JAMMY).await
+        },
+        (22, 4) => blocked(true, JAMMY, UNKNOWN).await,
         _ => panic!("this version of pop-upgrade is not supported on this release"),
     }
 }
