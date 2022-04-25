@@ -173,6 +173,10 @@ apt_install_prereq () {
     if package_exists libmount1:i386; then
         packages+=($(candidate libmount1:i386))
     fi
+    
+    if package_exists libselinux1:i386; then
+        packages+=($(candidate libselinux1:i386))
+    fi
 
     if ! grep 18.04 /etc/os-release; then
         packages+=($(candidate libglib2.0-0) $(candidate ppp) \
