@@ -241,10 +241,9 @@ async fn apt_fetch_(
         .retries(3)
         .connections_per_file(1)
         .timeout(std::time::Duration::from_secs(15))
-        .delay_between_requests(100)
         .shutdown(shutdown.clone())
         .into_package_fetcher()
-        .concurrent(1)
+        .concurrent(2)
         .fetch(fetch_rx.into_stream(), Arc::from(Path::new(ARCHIVES)));
 
     tokio::spawn(fetcher);
