@@ -328,16 +328,23 @@ fn update_preferences_script(release: &str) -> anyhow::Result<()> {
 }
 
 fn system_sources(release: &str) -> String {
+    let ubuntu_mirror = if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        "http://us.archive.ubuntu.com/ubuntu/"
+    } else {
+        "http://ports.ubuntu.com/ubuntu-ports/"
+    };
+
     format!(
         r#"X-Repolib-Name: Pop_OS System Sources
 Enabled: yes
 Types: deb deb-src
-URIs: http://us.archive.ubuntu.com/ubuntu/
+URIs: {1}
 Suites: {0} {0}-security {0}-updates {0}-backports
 Components: main restricted universe multiverse
-X-Repolib-Default-Mirror: http://us.archive.ubuntu.com/ubuntu/
+X-Repolib-Default-Mirror: {1}
 "#,
-        release
+        release,
+        ubuntu_mirror,
     )
 }
 
