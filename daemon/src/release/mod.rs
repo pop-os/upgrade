@@ -587,9 +587,9 @@ async fn fetch_new_release_packages<'b>(
         (logger)(UpgradeEvent::UpdatingPackageLists);
         AptGet::new().noninteractive().update().await.map_err(ReleaseError::ReleaseUpdate)?;
 
-        snapd::hold_transitional_packages().await?;
-
         attempt_fetch(&Shutdown::new(), logger, fetch).await?;
+
+        snapd::hold_transitional_packages().await?;
 
         info!("packages fetched successfully");
 
