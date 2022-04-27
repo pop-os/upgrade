@@ -38,4 +38,3 @@ yansi = "0.5.1"
 
 [dependencies.pop-system-updater-gtk]
 git = "https://github.com/pop-os/system-updater"
-branch = "upgrade"
