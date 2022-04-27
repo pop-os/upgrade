@@ -410,6 +410,9 @@ pub async fn upgrade<'a>(
 ) -> RelResult<()> {
     terminate_background_applications();
 
+    // Unhold all held packages
+    unhold_all().await;
+
     let from_version = from.parse::<Version>().expect("invalid version");
     let from_codename = Codename::try_from(from_version).expect("release doesn't have a codename");
 
@@ -701,4 +704,22 @@ fn codename_from_version(version: &str) -> &str {
         .and_then(|x| Codename::try_from(x).ok())
         .map(<&'static str>::from)
         .unwrap_or(version)
+}
+
+/// apt-mark unhold all held packages.
+async fn unhold_all() {
+    if let Ok(output) = tokio::process::Command::new("apt-mark")
+        .arg("showhold")
+        .output()
+        .await
+    {
+        if let Ok(output) = String::from_utf8(output.stdout) {
+            let mut packages = Vec::new();
+            for line in output.lines() {
+                packages.push(line);
+            }
+
+            let _ = AptMark::new().unhold(&packages).await;
+        }
+    }
 }
