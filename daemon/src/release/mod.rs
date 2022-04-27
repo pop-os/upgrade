@@ -463,7 +463,10 @@ pub async fn upgrade<'a>(
     if !conflicting.is_empty() {
         apt_lock_wait().await;
         (logger)(UpgradeEvent::RemovingConflicts);
-        crate::misc::apt_get().remove(conflicting).await.map_err(ReleaseError::ConflictRemoval)?;
+        let mut apt_get = crate::misc::apt_get();
+
+        apt_get.arg("--auto-remove");
+        apt_get.remove(conflicting).await.map_err(ReleaseError::ConflictRemoval)?;
     }
 
     // Update the package lists for the current release.

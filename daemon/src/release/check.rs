@@ -140,11 +140,13 @@ async fn next_<Check: Fn(String) -> Status, Status: Future<Output = BuildStatus>
         (20, 4) => available(true, FOCAL, JAMMY).await,
         (20, 10) => available(false, GROOVY, HIRSUTE).await,
         (21, 4) => available(false, HIRSUTE, IMPISH).await,
-        (21, 10) => if cfg!(target_arch = "x86_64") {
-            available(false, IMPISH, JAMMY).await
-        } else {
-            development_enabled(false, IMPISH, JAMMY).await
-        },
+        (21, 10) => {
+            if cfg!(target_arch = "x86_64") {
+                available(false, IMPISH, JAMMY).await
+            } else {
+                development_enabled(false, IMPISH, JAMMY).await
+            }
+        }
         (22, 4) => blocked(true, JAMMY, UNKNOWN).await,
         _ => panic!("this version of pop-upgrade is not supported on this release"),
     }
