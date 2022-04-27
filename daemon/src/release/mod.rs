@@ -46,8 +46,9 @@ pub const STARTUP_UPGRADE_FILE: &str = "/pop-upgrade";
 /// - `gnome-software` conflicts with `pop-desktop` and its `sessioninstaller` dependency
 /// - `ureadahead` was deprecated and removed from the repositories
 /// - `update-notifier-common` breaks debconf and it's not part of a Pop install
+/// - `nodejs` may have some dependencies which are unmet on 22.04
 const REMOVE_PACKAGES: &[&str] =
-    &["irqbalance", "ureadahead", "backport-iwlwifi-dkms", "update-notifier-common"];
+    &["irqbalance", "ureadahead", "backport-iwlwifi-dkms", "update-notifier-common", "nodejs"];
 
 /// Packages which should be installed before upgrading.
 ///
