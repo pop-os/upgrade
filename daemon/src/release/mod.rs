@@ -45,7 +45,9 @@ pub const STARTUP_UPGRADE_FILE: &str = "/pop-upgrade";
 ///
 /// - `gnome-software` conflicts with `pop-desktop` and its `sessioninstaller` dependency
 /// - `ureadahead` was deprecated and removed from the repositories
-const REMOVE_PACKAGES: &[&str] = &["irqbalance", "ureadahead", "backport-iwlwifi-dkms"];
+/// - `update-notifier-common` breaks debconf and it's not part of a Pop install
+const REMOVE_PACKAGES: &[&str] =
+    &["irqbalance", "ureadahead", "backport-iwlwifi-dkms", "update-notifier-common"];
 
 /// Packages which should be installed before upgrading.
 ///
