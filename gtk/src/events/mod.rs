@@ -123,7 +123,7 @@ impl EventWidgets {
     }
 }
 
-pub async fn on_event(widgets: &mut EventWidgets, state: &mut State, event: UiEvent) {
+pub async fn on_event(widgets: &mut EventWidgets, state: &mut State, event: UiEvent) -> bool {
     debug!("{:?}", event);
     match event {
         UiEvent::Progress(event) => match event {
@@ -183,9 +183,9 @@ pub async fn on_event(widgets: &mut EventWidgets, state: &mut State, event: UiEv
 
         // Events pertaining to the upgrade section
         UiEvent::Upgrade(event) => match event {
-            OsUpgradeEvent::Cancelled => cancelled_upgrade(state, &widgets),
+            OsUpgradeEvent::Cancelled => cancelled_upgrade(state, widgets),
 
-            OsUpgradeEvent::Dialog => release_upgrade_dialog(state, &widgets),
+            OsUpgradeEvent::Dialog => release_upgrade_dialog(state, widgets),
 
             OsUpgradeEvent::Dismissed(dismissed) => {
                 info!("{} release", if dismissed { "dismissed" } else { "un-dismissed" });
@@ -207,7 +207,7 @@ pub async fn on_event(widgets: &mut EventWidgets, state: &mut State, event: UiEv
 
             OsUpgradeEvent::Notification => (state.callback_ready.borrow())(),
 
-            OsUpgradeEvent::Upgrade => upgrade_clicked(state, &widgets),
+            OsUpgradeEvent::Upgrade => upgrade_clicked(state, widgets),
         },
 
         UiEvent::Updating => {
@@ -248,12 +248,12 @@ pub async fn on_event(widgets: &mut EventWidgets, state: &mut State, event: UiEv
                 }
             }
 
-            OsRecoveryEvent::Update => recovery::clicked(state, &widgets),
+            OsRecoveryEvent::Update => recovery::clicked(state, widgets),
         },
 
         UiEvent::Completed(event) => match event {
             CompletedEvent::Download => {
-                download_complete(state, &widgets);
+                download_complete(state, widgets);
             }
 
             CompletedEvent::Recovery(enable_refresh) => {
@@ -269,7 +269,7 @@ pub async fn on_event(widgets: &mut EventWidgets, state: &mut State, event: UiEv
 
             CompletedEvent::Scan(event) => {
                 widgets.stack.set_visible_child_name("updated");
-                scan_event(state, &widgets, event);
+                scan_event(state, widgets, event);
             }
         },
 
@@ -278,12 +278,14 @@ pub async fn on_event(widgets: &mut EventWidgets, state: &mut State, event: UiEv
             let _ = state.sender.send(BackgroundEvent::GetStatus(from));
         }
 
-        UiEvent::Error(why) => error(state, &widgets, &why),
+        UiEvent::Error(why) => error(state, widgets, &why),
 
         UiEvent::WaitingOnLock => (),
 
-        UiEvent::Shutdown => return,
+        UiEvent::Shutdown => return false,
     }
+
+    true
 }
 
 /// On a cancelled upgrade, reset the widget to its pre-upgrade status.
