@@ -24,7 +24,7 @@ impl DialogTemplate {
         let accept = cascade! {
             gtk::Button::with_label(accept);
             ..style_context().add_class(accept_style);
-            ..style_context().add_class(&accept_style);
+            ..style_context().add_class(accept_style);
         };
 
         let dialog = gtk::Dialog::builder()
