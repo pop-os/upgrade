@@ -18,7 +18,7 @@
 * Pop!_OS System Updater
 ** New options for installing updates are now available in Settings > OS Upgrade and Recovery.
     ** To reduce distractions, update notifications are now set to show weekly and can be set to daily or monthly.
-    ** Updates can be scheduled and installed automatically (includes Debian, Flatpak, and *nix packages).
+    ** Updates can be scheduled and installed automatically (includes Debian, Flatpak, and Nix packages).
 ** The Pop upgrade service will now only be active when checking for release upgrades and doing a release upgrade, instead of being active 24/7.
 ** Pop upgrade Debian package downloads are now resumable.
 
