@@ -47,8 +47,14 @@ pub const STARTUP_UPGRADE_FILE: &str = "/pop-upgrade";
 /// - `ureadahead` was deprecated and removed from the repositories
 /// - `update-notifier-common` breaks debconf and it's not part of a Pop install
 /// - `nodejs` may have some dependencies which are unmet on 22.04
-const REMOVE_PACKAGES: &[&str] =
-    &["irqbalance", "ureadahead", "backport-iwlwifi-dkms", "update-notifier-common", "nodejs"];
+const REMOVE_PACKAGES: &[&str] = &[
+    "irqbalance",
+    "ureadahead",
+    "backport-iwlwifi-dkms",
+    "update-notifier-common",
+    "nodejs",
+    "ttf-mscorefonts-installer",
+];
 
 /// Packages which should be installed before upgrading.
 ///
@@ -708,11 +714,7 @@ fn codename_from_version(version: &str) -> &str {
 
 /// apt-mark unhold all held packages.
 async fn unhold_all() {
-    if let Ok(output) = tokio::process::Command::new("apt-mark")
-        .arg("showhold")
-        .output()
-        .await
-    {
+    if let Ok(output) = tokio::process::Command::new("apt-mark").arg("showhold").output().await {
         if let Ok(output) = String::from_utf8(output.stdout) {
             let mut packages = Vec::new();
             for line in output.lines() {
