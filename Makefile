@@ -21,8 +21,8 @@ ifeq ($(DEBUG),0)
 	TARGET = release
 endif
 
-VENDORED ?= 0
-ifeq ($(VENDORED),1)
+VENDOR ?= 0
+ifeq ($(VENDOR),1)
 	ARGS += "--frozen" "--offline"
 endif
 
@@ -52,7 +52,7 @@ vendor:
 	rm -rf vendor
 
 extract-vendor:
-ifeq ($(VENDORED),1)
+ifeq ($(VENDOR),1)
 	rm -rf vendor; tar pxf vendor.tar
 endif
 
