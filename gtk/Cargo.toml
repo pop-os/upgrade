@@ -16,9 +16,9 @@ enclose = "1.1.8"
 fern = "0.6.0"
 flume = "0.10.12"
 fomat-macros = "0.3.1"
-gio = "0.15.10"
-glib = "0.15.10"
-gtk = { version = "0.15.4", features = [ "v3_22" ] }
+gio = "0.15.11"
+glib = "0.15.11"
+gtk = { version = "0.15.5", features = [ "v3_22" ] }
 i18n-embed = { version = "0.13.4", features = ["fluent-system", "desktop-requester"] }
 i18n-embed-fl = "0.6.4"
 log = "0.4.16"
@@ -35,6 +35,7 @@ ubuntu-version = "0.2.5"
 upower_dbus = "0.1.0"
 users = "0.11.0"
 yansi = "0.5.1"
+gtk-sys = "0.15.3"
 
-[dependencies.pop-system-updater-gtk]
-git = "https://github.com/pop-os/system-updater"
+[build-dependencies]
+pkg-config = "0.3.25"

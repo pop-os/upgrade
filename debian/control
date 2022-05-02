@@ -12,6 +12,7 @@ Build-Depends:
   libparted-dev,
   libparted-fs-resize0,
   libssl-dev,
+  libpop-system-updater-gtk-dev,
   rustc (>=1.36)
 Standards-Version: 4.1.1
 Homepage: https://github.com/pop-os/upgrade
@@ -28,6 +29,7 @@ Description: Utility for performing system upgrades on Pop!_OS
 Package: libpop-upgrade-gtk
 Architecture: amd64 arm64
 Depends:
+  libpop-system-updater-gtk,
   pop-upgrade (= ${binary:Version}),
   ${shlibs:Depends}
 Description: The Pop upgrade experience as a GTK widget in a dylib
