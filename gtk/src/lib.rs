@@ -127,17 +127,27 @@ impl UpgradeWidget {
             .hexpand(true)
             .build();
 
-        let updates_widget = pop_system_updater_gtk::SettingsWidget::new();
-
         let container = cascade! {
-            gtk::Box::new(gtk::Orientation::Vertical, 12);
+            let container = gtk::Box::new(gtk::Orientation::Vertical, 12);
             ..add(&upgrade.label);
             ..add(&upgrade.frame);
             ..add(&recovery.label);
             ..add(&recovery.frame);
             ..add(&updates_label);
-            ..add(&updates_widget.inner);
-            ..show_all();
+            unsafe {
+                extern "C" {
+                    pub fn pop_system_updater_attach(container: *mut gtk_sys::GtkContainer);
+                    pub fn pop_system_updater_localize();
+                }
+
+                use glib::translate::ToGlibPtr;
+                let container: &gtk::Container = container.upcast_ref();
+                let container = container.to_glib_none();
+
+                pop_system_updater_localize();
+                pop_system_updater_attach(container.0);
+            };
+            container.show_all();
         };
 
         let stack = cascade! {
