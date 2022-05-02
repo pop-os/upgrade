@@ -453,7 +453,7 @@ pub async fn upgrade<'a>(
         repos::replace_with_old_releases().map_err(ReleaseError::OldReleaseSwitch)?;
     }
 
-    let conflicting = (async {
+    let mut conflicting = (async {
         let (mut child, package_stream) = DpkgQuery::new().show_installed(REMOVE_PACKAGES).await?;
 
         futures_util::pin_mut!(package_stream);
@@ -471,6 +471,11 @@ pub async fn upgrade<'a>(
     })
     .await
     .map_err(ReleaseError::ConflictRemoval)?;
+
+    // Add packages which have no remote to the conflict list
+    if let Ok(packages) = apt_cmd::apt::remoteless_packages().await {
+        conflicting.extend_from_slice(&packages);
+    }
 
     if !conflicting.is_empty() {
         apt_lock_wait().await;
