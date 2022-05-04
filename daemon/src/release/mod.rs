@@ -633,8 +633,13 @@ async fn simulate_upgrade() -> RelResult<()> {
     crate::misc::apt_get().simulate().upgrade().await.map_err(ReleaseError::Simulation)
 }
 
-/// Currently not a supported path
 pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResult<()> {
+    // Ensure that the splash kernel option is enabled in case it was removed.
+    // This kernel option is required to show the Plymouth splash on next boot.
+    if Path::new("/usr/bin/kernelstub").exists() {
+        let _res = std::process::Command::new("kernelstub").arg("-a").arg("splash").status();
+    }
+
     match action {
         UpgradeMethod::Offline => systemd::upgrade_set(from, to),
     }
