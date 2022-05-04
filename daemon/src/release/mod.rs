@@ -407,7 +407,7 @@ pub async fn package_upgrade<C: Fn(AptUpgradeEvent)>(callback: C) -> RelResult<(
 /// new release, and then setting the recovery partition as the default boot entry.
 #[allow(clippy::too_many_arguments)]
 pub async fn upgrade<'a>(
-    action: UpgradeMethod,
+    _action: UpgradeMethod,
     from: &'a str,
     to: &'a str,
     logger: &'a dyn Fn(UpgradeEvent),
@@ -423,15 +423,59 @@ pub async fn upgrade<'a>(
     let from_codename = Codename::try_from(from_version).expect("release doesn't have a codename");
 
     // Ensure that prerequest files and mounts are available.
-    match action {
-        UpgradeMethod::Offline => systemd::upgrade_prereq()?,
-    }
+    systemd::upgrade_prereq()?;
 
     let _ = AptMark::new().hold(&["pop-upgrade", "pop-system-updater"]).await;
 
     let version = codename_from_version(from);
 
     // Check the system and perform any repairs necessary for success.
+    autorepair(version).await?;
+
+    info!("creating backup of source lists");
+    repos::backup(version).await.map_err(ReleaseError::BackupPPAs)?;
+
+    // Old releases need a workaround to change their source URIs.
+    old_releases_workaround(version, from_codename).await?;
+
+    // Update the current release's package lists.
+    (logger)(UpgradeEvent::UpdatingPackageLists);
+    update_package_lists().await?;
+
+    // Remove packages that may conflict with the upgrade.
+    remove_conflicting_packages(logger).await?;
+
+    // Upgrade the current release to the latest packages.
+    (*logger)(UpgradeEvent::UpgradingPackages);
+    fetch_current_updates(fetch).await?;
+
+    // Fetch required packages for upgrading the current release.
+    (*logger)(UpgradeEvent::FetchingPackages);
+    package_upgrade(upgrade).await?;
+
+    (logger)(UpgradeEvent::InstallingPackages);
+    install_essential_packages().await?;
+
+    // Apply any fixes necessary before the upgrade.
+    repair::pre_upgrade().map_err(ReleaseError::PreUpgrade)?;
+    let _ = AptMark::new().unhold(&["pop-upgrade", "pop-system-updater"]).await;
+
+    // Update the source lists to the new release,
+    // then fetch the packages required for the upgrade.
+    fetch_new_release_packages(logger, fetch, from, to).await?;
+
+    if let Err(why) = crate::gnome_extensions::disable() {
+        error!(
+            "failed to disable gnome-shell extensions: {}",
+            crate::misc::format_error(why.as_ref())
+        );
+    }
+
+    (*logger)(UpgradeEvent::Success);
+    Ok(())
+}
+
+async fn autorepair(version: &str) -> Result<(), ReleaseError> {
     (async move {
         repair::crypttab::repair().map_err(RepairError::Crypttab)?;
         repair::fstab::repair().map_err(RepairError::Fstab)?;
@@ -440,24 +484,43 @@ pub async fn upgrade<'a>(
         Ok(())
     })
     .await
-    .map_err(ReleaseError::Repair)?;
+    .map_err(ReleaseError::Repair)
+}
 
-    info!("creating backup of source lists");
-    repos::backup(version).await.map_err(ReleaseError::BackupPPAs)?;
+async fn install_essential_packages() -> Result<(), ReleaseError> {
+    apt_lock_wait().await;
+    crate::misc::apt_get().install(CORE_PACKAGES).await.map_err(ReleaseError::InstallCore)
+}
 
+/// Update the package lists for the current release.
+async fn update_package_lists() -> Result<(), ReleaseError> {
+    apt_lock_wait().await;
+    AptGet::new().noninteractive().update().await.map_err(ReleaseError::CurrentUpdate)
+}
+
+/// Fetch apt packages and retry if network connections are changed.
+async fn fetch_current_updates(fetch: &dyn Fn(FetchEvent)) -> Result<(), ReleaseError> {
+    let packages = Some(ExtraPackages::Static(CORE_PACKAGES));
+    let uris = crate::fetch::apt::fetch_uris(Shutdown::new(), packages)
+        .await
+        .map_err(ReleaseError::AptList)?;
+
+    apt_fetch(Shutdown::new(), uris, fetch).await
+}
+
+async fn old_releases_workaround(version: &str, codename: Codename) -> Result<(), ReleaseError> {
     info!("disabling third party sources");
     repos::disable_third_parties(version).await.map_err(ReleaseError::DisablePPAs)?;
 
-    if repos::is_old_release(<&'static str>::from(from_codename)).await {
+    if repos::is_old_release(<&'static str>::from(codename)).await {
         info!("switching to old-releases repositories");
         repos::replace_with_old_releases().map_err(ReleaseError::OldReleaseSwitch)?;
     }
 
-    // Update the package lists for the current release.
-    apt_lock_wait().await;
-    (logger)(UpgradeEvent::UpdatingPackageLists);
-    AptGet::new().noninteractive().update().await.map_err(ReleaseError::CurrentUpdate)?;
+    Ok(())
+}
 
+async fn remove_conflicting_packages(logger: &dyn Fn(UpgradeEvent)) -> Result<(), ReleaseError> {
     let mut conflicting = (async {
         let (mut child, package_stream) = DpkgQuery::new().show_installed(REMOVE_PACKAGES).await?;
 
@@ -491,42 +554,6 @@ pub async fn upgrade<'a>(
         apt_get.remove(conflicting).await.map_err(ReleaseError::ConflictRemoval)?;
     }
 
-    // Fetch required packages for upgrading the current release.
-    (*logger)(UpgradeEvent::FetchingPackages);
-
-    // Fetch apt packages and retry if network connections are changed.
-    let packages = Some(ExtraPackages::Static(CORE_PACKAGES));
-    let uris = crate::fetch::apt::fetch_uris(Shutdown::new(), packages)
-        .await
-        .map_err(ReleaseError::AptList)?;
-
-    apt_fetch(Shutdown::new(), uris, fetch).await?;
-
-    // Upgrade the current release to the latest packages.
-    (*logger)(UpgradeEvent::UpgradingPackages);
-    package_upgrade(upgrade).await?;
-
-    apt_lock_wait().await;
-    (logger)(UpgradeEvent::InstallingPackages);
-    crate::misc::apt_get().install(CORE_PACKAGES).await.map_err(ReleaseError::InstallCore)?;
-
-    // Apply any fixes necessary before the upgrade.
-    repair::pre_upgrade().map_err(ReleaseError::PreUpgrade)?;
-
-    let _ = AptMark::new().unhold(&["pop-upgrade", "pop-system-updater"]).await;
-
-    // Update the source lists to the new release,
-    // then fetch the packages required for the upgrade.
-    fetch_new_release_packages(logger, fetch, from, to).await?;
-
-    if let Err(why) = crate::gnome_extensions::disable() {
-        error!(
-            "failed to disable gnome-shell extensions: {}",
-            crate::misc::format_error(why.as_ref())
-        );
-    }
-
-    (*logger)(UpgradeEvent::Success);
     Ok(())
 }
 
