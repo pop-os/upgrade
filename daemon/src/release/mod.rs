@@ -453,6 +453,11 @@ pub async fn upgrade<'a>(
         repos::replace_with_old_releases().map_err(ReleaseError::OldReleaseSwitch)?;
     }
 
+    // Update the package lists for the current release.
+    apt_lock_wait().await;
+    (logger)(UpgradeEvent::UpdatingPackageLists);
+    AptGet::new().noninteractive().update().await.map_err(ReleaseError::CurrentUpdate)?;
+
     let mut conflicting = (async {
         let (mut child, package_stream) = DpkgQuery::new().show_installed(REMOVE_PACKAGES).await?;
 
@@ -485,11 +490,6 @@ pub async fn upgrade<'a>(
         apt_get.arg("--auto-remove");
         apt_get.remove(conflicting).await.map_err(ReleaseError::ConflictRemoval)?;
     }
-
-    // Update the package lists for the current release.
-    apt_lock_wait().await;
-    (logger)(UpgradeEvent::UpdatingPackageLists);
-    AptGet::new().noninteractive().update().await.map_err(ReleaseError::CurrentUpdate)?;
 
     // Fetch required packages for upgrading the current release.
     (*logger)(UpgradeEvent::FetchingPackages);
