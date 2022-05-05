@@ -39,6 +39,9 @@ pub enum ReleaseError {
     #[error("status for `dpkg --configure -a` failed")]
     DpkgConfigure(#[source] io::Error),
 
+    #[error("failed to downgrade packages")]
+    Downgrade(#[source] anyhow::Error),
+
     #[error("status for `apt-get install -f` failed")]
     FixBroken(#[source] io::Error),
 
