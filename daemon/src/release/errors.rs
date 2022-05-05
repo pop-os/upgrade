@@ -27,7 +27,7 @@ pub enum ReleaseError {
     Command(#[source] io::Error),
 
     #[error("conflicting and/or deprecated packages could not be removed")]
-    ConflictRemoval(#[source] io::Error),
+    ConflictRemoval(#[source] anyhow::Error),
 
     #[error("failed to update package lists for the current release")]
     CurrentUpdate(#[source] io::Error),
