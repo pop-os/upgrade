@@ -450,11 +450,11 @@ pub async fn upgrade<'a>(
     (*logger)(UpgradeEvent::FetchingPackages);
     package_upgrade(upgrade).await?;
 
-    // Remove packages that may conflict with the upgrade.
-    remove_conflicting_packages(logger).await?;
-
     // Ensure packages are not newer than what's in the repositories.
     downgrade_packages().await?;
+
+    // Remove packages that may conflict with the upgrade.
+    remove_conflicting_packages(logger).await?;
 
     (logger)(UpgradeEvent::InstallingPackages);
     install_essential_packages().await?;
@@ -502,12 +502,16 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
 
     let mut cmd = AptGet::new().allow_downgrades().force().noninteractive();
 
+    cmd.arg("install");
+
     for (package, version) in downgradable {
-        if package == "pop-upgrade" || package == "pop-system-updater" {
+        if package.contains("pop-upgrade") || package.contains("pop-system-updater") {
             continue;
         }
 
-        cmd.arg([&package, "=", &version].concat());
+        if let Some(version) = version.split_ascii_whitespace().next() {
+            cmd.arg([&package, "=", &version].concat());
+        }
     }
 
     info!("downgrading packages with: {:?}", cmd.as_std());
@@ -658,19 +662,6 @@ async fn fetch_new_release_packages<'b>(
         apt_lock_wait().await;
         (logger)(UpgradeEvent::UpdatingPackageLists);
         AptGet::new().noninteractive().update().await.map_err(ReleaseError::ReleaseUpdate)?;
-
-        if let Ok(packages) = apt_cmd::apt::remoteless_packages().await {
-            info!("removing sourceless packages: {:?}", packages);
-            AptGet::new()
-                .allow_downgrades()
-                .noninteractive()
-                .force()
-                .autoremove()
-                .remove(packages)
-                .await
-                .context("sourceless package removal")
-                .map_err(ReleaseError::ConflictRemoval)?;
-        }
 
         attempt_fetch(&Shutdown::new(), logger, fetch).await?;
 
