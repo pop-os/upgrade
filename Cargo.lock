@@ -44,13 +44,14 @@ checksum = "08f9b8508dccb7687a1d6c4ce66b2b0ecef467c94667de27d8d7fe1f8d2a9cdc"
 [[package]]
 name = "apt-cmd"
 version = "0.4.0"
-source = "git+https://github.com/pop-os/apt-cmd#88adb9fe6cf461dac6d4eaa364ba6382ceb4d7ed"
+source = "git+https://github.com/pop-os/apt-cmd#6a1feef7098aa21a6dffc784ce64529186f524f9"
 dependencies = [
  "anyhow",
  "as-result",
  "async-fetcher",
  "async-shutdown",
  "async-stream",
+ "deb-version",
  "derive_more",
  "futures",
  "hex",
@@ -672,6 +673,12 @@ checksum = "a5d83c4b78f7c7d0dec4859d286665a06858a607ba406c91a36316ff36918141"
 dependencies = [
  "dbus 0.9.5",
 ]
+
+[[package]]
+name = "deb-version"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b390250ca2b6862735ef39a7b37b0266a8d5cd9d1e579260c95b1dc27761d6ad"
 
 [[package]]
 name = "derive-new"
@@ -1914,9 +1921,9 @@ dependencies = [
 
 [[package]]
 name = "num_threads"
-version = "0.1.5"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aba1801fb138d8e85e11d0fc70baf4fe1cdfffda7c6cd34a854905df588e5ed0"
+checksum = "2819ce041d2ee131036f4fc9d6ae7ae125a3a40e97ba64d04fe799ad9dabbb44"
 dependencies = [
  "libc",
 ]

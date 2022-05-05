@@ -445,6 +445,9 @@ pub async fn upgrade<'a>(
     // Remove packages that may conflict with the upgrade.
     remove_conflicting_packages(logger).await?;
 
+    // Ensure packages are not newer than what's in the repositories.
+    downgrade_packages().await?;
+
     // Upgrade the current release to the latest packages.
     (*logger)(UpgradeEvent::UpgradingPackages);
     fetch_current_updates(fetch).await?;
@@ -460,9 +463,14 @@ pub async fn upgrade<'a>(
     repair::pre_upgrade().map_err(ReleaseError::PreUpgrade)?;
     let _ = AptMark::new().unhold(&["pop-upgrade", "pop-system-updater"]).await;
 
-    // Update the source lists to the new release,
-    // then fetch the packages required for the upgrade.
-    fetch_new_release_packages(logger, fetch, from, to).await?;
+    // Upgrade the apt sources to the new release.
+    (*logger)(UpgradeEvent::UpdatingSourceLists);
+    release_upgrade(logger, from, to).await.map_err(ReleaseError::Check)?;
+
+    // Update lists and fetch packages for the new release.
+    fetch_new_release_packages(logger, fetch, from).await?;
+
+    // Remove packages that are orphaned in the new release
 
     if let Err(why) = crate::gnome_extensions::disable() {
         error!(
@@ -485,6 +493,25 @@ async fn autorepair(version: &str) -> Result<(), ReleaseError> {
     })
     .await
     .map_err(ReleaseError::Repair)
+}
+
+async fn downgrade_packages() -> Result<(), ReleaseError> {
+    info!("searching for packages that require downgrading");
+    let downgradable =
+        apt_cmd::apt::downgradable_packages().await.map_err(ReleaseError::Downgrade)?;
+
+    let mut cmd = AptGet::new().allow_downgrades().force().noninteractive();
+
+    for (package, version) in downgradable {
+        if package == "pop-upgrade" || package == "pop-system-updater" {
+            continue;
+        }
+
+        cmd.arg([&package, "=", &version].concat());
+    }
+
+    info!("downgrading packages with: {:?}", cmd.as_std());
+    cmd.status().await.context("apt-get downgrade").map_err(ReleaseError::Downgrade).map(drop)
 }
 
 async fn install_essential_packages() -> Result<(), ReleaseError> {
@@ -612,23 +639,17 @@ async fn attempt_fetch<'a>(
     apt_fetch(shutdown.clone(), uris, fetch).await
 }
 
-/// Update the release files and fetch packages for the new release.
+/// Fetch packages for the new release.
 ///
 /// On failure, the original release files will be restored.
 async fn fetch_new_release_packages<'b>(
     logger: &'b dyn Fn(UpgradeEvent),
     fetch: &'b dyn Fn(FetchEvent),
     current: &'b str,
-    next: &'b str,
 ) -> RelResult<()> {
-    (*logger)(UpgradeEvent::UpdatingSourceLists);
-
-    // Updates the source lists, with a handle for reverting the change.
-    release_upgrade(logger, current, next).await.map_err(ReleaseError::Check)?;
-
     // Use a closure to capture any early returns due to an error.
     let updated_list_ops = || async {
-        info!("updated the package lists for the new release");
+        info!("updating the package lists for the new release");
         apt_lock_wait().await;
         (logger)(UpgradeEvent::UpdatingPackageLists);
         AptGet::new().noninteractive().update().await.map_err(ReleaseError::ReleaseUpdate)?;
