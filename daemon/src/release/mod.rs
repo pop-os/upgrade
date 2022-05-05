@@ -565,6 +565,7 @@ async fn remove_conflicting_packages(logger: &dyn Fn(UpgradeEvent)) -> Result<()
         Ok::<_, std::io::Error>(packages)
     })
     .await
+    .context("check for known-conflicting packages")
     .map_err(ReleaseError::ConflictRemoval)?;
 
     // Add packages which have no remote to the conflict list
@@ -578,7 +579,11 @@ async fn remove_conflicting_packages(logger: &dyn Fn(UpgradeEvent)) -> Result<()
         let mut apt_get = crate::misc::apt_get();
 
         apt_get.arg("--auto-remove");
-        apt_get.remove(conflicting).await.map_err(ReleaseError::ConflictRemoval)?;
+        apt_get
+            .remove(conflicting)
+            .await
+            .context("conflict removal")
+            .map_err(ReleaseError::ConflictRemoval)?;
     }
 
     Ok(())
@@ -653,6 +658,19 @@ async fn fetch_new_release_packages<'b>(
         apt_lock_wait().await;
         (logger)(UpgradeEvent::UpdatingPackageLists);
         AptGet::new().noninteractive().update().await.map_err(ReleaseError::ReleaseUpdate)?;
+
+        if let Ok(packages) = apt_cmd::apt::remoteless_packages().await {
+            info!("removing sourceless packages: {:?}", packages);
+            AptGet::new()
+                .allow_downgrades()
+                .noninteractive()
+                .force()
+                .autoremove()
+                .remove(packages)
+                .await
+                .context("sourceless package removal")
+                .map_err(ReleaseError::ConflictRemoval)?;
+        }
 
         attempt_fetch(&Shutdown::new(), logger, fetch).await?;
 
