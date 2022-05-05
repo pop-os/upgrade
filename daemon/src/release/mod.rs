@@ -442,12 +442,6 @@ pub async fn upgrade<'a>(
     (logger)(UpgradeEvent::UpdatingPackageLists);
     update_package_lists().await?;
 
-    // Remove packages that may conflict with the upgrade.
-    remove_conflicting_packages(logger).await?;
-
-    // Ensure packages are not newer than what's in the repositories.
-    downgrade_packages().await?;
-
     // Upgrade the current release to the latest packages.
     (*logger)(UpgradeEvent::UpgradingPackages);
     fetch_current_updates(fetch).await?;
@@ -455,6 +449,12 @@ pub async fn upgrade<'a>(
     // Fetch required packages for upgrading the current release.
     (*logger)(UpgradeEvent::FetchingPackages);
     package_upgrade(upgrade).await?;
+
+    // Remove packages that may conflict with the upgrade.
+    remove_conflicting_packages(logger).await?;
+
+    // Ensure packages are not newer than what's in the repositories.
+    downgrade_packages().await?;
 
     (logger)(UpgradeEvent::InstallingPackages);
     install_essential_packages().await?;
