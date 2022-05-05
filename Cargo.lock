@@ -44,7 +44,7 @@ checksum = "08f9b8508dccb7687a1d6c4ce66b2b0ecef467c94667de27d8d7fe1f8d2a9cdc"
 [[package]]
 name = "apt-cmd"
 version = "0.4.0"
-source = "git+https://github.com/pop-os/apt-cmd#6a1feef7098aa21a6dffc784ce64529186f524f9"
+source = "git+https://github.com/pop-os/apt-cmd#a52907938a0d549429dd4bde88bca4b68d8eccd9"
 dependencies = [
  "anyhow",
  "as-result",
