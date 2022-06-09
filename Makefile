@@ -57,8 +57,8 @@ ifeq ($(VENDOR),1)
 endif
 
 install:
-	install -Dm04755 "$(BINARY)" "$(DESTDIR)$(bindir)/$(BIN)"
-	install -Dm04755 "data/$(BIN).sh" "$(DESTDIR)$(libdir)/$(BIN)/upgrade.sh"
+	install -Dm0755 "$(BINARY)" "$(DESTDIR)$(bindir)/$(BIN)"
+	install -Dm0755 "data/$(BIN).sh" "$(DESTDIR)$(libdir)/$(BIN)/upgrade.sh"
 	install -Dm0644 "$(HEADER)" "$(DESTDIR)$(includedir)/$(PACKAGE).h"
 	install -Dm0644 "$(LIBRARY)" "$(DESTDIR)$(libdir)/$(LIB)"
 	install -Dm0644 "$(PKGCONFIG)" "$(DESTDIR)$(libdir)/pkgconfig/$(PACKAGE).pc"
