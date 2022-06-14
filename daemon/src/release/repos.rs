@@ -335,9 +335,10 @@ Types: deb deb-src
 URIs: http://us.archive.ubuntu.com/ubuntu/
 Suites: {0} {0}-security {0}-updates {0}-backports
 Components: main restricted universe multiverse
-X-Repolib-Default-Mirror: http://us.archive.ubuntu.com/ubuntu/
+X-Repolib-Default-Mirror: http://{1}.archive.ubuntu.com/ubuntu/
 "#,
-        release
+        release,
+        if cfg!(aarch64) { "ports" } else { "us" }
     )
 }
 
