@@ -63,7 +63,7 @@ fn argument_parsing() {
     let matches = App::new("com.system76.FirmwareManager")
         .arg(
             Arg::with_name("verbose")
-                .short("v")
+                .short('v')
                 .multiple(true)
                 .help("define the logging level; multiple occurrences increases the logging level"),
         )
