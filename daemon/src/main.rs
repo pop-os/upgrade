@@ -155,7 +155,7 @@ async fn main() {
                                 .help(
                                     "instruct the daemon to fetch updates, without installing them",
                                 )
-                                .short("d")
+                                .short('d')
                                 .long("download-only"),
                         ),
                 )
@@ -178,7 +178,7 @@ async fn main() {
                                     "Attempt to upgrade to the next release, even if it is not \
                                      released",
                                 )
-                                .short("f")
+                                .short('f')
                                 .long("force-next")
                                 .global(true),
                         ),
@@ -193,13 +193,13 @@ async fn main() {
     }
 }
 
-async fn main_(matches: &ArgMatches<'_>) -> anyhow::Result<()> {
+async fn main_(matches: &ArgMatches) -> anyhow::Result<()> {
     init()?;
 
     match matches.subcommand() {
-        ("cancel", _) => Client::new()?.cancel()?,
-        ("daemon", _) => Daemon::init().await?,
-        (other, Some(matches)) => {
+        Some(("cancel", _)) => Client::new()?.cancel()?,
+        Some(("daemon", _)) => Daemon::init().await?,
+        Some((other, matches)) => {
             let mut client = Client::new()?;
 
             if std::env::var_os("S76_TEST").is_none() {

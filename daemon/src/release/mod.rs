@@ -510,7 +510,7 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
         }
 
         if let Some(version) = version.split_ascii_whitespace().next() {
-            cmd.arg([&package, "=", &version].concat());
+            cmd.arg([&package, "=", version].concat());
         }
     }
 

@@ -49,13 +49,13 @@ impl Client {
     /// Executes the recovery subcommand of the client.
     pub fn recovery(&self, matches: &ArgMatches) -> anyhow::Result<()> {
         match matches.subcommand() {
-            ("default-boot", _) => {
+            Some(("default-boot", _)) => {
                 root_required()?;
                 systemd::BootConf::load()?.set_default_boot_variant(&LoaderEntry::Recovery)?;
             }
-            ("upgrade", Some(matches)) => {
+            Some(("upgrade", matches)) => {
                 match matches.subcommand() {
-                    ("from-release", Some(matches)) => {
+                    Some(("from-release", matches)) => {
                         let version = matches.value_of("VERSION").unwrap_or("");
                         let arch = matches.value_of("ARCH").unwrap_or("");
                         let flags = if matches.is_present("next") {
@@ -66,7 +66,7 @@ impl Client {
 
                         self.recovery_upgrade_release(version, arch, flags)?;
                     }
-                    ("from-file", Some(matches)) => {
+                    Some(("from-file", matches)) => {
                         let path = matches.value_of("PATH").expect("missing reqired PATH argument");
 
                         let _ = self.recovery_upgrade_file(path)?;
@@ -76,7 +76,7 @@ impl Client {
 
                 self.event_listen_recovery_upgrade()?;
             }
-            ("check", _) => {
+            Some(("check", _)) => {
                 let version = self.recovery_version()?;
                 pintln!(
                     "version: " (version.version) "\n"
@@ -91,7 +91,7 @@ impl Client {
 
     pub fn release(&self, matches: &ArgMatches) -> anyhow::Result<()> {
         match matches.subcommand() {
-            ("dismiss", _) => {
+            Some(("dismiss", _)) => {
                 let devel = pop_upgrade::development_releases_enabled();
                 let (_, _, _, is_lts) = self.release_check(devel)?;
                 if is_lts {
@@ -100,7 +100,7 @@ impl Client {
                     println!("Only LTS releases may dismiss notifications");
                 }
             }
-            ("check", _) => {
+            Some(("check", _)) => {
                 let (current, next, available, is_lts) = self.release_check(false)?;
 
                 if atty::is(atty::Stream::Stdout) {
@@ -122,7 +122,7 @@ impl Client {
                 }
             }
             // Update the current system, without performing a release upgrade
-            ("update", Some(matches)) => {
+            Some(("update", matches)) => {
                 let updates =
                     self.fetch_updates(Vec::new(), matches.is_present("download-only"))?;
 
@@ -136,7 +136,7 @@ impl Client {
                 }
             }
             // Perform an upgrade to the next release. Supports either systemd or recovery upgrades.
-            ("upgrade", Some(matches)) => {
+            Some(("upgrade", matches)) => {
                 let (method, matches) = (UpgradeMethod::Offline, matches);
                 let forcing =
                     matches.is_present("force-next") || pop_upgrade::development_releases_enabled();
@@ -174,16 +174,16 @@ impl Client {
             }
             // Set the recovery partition as the next boot target, and configure it to
             // automatically switch to the refresh view.
-            ("refresh", Some(matches)) => {
+            Some(("refresh", matches)) => {
                 let action = match matches.subcommand() {
-                    ("disable", _) => RefreshOp::Disable,
+                    Some(("disable", _)) => RefreshOp::Disable,
                     _ => RefreshOp::Enable,
                 };
 
                 self.refresh_os(action)?;
                 println!("reboot to boot into the recovery partition to begin the refresh install");
             }
-            ("repair", Some(_)) => {
+            Some(("repair", _)) => {
                 self.release_repair()?;
             }
             _ => unreachable!(),
