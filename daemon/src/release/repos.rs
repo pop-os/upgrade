@@ -338,7 +338,7 @@ Components: main restricted universe multiverse
 X-Repolib-Default-Mirror: http://{1}.archive.ubuntu.com/ubuntu/
 "#,
         release,
-        if cfg!(aarch64) { "ports" } else { "us" }
+        if cfg!(target_arch = "aarch64") { "ports" } else { "us" }
     )
 }
 
