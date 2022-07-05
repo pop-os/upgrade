@@ -327,18 +327,26 @@ fn update_preferences_script(release: &str) -> anyhow::Result<()> {
         .context("failed to overwrite pop-default-settings apt preferences")
 }
 
+fn ubuntu_uri() -> &'static str {
+    if cfg!(target_arch = "aarch64") {
+        "ports.ubuntu.com/ubuntu-ports"
+    } else {
+        "us.archive.ubuntu.com/ubuntu"
+    }
+}
+
 fn system_sources(release: &str) -> String {
     format!(
         r#"X-Repolib-Name: Pop_OS System Sources
 Enabled: yes
 Types: deb deb-src
-URIs: http://{1}.archive.ubuntu.com/ubuntu/
+URIs: http://{1}
 Suites: {0} {0}-security {0}-updates {0}-backports
 Components: main restricted universe multiverse
-X-Repolib-Default-Mirror: http://{1}.archive.ubuntu.com/ubuntu/
+X-Repolib-Default-Mirror: http://{1}
 "#,
         release,
-        if cfg!(target_arch = "aarch64") { "ports" } else { "us" }
+        ubuntu_uri()
     )
 }
 
@@ -391,27 +399,30 @@ fn sources_list_before_deb822(release: &str) -> String {
     format!(
         r#"# Ubuntu Repositories
 
-deb http://{1}.archive.ubuntu.com/ubuntu/ {0} restricted multiverse universe main
-deb-src http://{1}.archive.ubuntu.com/ubuntu/ {0} restricted multiverse universe main
+deb http://{1} {0} restricted multiverse universe main
+deb-src http://{1} {0} restricted multiverse universe main
 
-deb http://{1}.archive.ubuntu.com/ubuntu/ {0}-updates restricted multiverse universe main
-deb-src http://{1}.archive.ubuntu.com/ubuntu/ {0}-updates restricted multiverse universe main
+deb http://{1} {0}-updates restricted multiverse universe main
+deb-src http://{1} {0}-updates restricted multiverse universe main
 
-deb http://{1}.archive.ubuntu.com/ubuntu/ {0}-security restricted multiverse universe main
-deb-src http://{1}.archive.ubuntu.com/ubuntu/ {0}-security restricted multiverse universe main
+deb http://{1} {0}-security restricted multiverse universe main
+deb-src http://{1} {0}-security restricted multiverse universe main
 
-deb http://{1}.archive.ubuntu.com/ubuntu/ {0}-backports restricted multiverse universe main
-deb-src http://{1}.archive.ubuntu.com/ubuntu/ {0}-backports restricted multiverse universe main
+deb http://{1} {0}-backports restricted multiverse universe main
+deb-src http://{1} {0}-backports restricted multiverse universe main
 
 # Pop!_OS Repositories
 
 deb http://ppa.launchpad.net/system76/pop/ubuntu {0} main
 deb-src http://ppa.launchpad.net/system76/pop/ubuntu {0} main
-
-deb http://apt.pop-os.org/proprietary {0} main
-"#,
+{2}"#,
         release,
-        if cfg!(target_arch = "aarch64") { "ports" } else { "us" }
+        ubuntu_uri(),
+        if cfg!(target_arch = "aarch64") {
+            String::new()
+        } else {
+            format!("deb http://apt.pop-os.org/proprietary {} main", release)
+        }
     )
 }
 
