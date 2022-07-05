@@ -332,7 +332,7 @@ fn system_sources(release: &str) -> String {
         r#"X-Repolib-Name: Pop_OS System Sources
 Enabled: yes
 Types: deb deb-src
-URIs: http://us.archive.ubuntu.com/ubuntu/
+URIs: http://{1}.archive.ubuntu.com/ubuntu/
 Suites: {0} {0}-security {0}-updates {0}-backports
 Components: main restricted universe multiverse
 X-Repolib-Default-Mirror: http://{1}.archive.ubuntu.com/ubuntu/
@@ -391,17 +391,17 @@ fn sources_list_before_deb822(release: &str) -> String {
     format!(
         r#"# Ubuntu Repositories
 
-deb http://us.archive.ubuntu.com/ubuntu/ {0} restricted multiverse universe main
-deb-src http://us.archive.ubuntu.com/ubuntu/ {0} restricted multiverse universe main
+deb http://{1}.archive.ubuntu.com/ubuntu/ {0} restricted multiverse universe main
+deb-src http://{1}.archive.ubuntu.com/ubuntu/ {0} restricted multiverse universe main
 
-deb http://us.archive.ubuntu.com/ubuntu/ {0}-updates restricted multiverse universe main
-deb-src http://us.archive.ubuntu.com/ubuntu/ {0}-updates restricted multiverse universe main
+deb http://{1}.archive.ubuntu.com/ubuntu/ {0}-updates restricted multiverse universe main
+deb-src http://{1}.archive.ubuntu.com/ubuntu/ {0}-updates restricted multiverse universe main
 
-deb http://us.archive.ubuntu.com/ubuntu/ {0}-security restricted multiverse universe main
-deb-src http://us.archive.ubuntu.com/ubuntu/ {0}-security restricted multiverse universe main
+deb http://{1}.archive.ubuntu.com/ubuntu/ {0}-security restricted multiverse universe main
+deb-src http://{1}.archive.ubuntu.com/ubuntu/ {0}-security restricted multiverse universe main
 
-deb http://us.archive.ubuntu.com/ubuntu/ {0}-backports restricted multiverse universe main
-deb-src http://us.archive.ubuntu.com/ubuntu/ {0}-backports restricted multiverse universe main
+deb http://{1}.archive.ubuntu.com/ubuntu/ {0}-backports restricted multiverse universe main
+deb-src http://{1}.archive.ubuntu.com/ubuntu/ {0}-backports restricted multiverse universe main
 
 # Pop!_OS Repositories
 
@@ -410,7 +410,8 @@ deb-src http://ppa.launchpad.net/system76/pop/ubuntu {0} main
 
 deb http://apt.pop-os.org/proprietary {0} main
 "#,
-        release
+        release,
+        if cfg!(target_arch = "aarch64") { "ports" } else { "us" }
     )
 }
 
