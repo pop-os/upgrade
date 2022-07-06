@@ -21,6 +21,7 @@ Package: pop-upgrade
 Architecture: amd64 arm64
 Depends:
   pop-system-updater,
+  pop-plymouth-theme,
   rsync,
   ${misc:Depends},
   ${shlibs:Depends}
