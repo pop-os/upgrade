@@ -15,7 +15,7 @@ checking-for-updates = 正在检查更新 ...
 
 dialog-refresh-title = 重置操作系统
 dialog-refresh-description =
-当你重置操作系统时:
+ 当你重置操作系统时:
 
  {"*"} 所有用户和其在 /home 目录中的文件会被保留
  {"*"} 所有用户和用户组会被保留
@@ -27,7 +27,7 @@ dialog-refresh-description =
      - 系统的键盘布局
      - 网络管理器中的网络设置
 
-请单击<b>重新启动</b>之前保存好所有</b>文件</b>，数据无价。
+ 请单击<b>重新启动</b>之前保存好所有</b>文件</b>，数据无价。
 
 daemon-checking = 正在检查升级守护程序的更新
 daemon-updating = 正在更新升级守护程序
