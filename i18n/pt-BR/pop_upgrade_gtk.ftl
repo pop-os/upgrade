@@ -66,6 +66,7 @@ most-current-recovery = Você está rodando a versão mais atualizada da partiç
 
 os-upgrade = Atualização do Sistema
 os-recovery = Recuperação do Sistema
+os-updates = Atualizações de Sistema e Aplicativos
 
 permission-denied = Permissão necessária
 
