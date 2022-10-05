@@ -56,9 +56,13 @@ impl Client {
             Some(("upgrade", matches)) => {
                 match matches.subcommand() {
                     Some(("from-release", matches)) => {
-                        let version = matches.value_of("VERSION").unwrap_or("");
-                        let arch = matches.value_of("ARCH").unwrap_or("");
-                        let flags = if matches.is_present("next") {
+                        let version = matches.get_one::<String>("VERSION");
+                        let version = version.map(String::as_str).unwrap_or_default();
+
+                        let arch = matches.get_one::<String>("ARCH");
+                        let arch = arch.map(String::as_str).unwrap_or_default();
+
+                        let flags = if matches.get_flag("next") {
                             RecoveryReleaseFlags::NEXT
                         } else {
                             RecoveryReleaseFlags::empty()
@@ -67,9 +71,9 @@ impl Client {
                         self.recovery_upgrade_release(version, arch, flags)?;
                     }
                     Some(("from-file", matches)) => {
-                        let path = matches.value_of("PATH").expect("missing reqired PATH argument");
+                        let path = matches.get_one::<String>("PATH").expect("missing reqired PATH argument");
 
-                        let _ = self.recovery_upgrade_file(path)?;
+                        let _ = self.recovery_upgrade_file(&*path)?;
                     }
                     _ => unreachable!(),
                 }
@@ -124,7 +128,7 @@ impl Client {
             // Update the current system, without performing a release upgrade
             Some(("update", matches)) => {
                 let updates =
-                    self.fetch_updates(Vec::new(), matches.is_present("download-only"))?;
+                    self.fetch_updates(Vec::new(), matches.get_flag("download-only"))?;
 
                 let client::Fetched { updates_available, completed, total } = updates;
 
@@ -139,7 +143,7 @@ impl Client {
             Some(("upgrade", matches)) => {
                 let (method, matches) = (UpgradeMethod::Offline, matches);
                 let forcing =
-                    matches.is_present("force-next") || pop_upgrade::development_releases_enabled();
+                    matches.get_flag("force-next") || pop_upgrade::development_releases_enabled();
                 let (current, next, available, _is_lts) = self.release_check(forcing)?;
 
                 if atty::is(atty::Stream::Stdout) {
