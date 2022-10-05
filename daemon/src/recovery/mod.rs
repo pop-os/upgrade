@@ -8,7 +8,7 @@ use async_shutdown::Shutdown;
 use std::{
     convert::TryFrom,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::Arc, fs::{remove_file, read_dir, remove_dir_all},
 };
 use sys_mount::{Mount, MountFlags, Unmount, UnmountFlags};
 use tokio::{process::Command, sync::mpsc::UnboundedSender};
@@ -216,6 +216,22 @@ async fn fetch_iso<P: AsRef<Path>>(
     let casper_initrd = recovery_path.join([&casper, "/initrd.gz"].concat());
     let casper_vmlinuz = recovery_path.join([&casper, "/vmlinuz.efi"].concat());
     let recovery_str = recovery_path.to_str().unwrap();
+
+    // Remove any files that may left over from a previous installation
+    if let Ok(dir) = read_dir("/recovery") {
+        for entry in dir.filter_map(Result::ok) {
+            if let Ok(metadata) = entry.metadata() {
+                let path = entry.path();
+                if path != Path::new("/recovery/recovery.conf") {
+                    if metadata.is_dir() {
+                        let _res = remove_dir_all(path);
+                    } else if metadata.is_file() {
+                        let _res = remove_file(path);
+                    }
+                }
+            }
+        }
+    }
 
     let mut cmd = cascade! {
         Command::new("rsync");
