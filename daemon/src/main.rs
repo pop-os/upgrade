@@ -124,7 +124,8 @@ async fn main() {
                                         .help(
                                             "fetches the next release's ISO if VERSION is not set",
                                         )
-                                        .long("next"),
+                                        .long("next")
+                                        .action(ArgAction::SetTrue),
                                 ),
                         ),
                 )
