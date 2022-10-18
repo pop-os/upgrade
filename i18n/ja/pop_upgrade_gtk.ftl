@@ -54,7 +54,7 @@ error-unknown-status = 不明なステータスを受信しました
 error-update-check = 更新の確認に失敗しました
 error-upgrade-status = アップグレードのステータスの確認に失敗しました
 
-new-features-include = 新機能は以下の内容:
+new-features-include = 新機能の内容:
 
 notification-dismiss-label = 通知
 notification-dismiss-description = 次のアップグレードが利用可能になるまで {-os} {$version} のアップグレードの通知を取消します
@@ -66,6 +66,7 @@ most-current-recovery = リカバリパーティションのバージョンは�
 
 os-upgrade = OS アップグレード
 os-recovery = OS リカバリー
+os-updates = システムとアプリケーションのアップデート
 
 permission-denied = 許可が必要です
 
