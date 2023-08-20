@@ -9,7 +9,7 @@ cdylib-link-lines = "0.1.4"
 
 [dependencies]
 pop-upgrade-gtk = { path = "../" }
-glib = "0.15.11"
+glib = "0.15.12"
 gtk-sys = "0.15.3"
 gtk = { version = "0.15.5", features = [ "v3_22" ] }
 i18n-embed = { version = "0.13.4", features = ["fluent-system", "desktop-requester"] }
