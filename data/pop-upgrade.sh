@@ -2,6 +2,7 @@
 
 export LANG=C
 export DEBIAN_FRONTEND="noninteractive"
+VERSION=$(grep VERSION_ID= /etc/os-release | cut -d '"' -f 2)
 
 # Prevent apt sources from being reverted once this script launches
 rm -rf /pop-upgrade /pop_preparing_release_upgrade
@@ -155,7 +156,7 @@ install_packages () {
         done
 }
 
-apt_install_prereq () {
+before_jammy_prereq_install () {
     local packages=($(candidate libc6) $(candidate libmount1) $(candidate zlib1g))
 
     if package_exists libc6:i386; then
@@ -173,7 +174,7 @@ apt_install_prereq () {
     if package_exists libmount1:i386; then
         packages+=($(candidate libmount1:i386))
     fi
-    
+
     if package_exists libselinux1:i386; then
         packages+=($(candidate libselinux1:i386))
     fi
@@ -205,12 +206,10 @@ apt_install_prereq () {
 }
 
 upgrade () {
-    if ! grep 18.04 /etc/os-release; then
-        apt-mark minimize-manual -y
-    fi
+    if dpkg --compare-versions ${VERSION} lt 22.04 {
+        before_jammy_prereq_install
+    }
 
-    apt_install_prereq
-    dpkg_configure
     apt_install_fix
     apt_full_upgrade
 }

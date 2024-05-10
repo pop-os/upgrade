@@ -23,7 +23,7 @@ use apt_cmd::{
     lock::apt_lock_wait, request::Request as AptRequest, AptGet, AptMark, AptUpgradeEvent, Dpkg,
     DpkgQuery,
 };
-use async_shutdown::Shutdown;
+use async_shutdown::ShutdownManager as Shutdown;
 
 use futures::prelude::*;
 
@@ -186,7 +186,7 @@ impl From<UpgradeEvent> for &'static str {
 
 /// Get a list of APT URIs to fetch for this operation, and then fetch them.
 pub async fn apt_fetch(
-    shutdown: Shutdown,
+    shutdown: Shutdown<()>,
     mut uris: HashSet<AptRequest, std::collections::hash_map::RandomState>,
     func: &dyn Fn(FetchEvent),
 ) -> RelResult<()> {
@@ -236,7 +236,7 @@ pub async fn apt_fetch(
 }
 
 async fn apt_fetch_(
-    shutdown: Shutdown,
+    shutdown: Shutdown<()>,
     uris: HashSet<AptRequest, std::collections::hash_map::RandomState>,
     func: &dyn Fn(FetchEvent),
 ) -> Result<HashSet<AptRequest, std::collections::hash_map::RandomState>, ReleaseError> {
@@ -613,17 +613,19 @@ fn terminate_background_applications() {
     };
 
     for proc in processes {
-        if let Ok(exe_path) = proc.exe() {
-            if let Some(exe) = exe_path.file_name() {
-                if let Some(mut exe) = exe.to_str() {
-                    if exe.ends_with(" (deleted)") {
-                        exe = &exe[..exe.len() - 10];
-                    }
+        if let Ok(proc) = proc {
+            if let Ok(exe_path) = proc.exe() {
+                if let Some(exe) = exe_path.file_name() {
+                    if let Some(mut exe) = exe.to_str() {
+                        if exe.ends_with(" (deleted)") {
+                            exe = &exe[..exe.len() - 10];
+                        }
 
-                    if exe == APPCENTER {
-                        eprintln!("killing {}", APPCENTER);
-                        unsafe {
-                            let _ = libc::kill(proc.pid(), libc::SIGKILL);
+                        if exe == APPCENTER {
+                            eprintln!("killing {}", APPCENTER);
+                            unsafe {
+                                let _ = libc::kill(proc.pid(), libc::SIGKILL);
+                            }
                         }
                     }
                 }
@@ -638,7 +640,7 @@ fn terminate_background_applications() {
 }
 
 async fn attempt_fetch<'a>(
-    shutdown: &Shutdown,
+    shutdown: &Shutdown<()>,
     logger: &'a dyn Fn(UpgradeEvent),
     fetch: &'a dyn Fn(FetchEvent),
 ) -> RelResult<()> {

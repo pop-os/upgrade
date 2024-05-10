@@ -631,7 +631,7 @@ fn log_result(
         } else {
             inner = format!("{}: {}", color_error(error), color_error_desc(why));
 
-            Paint::wrapping(inner.as_str())
+            inner.as_str().wrap()
         }
     );
 }

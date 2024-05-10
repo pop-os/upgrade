@@ -1,2 +1,9 @@
 [workspace]
-members = [ "daemon", "gtk", "gtk/ffi"]
+resolver = "2"
+members = ["daemon", "gtk", "gtk/ffi"]
+
+[workspace.package]
+rust-version = "1.75.0"
+
+[workspace.dependencies]
+apt-cmd = "0.5.0"

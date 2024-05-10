@@ -4,7 +4,7 @@ mod version;
 use crate::daemon::SignalEvent;
 use anyhow::Context;
 use async_fetcher::{Checksum, FetchEvent, Fetcher, SumStr};
-use async_shutdown::Shutdown;
+use async_shutdown::ShutdownManager as Shutdown;
 use std::{
     convert::TryFrom,
     path::{Path, PathBuf},
@@ -24,6 +24,7 @@ pub use self::{
 };
 
 bitflags! {
+    #[derive(Clone, Copy, Debug)]
     pub struct ReleaseFlags: u8 {
         const NEXT = 1;
     }
@@ -58,7 +59,7 @@ pub enum UpgradeMethod {
 }
 
 pub async fn recovery(
-    cancel: Shutdown,
+    cancel: Shutdown<()>,
     action: &UpgradeMethod,
     sender: UnboundedSender<SignalEvent>,
 ) -> RecResult<()> {
@@ -112,7 +113,7 @@ pub fn recovery_exists() -> Result<bool, RecoveryError> {
 }
 
 async fn fetch_iso<P: AsRef<Path>>(
-    cancel: Shutdown,
+    cancel: Shutdown<()>,
     verify: fn(&str, u16) -> bool,
     action: &UpgradeMethod,
     sender: UnboundedSender<SignalEvent>,
@@ -202,7 +203,10 @@ async fn fetch_iso<P: AsRef<Path>>(
 
     emit_recovery_event(&sender, RecoveryEvent::Syncing);
     let tempdir = tempfile::tempdir().map_err(RecoveryError::TempDir)?;
-    let _iso_mount = Mount::new(iso, tempdir.path(), "iso9660", MountFlags::RDONLY, None)
+    let _iso_mount = Mount::builder()
+        .fstype("iso9660")
+        .flags(MountFlags::RDONLY)
+        .mount(iso, tempdir.path())
         .context("failed to mount recovery ISO")?
         .into_unmount_drop(UnmountFlags::DETACH);
 
@@ -249,7 +253,7 @@ async fn fetch_iso<P: AsRef<Path>>(
 ///
 /// Once downloaded, the ISO will be verfied against the given checksum.
 async fn from_remote(
-    cancel: Shutdown,
+    cancel: Shutdown<()>,
     sender: UnboundedSender<SignalEvent>,
     url: Box<str>,
     checksum_str: &str,
@@ -280,7 +284,7 @@ async fn from_remote(
         let urls = Arc::from(vec![url.clone()]);
         let dest = Arc::from(path_.clone());
 
-        nix::unistd::sync();
+        rustix::fs::sync();
 
         Fetcher::default()
             // Timeout if a read takes more than 5 seconds.
@@ -362,8 +366,8 @@ fn emit_recovery_event(sender: &UnboundedSender<SignalEvent>, event: RecoveryEve
     let _ = sender.send(SignalEvent::RecoveryUpgradeEvent(event));
 }
 
-fn shutdown_check(shutdown: &Shutdown) -> Result<(), RecoveryError> {
-    if shutdown.shutdown_started() || shutdown.shutdown_completed() {
+fn shutdown_check(shutdown: &Shutdown<()>) -> Result<(), RecoveryError> {
+    if shutdown.is_shutdown_triggered() || shutdown.is_shutdown_completed() {
         Err(RecoveryError::Cancelled)
     } else {
         Ok(())

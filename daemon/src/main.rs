@@ -65,7 +65,7 @@ use self::error::InitError;
 #[tokio::main]
 async fn main() {
     // Ensure file system caches are synced to prevent recovery ISO download corruption.
-    nix::unistd::sync();
+    rustix::fs::sync();
 
     // Fixes a panic in `reqwest::Client::new`
     wait_for_systemd_resolvd().await;
