@@ -1,7 +1,7 @@
 use super::eol::{EolDate, EolStatus};
 use anyhow::Context;
 use const_format::concatcp;
-use os_str_bytes::OsStrBytes;
+use os_str_bytes::{OsStrBytes, OsStrBytesExt};
 use std::{
     ffi::OsStr,
     fs::{self, DirEntry, ReadDir},
@@ -70,7 +70,7 @@ pub async fn backup(release: &str) -> anyhow::Result<()> {
 
     // Then create new backups.
     for src in &backup {
-        let dst_path_buf = [&*(src.to_raw_bytes()), b".save"].concat();
+        let dst_path_buf = [src.as_os_str().as_bytes(), b".save"].concat();
         let dst_path_str = OsStr::from_bytes(&dst_path_buf);
         let dst_path = Path::new(&dst_path_str);
 
@@ -94,8 +94,7 @@ fn delete_system76_ubuntu_ppa_list() {
             let path = entry.path();
             if path.extension().map_or(false, |e| e == "list") {
                 if let Some(fname) = path.file_name() {
-                    const POP_PPA: &[u8] = b"system76-ubuntu-pop";
-                    if fname.to_raw_bytes().windows(POP_PPA.len()).any(|w| w == POP_PPA) {
+                    if fname.contains("system76-ubuntu-pop") {
                         let _ = fs::remove_file(&path);
                     }
                 }

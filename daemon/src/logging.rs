@@ -1,7 +1,7 @@
 use fern::{Dispatch, InitError};
 use log::{Level, LevelFilter, Record};
 use std::io;
-use yansi::Paint;
+use yansi::Painted;
 
 pub fn setup_logging(filter: LevelFilter) -> Result<(), InitError> {
     let location = |record: &Record| {
@@ -13,20 +13,20 @@ pub fn setup_logging(filter: LevelFilter) -> Result<(), InitError> {
         match (record.file(), record.line()) {
             (Some(file), Some(line)) => format!(
                 "{} {}{}{}",
-                Paint::cyan(target).bold(),
-                Paint::blue(file).bold(),
-                Paint::new(":").bold(),
-                Paint::magenta(line).bold()
+                Painted::new(target).cyan().bold(),
+                Painted::new(file).blue().bold(),
+                Painted::new(":").bold(),
+                Painted::new(line).magenta().bold()
             ),
             _ => String::new(),
         }
     };
 
     let format_level = |record: &Record| match record.level() {
-        level @ Level::Trace => Paint::green(level).bold(),
-        level @ Level::Warn => Paint::yellow(level).bold(),
-        level @ Level::Error => Paint::red(level).bold(),
-        level => Paint::new(level).bold(),
+        level @ Level::Trace => Painted::new(level).green().bold(),
+        level @ Level::Warn => Painted::new(level).yellow().bold(),
+        level @ Level::Error => Painted::new(level).red().bold(),
+        level => Painted::new(level).bold(),
     };
 
     Dispatch::new()

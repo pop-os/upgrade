@@ -48,7 +48,7 @@ use crate::{
     },
     sighandler, DBUS_IFACE, DBUS_NAME, DBUS_PATH, RESTART_SCHEDULED,
 };
-use async_shutdown::Shutdown;
+use async_shutdown::ShutdownManager as Shutdown;
 
 use anyhow::Context as AnyhowContext;
 use apt_cmd::{request::Request as AptRequest, AptCache, AptGet, AptMark};
@@ -122,16 +122,28 @@ pub struct ReleaseUpgradeState {
     to:     Box<str>,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct FetchState {
+    progress: u64,
+    total:    u64,
+}
+
+impl FetchState {
+    pub const fn new(progress: u64, total: u64) -> Self { Self { progress, total } }
+}
+
+unsafe impl bytemuck::NoUninit for FetchState {}
+
 struct SharedState {
     // In case a UI is being constructed after a task has already started, it may request
     // for the curernt progress of a task.
-    fetching_state:        Atomic<(u64, u64)>,
+    fetching_state:        Atomic<FetchState>,
     // The status of the event loop thread, which indicates the current task, or lack thereof.
     status:                Atomic<DaemonStatus>,
     // As well as the current sub-status, if relevant.
     sub_status:            AtomicU8,
     // Cancels a process that is currently active.
-    shutdown:              Mutex<Shutdown>,
+    shutdown:              Mutex<Shutdown<()>>,
     // Development release
     force_next:            AtomicBool,
     // Indicates that it is now uncancellable
@@ -170,7 +182,7 @@ impl Daemon {
         let shared_state = Arc::new(SharedState {
             status:                Atomic::new(DaemonStatus::Inactive),
             sub_status:            AtomicU8::new(0),
-            fetching_state:        Atomic::new((0, 0)),
+            fetching_state:        Atomic::new(FetchState::new(0, 0)),
             shutdown:              Mutex::new(Shutdown::new()),
             force_next:            AtomicBool::new(false),
             release_upgrade_began: AtomicBool::new(false),
@@ -194,8 +206,9 @@ impl Daemon {
                 let fetch_closure = enclose!((dbus_tx, shared_state) move |event| {
                     match event {
                         FetchEvent::Fetched(uri) => {
-                            let (current, npackages) = shared_state.fetching_state.load(Ordering::SeqCst);
-                            shared_state.fetching_state.store((current + 1, npackages), Ordering::SeqCst);
+                            let fetch_state = shared_state.fetching_state.load(Ordering::SeqCst);
+                            let (current, npackages) = (fetch_state.progress, fetch_state.total);
+                            shared_state.fetching_state.store(FetchState::new(current + 1, npackages), Ordering::SeqCst);
 
                             let _ = dbus_tx.send(SignalEvent::Fetched(
                                 uri.name,
@@ -207,7 +220,7 @@ impl Daemon {
                             let _ = dbus_tx.send(SignalEvent::Fetching(uri));
                         }
                         FetchEvent::Init(total) => {
-                            shared_state.fetching_state.store((0, total as u64), Ordering::SeqCst);
+                            shared_state.fetching_state.store(FetchState::new(0, total as u64), Ordering::SeqCst);
                         }
                         FetchEvent::Retrying(_uri) => (),
                     }
@@ -241,11 +254,11 @@ impl Daemon {
                             info!("fetching packages for {:?}", apt_uris);
 
                             let npackages = apt_uris.len() as u32;
-                            shared_state.fetching_state.store((0, u64::from(npackages)), Ordering::SeqCst);
+                            shared_state.fetching_state.store(FetchState::new(0, u64::from(npackages)), Ordering::SeqCst);
 
                             let result = crate::release::apt_fetch(shutdown.clone(), apt_uris, &fetch_closure).await;
 
-                            shared_state.fetching_state.store((0, 0), Ordering::SeqCst);
+                            shared_state.fetching_state.store(FetchState::new(0, 0), Ordering::SeqCst);
 
                             let result = match result {
                                 Ok(_) => {
@@ -480,11 +493,11 @@ impl Daemon {
                             DaemonStatus::FetchingPackages,
                             move |daemon, already_active| {
                                 if already_active {
-                                    let (completed, total) =
+                                    let FetchState { progress, total } =
                                         daemon.shared_state.fetching_state.load(Ordering::SeqCst);
-                                    let completed = completed as u32;
+                                    let progress = progress as u32;
                                     let total = total as u32;
-                                    Ok((true, completed, total))
+                                    Ok((true, progress, total))
                                 } else {
                                     futures::executor::block_on(async move {
                                         daemon
@@ -851,7 +864,7 @@ impl Daemon {
                             daemon
                                 .shared_state
                                 .fetching_state
-                                .store((progress, total), Ordering::SeqCst);
+                                .store(FetchState::new(progress, total), Ordering::SeqCst);
                             Self::signal_message(signals::RECOVERY_DOWNLOAD_PROGRESS)
                                 .append2(progress, total)
                         }
@@ -948,7 +961,7 @@ impl Daemon {
 
         // Initiate shutdown of any background tasks.
         info!("sending shutdown signal");
-        shutdown.shutdown();
+        let _res = shutdown.trigger_shutdown(());
 
         // Wait for active tasks to complete before returning.
         info!("waiting for shutdown to complete");
@@ -1064,7 +1077,7 @@ impl Daemon {
 
         self.shared_state.status.store(DaemonStatus::Inactive, Ordering::SeqCst);
         self.shared_state.sub_status.store(0, Ordering::SeqCst);
-        self.shared_state.fetching_state.store((0, 0), Ordering::SeqCst);
+        self.shared_state.fetching_state.store(FetchState::new(0, 0), Ordering::SeqCst);
         self.release_upgrade = None;
 
         release::cleanup().await;
