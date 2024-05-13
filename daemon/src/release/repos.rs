@@ -1,4 +1,5 @@
 use super::eol::{EolDate, EolStatus};
+use crate::ubuntu_version::Codename;
 use anyhow::Context;
 use const_format::concatcp;
 use os_str_bytes::{OsStrBytes, OsStrBytesExt};
@@ -9,7 +10,6 @@ use std::{
     os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
 };
-use ubuntu_version::Codename;
 
 const SOURCES_LIST: &str = "/etc/apt/sources.list";
 pub const PPA_DIR: &str = concatcp!(SOURCES_LIST, ".d/");

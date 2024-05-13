@@ -1,7 +1,7 @@
+use crate::ubuntu_version::{Codename, Version};
 use anyhow::Context;
 use chrono::{Date, NaiveDate, Utc};
 use std::convert::TryFrom;
-use ubuntu_version::{Codename, Version};
 
 #[derive(Debug, PartialEq)]
 pub enum EolStatus {

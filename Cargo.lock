@@ -2447,7 +2447,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "twoway",
- "ubuntu-version",
  "users",
  "ward",
  "whitespace-conf",
