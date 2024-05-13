@@ -206,9 +206,9 @@ before_jammy_prereq_install () {
 }
 
 upgrade () {
-    if dpkg --compare-versions ${VERSION} lt 22.04 {
+    if dpkg --compare-versions ${VERSION} lt 22.04; then
         before_jammy_prereq_install
-    }
+    fi
 
     apt_install_fix
     apt_full_upgrade

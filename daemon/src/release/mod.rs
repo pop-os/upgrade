@@ -18,15 +18,14 @@ use crate::{
     repair::{self, RepairError},
 };
 
+use crate::ubuntu_version::{Codename, Version};
 use anyhow::Context;
 use apt_cmd::{
     lock::apt_lock_wait, request::Request as AptRequest, AptGet, AptMark, AptUpgradeEvent, Dpkg,
     DpkgQuery,
 };
 use async_shutdown::ShutdownManager as Shutdown;
-
 use futures::prelude::*;
-
 use std::{
     collections::HashSet,
     convert::TryFrom,
@@ -36,8 +35,6 @@ use std::{
     sync::Arc,
 };
 use systemd_boot_conf::SystemdBootConf;
-
-use ubuntu_version::{Codename, Version};
 
 pub const STARTUP_UPGRADE_FILE: &str = "/pop-upgrade";
 
