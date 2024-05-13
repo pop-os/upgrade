@@ -1,4 +1,5 @@
 use super::eol::{EolDate, EolStatus};
+use crate::ubuntu_version::Codename;
 use anyhow::Context;
 use const_format::concatcp;
 use os_str_bytes::{OsStrBytes, OsStrBytesExt};
@@ -9,7 +10,6 @@ use std::{
     os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
 };
-use ubuntu_version::Codename;
 
 const SOURCES_LIST: &str = "/etc/apt/sources.list";
 pub const PPA_DIR: &str = concatcp!(SOURCES_LIST, ".d/");
@@ -128,7 +128,13 @@ pub async fn disable_third_parties(release: &str) -> anyhow::Result<()> {
 
             fs::write(&path, replaced.as_bytes())
                 .with_context(|| fomat!("failed to open " (&path.display()) " for writing"))?;
-        }
+        } else if path.extension().map_or(false, |e| e == "sources") {
+            if let Some(fname) = path.file_name() {
+                if !(fname.starts_with("pop-os") || fname.starts_with("system")) {
+                    let _ = fs::remove_file(&path);
+                }
+            }
+        };
     }
 
     apply_default_source_lists(release).await?;
@@ -339,13 +345,12 @@ fn system_sources(release: &str) -> String {
         r#"X-Repolib-Name: Pop_OS System Sources
 Enabled: yes
 Types: deb deb-src
-URIs: http://{1}
+URIs: http://apt.pop-os.org/ubuntu
 Suites: {0} {0}-security {0}-updates {0}-backports
 Components: main restricted universe multiverse
-X-Repolib-Default-Mirror: http://{1}
+X-Repolib-Default-Mirror: http://apt.pop-os.org/ubuntu
 "#,
-        release,
-        ubuntu_uri()
+        release
     )
 }
 

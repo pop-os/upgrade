@@ -1,6 +1,7 @@
-use crate::{release_architecture::ReleaseArchError, repair::RepairError};
+use crate::{
+    release_architecture::ReleaseArchError, repair::RepairError, ubuntu_version::VersionError,
+};
 use std::io;
-use ubuntu_version::VersionError;
 
 pub type RelResult<T> = Result<T, ReleaseError>;
 use thiserror::Error;

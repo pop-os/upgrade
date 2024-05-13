@@ -105,6 +105,7 @@ pub enum FgEvent {
 }
 
 pub struct LastKnown {
+    development:      bool,
     fetch:            Result<(), ReleaseError>,
     recovery_upgrade: Result<(), RecoveryError>,
     release_upgrade:  Result<(), ReleaseError>,
@@ -112,7 +113,12 @@ pub struct LastKnown {
 
 impl Default for LastKnown {
     fn default() -> Self {
-        Self { fetch: Ok(()), recovery_upgrade: Ok(()), release_upgrade: Ok(()) }
+        Self {
+            development:      false,
+            fetch:            Ok(()),
+            recovery_upgrade: Ok(()),
+            release_upgrade:  Ok(()),
+        }
     }
 }
 
@@ -623,6 +629,7 @@ impl Daemon {
                 ("development",),
                 ("current", "next", "build", "urgent", "is_lts"),
                 |_ctx: &mut Context, daemon: &mut Daemon, (development,): (bool,)| {
+                    daemon.last_known.development = development;
                     futures::executor::block_on(async {
                         daemon.shared_state.force_next.store(development, Ordering::SeqCst);
 
@@ -775,8 +782,10 @@ impl Daemon {
                 break Ok(());
             }
 
-            if let ReleaseCheck::NotFound = daemon.release_check {
-                shutdown_triggered = true;
+            if !daemon.last_known.development {
+                if let ReleaseCheck::NotFound = daemon.release_check {
+                    shutdown_triggered = true;
+                }
             }
 
             if daemon.perform_upgrade {
