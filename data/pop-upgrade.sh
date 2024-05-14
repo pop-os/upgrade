@@ -156,11 +156,33 @@ install_packages () {
         done
 }
 
-before_jammy_prereq_install () {
-    local packages=($(candidate libc6) $(candidate libmount1) $(candidate zlib1g))
+prereq_install () {
+    local packages=($(candidate pop-desktop) $(candidate systemd) $(candidate libc6) $(candidate libmount1) $(candidate zlib1g))
+
+    if package_exists pop-server; then
+        packages+=($(candidate pop-server))
+    fi
+
+    if package_exists libqalculate22t64; then
+        packages+=($(candidate qalc) $(candidate libqalculate22t64))
+    fi
+
+    if package_exists libssl3t64; then
+        packages+=($(candidate libssl3t64))
+    fi
+
+    if package_exists libglib2.0-0t64; then
+        packages+=($(candidate libglib2.0-0t64) $(candidate libglib2.0-0t64:i386) $(candidate libpcre3:i386))
+    elif package_exists libglib2.0-0; then
+        packages+=($(candidate libglib2.0-0) $(candidate libglib2.0-0:i386) $(candidate libpcre3:i386))
+    fi
 
     if package_exists libc6:i386; then
         packages+=($(candidate libc6:i386))
+    fi
+
+    if package_exists libc6-i386; then
+        packages+=($(candidate libc6-i386))
     fi
 
     if package_exists libc++1; then
@@ -180,7 +202,7 @@ before_jammy_prereq_install () {
     fi
 
     if ! grep 18.04 /etc/os-release; then
-        packages+=($(candidate libglib2.0-0) $(candidate ppp) \
+        packages+=($(candidate ppp) \
             $(candidate network-manager) $(candidate libnm0) \
             $(candidate libosmesa6))
 
@@ -195,10 +217,6 @@ before_jammy_prereq_install () {
         if package_exists libglapi-mesa:i386; then
             packages+=($(candidate libglapi-mesa:i386))
         fi
-
-        if package_exists libglib2.0-0:i386; then
-            packages+=($(candidate libglib2.0-0:i386) $(candidate libpcre3:i386))
-        fi
     fi
 
     message -i "Installing Prequisites: ${packages}"
@@ -206,10 +224,7 @@ before_jammy_prereq_install () {
 }
 
 upgrade () {
-    if dpkg --compare-versions ${VERSION} lt 22.04; then
-        before_jammy_prereq_install
-    fi
-
+    prereq_install
     apt_install_fix
     apt_full_upgrade
 }
