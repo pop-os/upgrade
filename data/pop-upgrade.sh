@@ -156,60 +156,7 @@ install_packages () {
         done
 }
 
-before_jammy_prereq_install () {
-    local packages=($(candidate libc6) $(candidate libmount1) $(candidate zlib1g))
-
-    if package_exists libc6:i386; then
-        packages+=($(candidate libc6:i386))
-    fi
-
-    if package_exists libc++1; then
-        packages+=($(candidate libc++1))
-    fi
-
-    if package_exists libc++1:i386; then
-        packages+=($(candidate libc++1:i386))
-    fi
-
-    if package_exists libmount1:i386; then
-        packages+=($(candidate libmount1:i386))
-    fi
-
-    if package_exists libselinux1:i386; then
-        packages+=($(candidate libselinux1:i386))
-    fi
-
-    if ! grep 18.04 /etc/os-release; then
-        packages+=($(candidate libglib2.0-0) $(candidate ppp) \
-            $(candidate network-manager) $(candidate libnm0) \
-            $(candidate libosmesa6))
-
-        if package_exists mailcap; then
-            packages+=($(candidate mailcap))
-        fi
-
-        if package_exists libosmesa6:i386; then
-            packages+=($(candidate libosmesa6:i386))
-        fi
-
-        if package_exists libglapi-mesa:i386; then
-            packages+=($(candidate libglapi-mesa:i386))
-        fi
-
-        if package_exists libglib2.0-0:i386; then
-            packages+=($(candidate libglib2.0-0:i386) $(candidate libpcre3:i386))
-        fi
-    fi
-
-    message -i "Installing Prequisites: ${packages}"
-    install_packages ${packages[@]}
-}
-
 upgrade () {
-    if dpkg --compare-versions ${VERSION} lt 22.04; then
-        before_jammy_prereq_install
-    fi
-
     apt_install_fix
     apt_full_upgrade
 }
