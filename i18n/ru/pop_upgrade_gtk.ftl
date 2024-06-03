@@ -66,6 +66,7 @@ most-current-recovery = У вас последняя версия раздела
 
 os-upgrade = Обновление ОС
 os-recovery = Восстановление ОС
+os-updates = Обновления системы и приложений
 
 permission-denied = Требуется разрешение
 
