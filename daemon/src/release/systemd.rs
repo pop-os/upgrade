@@ -1,8 +1,8 @@
 use super::*;
 
+use crate::ubuntu_version::{Codename, Version};
 use anyhow::Context;
 use std::fs;
-use ubuntu_version::{Codename, Version};
 
 pub const PREVIOUS_DEFAULT: &str = "/var/lib/pop-upgrade/previous_default";
 

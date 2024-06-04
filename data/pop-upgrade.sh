@@ -2,6 +2,7 @@
 
 export LANG=C
 export DEBIAN_FRONTEND="noninteractive"
+VERSION=$(grep VERSION_ID= /etc/os-release | cut -d '"' -f 2)
 
 # Prevent apt sources from being reverted once this script launches
 rm -rf /pop-upgrade /pop_preparing_release_upgrade
@@ -155,62 +156,7 @@ install_packages () {
         done
 }
 
-apt_install_prereq () {
-    local packages=($(candidate libc6) $(candidate libmount1) $(candidate zlib1g))
-
-    if package_exists libc6:i386; then
-        packages+=($(candidate libc6:i386))
-    fi
-
-    if package_exists libc++1; then
-        packages+=($(candidate libc++1))
-    fi
-
-    if package_exists libc++1:i386; then
-        packages+=($(candidate libc++1:i386))
-    fi
-
-    if package_exists libmount1:i386; then
-        packages+=($(candidate libmount1:i386))
-    fi
-    
-    if package_exists libselinux1:i386; then
-        packages+=($(candidate libselinux1:i386))
-    fi
-
-    if ! grep 18.04 /etc/os-release; then
-        packages+=($(candidate libglib2.0-0) $(candidate ppp) \
-            $(candidate network-manager) $(candidate libnm0) \
-            $(candidate libosmesa6))
-
-        if package_exists mailcap; then
-            packages+=($(candidate mailcap))
-        fi
-
-        if package_exists libosmesa6:i386; then
-            packages+=($(candidate libosmesa6:i386))
-        fi
-
-        if package_exists libglapi-mesa:i386; then
-            packages+=($(candidate libglapi-mesa:i386))
-        fi
-
-        if package_exists libglib2.0-0:i386; then
-            packages+=($(candidate libglib2.0-0:i386) $(candidate libpcre3:i386))
-        fi
-    fi
-
-    message -i "Installing Prequisites: ${packages}"
-    install_packages ${packages[@]}
-}
-
 upgrade () {
-    if ! grep 18.04 /etc/os-release; then
-        apt-mark minimize-manual -y
-    fi
-
-    apt_install_prereq
-    dpkg_configure
     apt_install_fix
     apt_full_upgrade
 }

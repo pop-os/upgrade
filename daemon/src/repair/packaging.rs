@@ -1,9 +1,11 @@
-use crate::release::repos::{iter_files, PPA_DIR};
+use crate::{
+    release::repos::{iter_files, PPA_DIR},
+    ubuntu_version::Codename,
+};
 use anyhow::Context;
 use apt_cmd::{lock::apt_lock_wait, AptGet, Dpkg};
 use futures::StreamExt;
 use std::fs;
-use ubuntu_version::Codename;
 
 pub async fn repair(release: &str) -> anyhow::Result<()> {
     apt_lock_wait().await;
@@ -16,7 +18,8 @@ pub async fn repair(release: &str) -> anyhow::Result<()> {
                     .replace(<&str>::from(Codename::Groovy), release)
                     .replace(<&str>::from(Codename::Hirsute), release)
                     .replace(<&str>::from(Codename::Impish), release)
-                    .replace(<&str>::from(Codename::Jammy), release);
+                    .replace(<&str>::from(Codename::Jammy), release)
+                    .replace(<&str>::from(Codename::Noble), release);
 
                 if modified != contents {
                     let _ = fs::write(&path, modified.as_bytes());

@@ -60,6 +60,9 @@ pub mod sighandler;
 /// Determine if the system is in legacy BIOS or EFI mode.
 pub mod system_environment;
 
+/// Ubuntu versions
+pub mod ubuntu_version;
+
 mod external;
 mod fetch;
 mod gnome_extensions;

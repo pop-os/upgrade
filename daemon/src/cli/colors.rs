@@ -1,14 +1,11 @@
-use std::fmt::Display;
-use yansi::Paint;
+use yansi::Painted;
 
-pub(crate) fn color_error<T: Display>(value: T) -> Paint<T> { Paint::red(value).bold() }
+pub(crate) fn color_error<T>(value: T) -> Painted<T> { Painted::new(value).red().bold() }
 
-pub(crate) fn color_error_desc<T: Display>(value: T) -> Paint<T> {
-    Paint::red(value).bold().dimmed()
-}
+pub(crate) fn color_error_desc<T>(value: T) -> Painted<T> { Painted::new(value).red().bold().dim() }
 
-pub(crate) fn color_info<T: Display>(value: T) -> Paint<T> { Paint::green(value).bold() }
+pub(crate) fn color_info<T>(value: T) -> Painted<T> { Painted::new(value).green().bold() }
 
-pub(crate) fn color_primary<T: Display>(value: T) -> Paint<T> { Paint::cyan(value).bold() }
+pub(crate) fn color_primary<T>(value: T) -> Painted<T> { Painted::new(value).cyan().bold() }
 
-pub(crate) fn color_secondary<T: Display>(value: T) -> Paint<T> { Paint::blue(value).bold() }
+pub(crate) fn color_secondary<T>(value: T) -> Painted<T> { Painted::new(value).blue().bold() }

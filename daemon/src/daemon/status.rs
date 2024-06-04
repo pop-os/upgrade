@@ -10,6 +10,8 @@ pub enum DaemonStatus {
     PackageUpgrade = 4,
 }
 
+unsafe impl bytemuck::NoUninit for DaemonStatus {}
+
 impl From<DaemonStatus> for &'static str {
     fn from(status: DaemonStatus) -> Self {
         match status {

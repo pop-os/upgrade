@@ -1,6 +1,6 @@
 use anyhow::Context;
 use apt_cmd::{lock::apt_lock_wait, request::Request as AptRequest, AptGet};
-use async_shutdown::Shutdown;
+use async_shutdown::ShutdownManager as Shutdown;
 use std::collections::HashSet;
 
 pub enum ExtraPackages {
@@ -9,7 +9,7 @@ pub enum ExtraPackages {
 }
 
 pub async fn fetch_uris(
-    shutdown: Shutdown,
+    shutdown: Shutdown<()>,
     packages: Option<ExtraPackages>,
 ) -> anyhow::Result<HashSet<AptRequest>> {
     let task = tokio::spawn(async move {

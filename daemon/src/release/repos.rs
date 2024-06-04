@@ -1,7 +1,8 @@
 use super::eol::{EolDate, EolStatus};
+use crate::ubuntu_version::Codename;
 use anyhow::Context;
 use const_format::concatcp;
-use os_str_bytes::OsStrBytes;
+use os_str_bytes::{OsStrBytes, OsStrBytesExt};
 use std::{
     ffi::OsStr,
     fs::{self, DirEntry, ReadDir},
@@ -9,7 +10,6 @@ use std::{
     os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
 };
-use ubuntu_version::Codename;
 
 const SOURCES_LIST: &str = "/etc/apt/sources.list";
 pub const PPA_DIR: &str = concatcp!(SOURCES_LIST, ".d/");
@@ -70,7 +70,7 @@ pub async fn backup(release: &str) -> anyhow::Result<()> {
 
     // Then create new backups.
     for src in &backup {
-        let dst_path_buf = [&*(src.to_raw_bytes()), b".save"].concat();
+        let dst_path_buf = [src.as_os_str().as_bytes(), b".save"].concat();
         let dst_path_str = OsStr::from_bytes(&dst_path_buf);
         let dst_path = Path::new(&dst_path_str);
 
@@ -94,8 +94,7 @@ fn delete_system76_ubuntu_ppa_list() {
             let path = entry.path();
             if path.extension().map_or(false, |e| e == "list") {
                 if let Some(fname) = path.file_name() {
-                    const POP_PPA: &[u8] = b"system76-ubuntu-pop";
-                    if fname.to_raw_bytes().windows(POP_PPA.len()).any(|w| w == POP_PPA) {
+                    if fname.contains("system76-ubuntu-pop") {
                         let _ = fs::remove_file(&path);
                     }
                 }
@@ -129,7 +128,13 @@ pub async fn disable_third_parties(release: &str) -> anyhow::Result<()> {
 
             fs::write(&path, replaced.as_bytes())
                 .with_context(|| fomat!("failed to open " (&path.display()) " for writing"))?;
-        }
+        } else if path.extension().map_or(false, |e| e == "sources") {
+            if let Some(fname) = path.file_name() {
+                if !(fname.starts_with("pop-os") || fname.starts_with("system")) {
+                    let _ = fs::remove_file(&path);
+                }
+            }
+        };
     }
 
     apply_default_source_lists(release).await?;
@@ -340,13 +345,12 @@ fn system_sources(release: &str) -> String {
         r#"X-Repolib-Name: Pop_OS System Sources
 Enabled: yes
 Types: deb deb-src
-URIs: http://{1}
+URIs: http://apt.pop-os.org/ubuntu
 Suites: {0} {0}-security {0}-updates {0}-backports
 Components: main restricted universe multiverse
-X-Repolib-Default-Mirror: http://{1}
+X-Repolib-Default-Mirror: http://apt.pop-os.org/ubuntu
 "#,
-        release,
-        ubuntu_uri()
+        release
     )
 }
 

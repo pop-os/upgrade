@@ -1,8 +1,9 @@
-use crate::{release_api::ApiError, release_architecture::ReleaseArchError, repair::RepairError};
-
+use crate::{
+    release_api::ApiError, release_architecture::ReleaseArchError, repair::RepairError,
+    ubuntu_version::VersionError,
+};
 use std::{io, path::PathBuf};
 use thiserror::Error;
-use ubuntu_version::VersionError;
 
 pub type RecResult<T> = Result<T, RecoveryError>;
 

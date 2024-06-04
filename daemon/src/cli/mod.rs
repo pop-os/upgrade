@@ -3,7 +3,6 @@ mod prompt;
 
 use self::colors::*;
 use crate::notify::notify;
-
 use apt_cmd::AptUpgradeEvent;
 use chrono::{TimeZone, Utc};
 use clap::ArgMatches;
@@ -18,6 +17,7 @@ use pop_upgrade::{
         systemd::{self, LoaderEntry},
         RefreshOp, UpgradeEvent, UpgradeMethod,
     },
+    ubuntu_version::{Codename, Version as UbuntuVersion},
 };
 use std::{
     convert::TryFrom,
@@ -25,7 +25,6 @@ use std::{
     io::{self, Write},
     path::Path,
 };
-use ubuntu_version::{Codename, Version as UbuntuVersion};
 use yansi::Paint;
 
 const FETCH_RESULT_STR: &str = "Package fetch status";
@@ -631,7 +630,7 @@ fn log_result(
         } else {
             inner = format!("{}: {}", color_error(error), color_error_desc(why));
 
-            Paint::wrapping(inner.as_str())
+            inner.as_str().wrap()
         }
     );
 }
