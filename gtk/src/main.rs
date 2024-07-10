@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate cascade;
 
+use clap::{Command, Arg, ArgAction};
 use gio::{prelude::*, ApplicationFlags};
 use gtk::{prelude::*, Application};
 use pop_upgrade_gtk::UpgradeWidget;
@@ -58,18 +59,16 @@ fn main() {
 ///
 /// Currently the primary purpose is to determine the logging level.
 fn argument_parsing() {
-    use clap::{App, Arg};
-
-    let matches = App::new("com.system76.FirmwareManager")
+    let matches = Command::new("com.system76.FirmwareManager")
         .arg(
-            Arg::with_name("verbose")
+            Arg::new("verbose")
                 .short('v')
-                .multiple(true)
+                .action(ArgAction::Count)
                 .help("define the logging level; multiple occurrences increases the logging level"),
         )
         .get_matches();
 
-    let logging_level = match matches.occurrences_of("verbose") {
+    let logging_level = match matches.get_count("verbose") {
         0 => LevelFilter::Info,
         1 => LevelFilter::Debug,
         _ => LevelFilter::Trace,

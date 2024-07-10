@@ -612,7 +612,7 @@ fn terminate_background_applications() {
         }
     };
 
-    for proc in processes {
+    for proc in processes.into_iter().filter_map(Result::ok) {
         if let Ok(exe_path) = proc.exe() {
             if let Some(exe) = exe_path.file_name() {
                 if let Some(mut exe) = exe.to_str() {
