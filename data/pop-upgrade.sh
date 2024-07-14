@@ -2,7 +2,6 @@
 
 export LANG=C
 export DEBIAN_FRONTEND="noninteractive"
-VERSION=$(grep VERSION_ID= /etc/os-release | cut -d '"' -f 2)
 
 # Prevent apt sources from being reverted once this script launches
 rm -rf /pop-upgrade /pop_preparing_release_upgrade
@@ -190,6 +189,14 @@ attempt_upgrade () {
 
         message -i "Upgrade complete. Autoremoving old packages..."
         apt-get autoremove -y
+
+        apt-mark minimize-manual -y
+        if test "$(grep VERSION_ID= /etc/os-release | cut -d '"' -f 2)" = "24.04"; then
+            message -i "Upgrade complete. Replacing GNOME..."
+            apt-get remove --autoremove ~nlanguage-pack-gnome ~ngnome-user-docs gnome-bluetooth gnome-calendar \
+                gnome-contacts gnome-online-miners gnome-orca gnome-shell-extension-prefs gnome-themes-standard \
+                gnome-tweaks
+        fi
 
         message -i "Upgrade complete. Updating initramfs for all kernels..."
         update-initramfs -c -k all
