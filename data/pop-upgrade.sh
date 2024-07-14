@@ -196,6 +196,7 @@ attempt_upgrade () {
             apt-get remove --autoremove ~nlanguage-pack-gnome ~ngnome-user-docs gnome-bluetooth gnome-calendar \
                 gnome-contacts gnome-online-miners gnome-orca gnome-shell-extension-prefs gnome-themes-standard \
                 gnome-tweaks
+            dpkg-reconfigure cosmic-greeter
         fi
 
         message -i "Upgrade complete. Updating initramfs for all kernels..."
