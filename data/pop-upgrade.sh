@@ -184,6 +184,10 @@ attempt_upgrade () {
     if (upgrade || attempt_repair); then
         rm -rf  /system-update "$1"
 
+        # Set cosmic-greeter as the default display manager
+        rm -f /etc/systemd/system/display-manager.service
+        ln -sf /lib/systemd/system/cosmic-greeter.service /etc/systemd/system/display-manager.service
+
         message -i "Upgrade complete. Removing old kernels..."
         apt remove linux-image-*hwe*
 
@@ -196,7 +200,6 @@ attempt_upgrade () {
             apt-get remove --autoremove ~nlanguage-pack-gnome ~ngnome-user-docs gnome-bluetooth gnome-calendar \
                 gnome-contacts gnome-online-miners gnome-orca gnome-shell-extension-prefs gnome-themes-standard \
                 gnome-tweaks
-            dpkg-reconfigure cosmic-greeter
         fi
 
         message -i "Upgrade complete. Updating initramfs for all kernels..."
