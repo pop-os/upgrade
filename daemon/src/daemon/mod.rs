@@ -85,18 +85,10 @@ pub const INSTALL_DATE: &str = "/usr/lib/pop-upgrade/install_date";
 
 #[derive(Debug)]
 pub enum Event {
-    FetchUpdates {
-        apt_uris:      HashSet<AptRequest>,
-        download_only: bool,
-    },
+    FetchUpdates { apt_uris: HashSet<AptRequest>, download_only: bool },
     PackageUpgrade,
     RecoveryUpgrade(RecoveryUpgradeMethod),
-    ReleaseUpgrade {
-        how:            ReleaseUpgradeMethod,
-        from:           String,
-        to:             String,
-        await_recovery: bool,
-    },
+    ReleaseUpgrade { how: ReleaseUpgradeMethod, from: String, to: String, await_recovery: bool },
 }
 
 #[derive(Debug)]
@@ -105,37 +97,39 @@ pub enum FgEvent {
 }
 
 pub struct LastKnown {
-    development:      bool,
-    fetch:            Result<(), ReleaseError>,
+    development: bool,
+    fetch: Result<(), ReleaseError>,
     recovery_upgrade: Result<(), RecoveryError>,
-    release_upgrade:  Result<(), ReleaseError>,
+    release_upgrade: Result<(), ReleaseError>,
 }
 
 impl Default for LastKnown {
     fn default() -> Self {
         Self {
-            development:      false,
-            fetch:            Ok(()),
+            development: false,
+            fetch: Ok(()),
             recovery_upgrade: Ok(()),
-            release_upgrade:  Ok(()),
+            release_upgrade: Ok(()),
         }
     }
 }
 
 pub struct ReleaseUpgradeState {
     action: release::UpgradeMethod,
-    from:   Box<str>,
-    to:     Box<str>,
+    from: Box<str>,
+    to: Box<str>,
 }
 
 #[derive(Clone, Copy, Debug)]
 struct FetchState {
     progress: u64,
-    total:    u64,
+    total: u64,
 }
 
 impl FetchState {
-    pub const fn new(progress: u64, total: u64) -> Self { Self { progress, total } }
+    pub const fn new(progress: u64, total: u64) -> Self {
+        Self { progress, total }
+    }
 }
 
 unsafe impl bytemuck::NoUninit for FetchState {}
@@ -143,15 +137,15 @@ unsafe impl bytemuck::NoUninit for FetchState {}
 struct SharedState {
     // In case a UI is being constructed after a task has already started, it may request
     // for the curernt progress of a task.
-    fetching_state:        Atomic<FetchState>,
+    fetching_state: Atomic<FetchState>,
     // The status of the event loop thread, which indicates the current task, or lack thereof.
-    status:                Atomic<DaemonStatus>,
+    status: Atomic<DaemonStatus>,
     // As well as the current sub-status, if relevant.
-    sub_status:            AtomicU8,
+    sub_status: AtomicU8,
     // Cancels a process that is currently active.
-    shutdown:              Mutex<Shutdown<()>>,
+    shutdown: Mutex<Shutdown<()>>,
     // Development release
-    force_next:            AtomicBool,
+    force_next: AtomicBool,
     // Indicates that it is now uncancellable
     release_upgrade_began: AtomicBool,
 }
@@ -163,12 +157,12 @@ enum ReleaseCheck {
 }
 
 pub struct Daemon {
-    event_tx:        UnboundedSender<Event>,
-    last_known:      LastKnown,
+    event_tx: UnboundedSender<Event>,
+    last_known: LastKnown,
     perform_upgrade: bool,
-    release_check:   ReleaseCheck,
+    release_check: ReleaseCheck,
     release_upgrade: Option<ReleaseUpgradeState>,
-    shared_state:    Arc<SharedState>,
+    shared_state: Arc<SharedState>,
 }
 
 impl Daemon {
@@ -186,11 +180,11 @@ impl Daemon {
 
         // State shared between the background task thread, and the foreground DBus event loop.
         let shared_state = Arc::new(SharedState {
-            status:                Atomic::new(DaemonStatus::Inactive),
-            sub_status:            AtomicU8::new(0),
-            fetching_state:        Atomic::new(FetchState::new(0, 0)),
-            shutdown:              Mutex::new(Shutdown::new()),
-            force_next:            AtomicBool::new(false),
+            status: Atomic::new(DaemonStatus::Inactive),
+            sub_status: AtomicU8::new(0),
+            fetching_state: Atomic::new(FetchState::new(0, 0)),
+            shutdown: Mutex::new(Shutdown::new()),
+            force_next: AtomicBool::new(false),
             release_upgrade_began: AtomicBool::new(false),
         });
 
@@ -319,6 +313,7 @@ impl Daemon {
 
                         Event::RecoveryUpgrade(action) => {
                             info!("attempting recovery upgrade with {:?}", action);
+
                             let result = recovery::recovery(
                                 shutdown.clone(),
                                 &action,
@@ -629,6 +624,34 @@ impl Daemon {
                 ("development",),
                 ("current", "next", "build", "urgent", "is_lts"),
                 |_ctx: &mut Context, daemon: &mut Daemon, (development,): (bool,)| {
+                    if daemon.shared_state.release_upgrade_began.load(Ordering::SeqCst) {
+                        return Err(MethodErr::failed(
+                            "daemon is busy performing a release upgrade",
+                        ));
+                    }
+
+                    match daemon.shared_state.status.load(Ordering::SeqCst) {
+                        DaemonStatus::Inactive => (),
+                        DaemonStatus::PackageUpgrade => {
+                            return Err(MethodErr::failed("daemon is busy upgrading packages"))
+                        }
+                        DaemonStatus::ReleaseUpgrade => {
+                            return Err(MethodErr::failed(
+                                "daemon is busy performing a release upgrade",
+                            ))
+                        }
+                        DaemonStatus::RecoveryUpgrade => {
+                            return Err(MethodErr::failed(
+                                "daemon is busy upgrading the recovery partition",
+                            ))
+                        }
+                        DaemonStatus::FetchingPackages => {
+                            return Err(MethodErr::failed(
+                                "daemon is busy fetching package updates",
+                            ))
+                        }
+                    }
+
                     daemon.last_known.development = development;
                     futures::executor::block_on(async {
                         daemon.shared_state.force_next.store(development, Ordering::SeqCst);
@@ -1000,8 +1023,8 @@ impl Daemon {
 
         let event = Event::RecoveryUpgrade(RecoveryUpgradeMethod::FromRelease {
             version: if version.is_empty() { None } else { Some(version.into()) },
-            arch:    if arch.is_empty() { None } else { Some(arch.into()) },
-            flags:   RecoveryReleaseFlags::from_bits_truncate(flags),
+            arch: if arch.is_empty() { None } else { Some(arch.into()) },
+            flags: RecoveryReleaseFlags::from_bits_truncate(flags),
         });
 
         self.submit_event(event)
