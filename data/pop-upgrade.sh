@@ -212,13 +212,13 @@ attempt_upgrade () {
         sleep 6
         sync
 
-        systemctl unmask acpid pop-upgrade
+        timeout 5 systemctl unmask acpid pop-upgrade
         systemctl reboot
     else
         message -f "Upgrade failed. Restarting the system to try again..."
         sleep 6
         sync
-        systemctl unmask acpid pop-upgrade
+        timeout 5 systemctl unmask acpid pop-upgrade
         systemctl rescue
     fi
 }
