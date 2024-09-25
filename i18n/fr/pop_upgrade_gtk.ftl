@@ -66,6 +66,7 @@ most-current-recovery = Vous avez la version la plus à jour de la partiton de r
 
 os-upgrade = Mise à niveau de l'OS
 os-recovery = Récupération de l'OS
+os-updates = Mises à jour du système et des applications
 
 permission-denied = Permission requise
 
