@@ -197,7 +197,7 @@ attempt_upgrade () {
         apt-mark minimize-manual -y
         if test "$(grep VERSION_ID= /etc/os-release | cut -d '"' -f 2)" = "24.04"; then
             message -i "Upgrade complete. Replacing GNOME..."
-            apt-get remove --autoremove ~nlanguage-pack-gnome ~ngnome-user-docs gdm3 gnome-bluetooth gnome-calendar \
+            apt-get remove --autoremove -y ~nlanguage-pack-gnome ~ngnome-user-docs gdm3 gnome-bluetooth gnome-calendar \
                 gnome-contacts gnome-online-miners gnome-orca gnome-shell ~ngnome-shell-extension gnome-themes-standard \
                 gnome-tweaks
         fi
