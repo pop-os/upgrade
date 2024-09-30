@@ -207,16 +207,18 @@ attempt_upgrade () {
         plymouth system-update --progress="100"
 
         efi_rename
-        message -i "Upgrade complete. Now rebooting..."
-        sleep 6
-        sync
+        message -i "Upgrade complete. Preparing to reboot..."
         rm -f /etc/systemd/system/{acpid,pop-upgrade}.service
+        sync
+        sleep 3
+        message -i "Upgrade complete. Now rebooting..."
+        sleep 2
         systemctl reboot
     else
-        message -f "Upgrade failed. Restarting the system to try again..."
-        sleep 6
-        sync
         rm -f /etc/systemd/system/{acpid,pop-upgrade}.service
+        sync
+        message -f "Upgrade failed. Restarting the system to try again..."
+        sleep 5
         systemctl rescue
     fi
 }
