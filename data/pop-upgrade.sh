@@ -184,9 +184,11 @@ attempt_upgrade () {
     if (upgrade || attempt_repair); then
         rm -rf  /system-update "$1"
 
-        # Set cosmic-greeter as the default display manager
-        rm -f /etc/systemd/system/display-manager.service
-        ln -sf /lib/systemd/system/cosmic-greeter.service /etc/systemd/system/display-manager.service
+        if test "$(grep VERSION_ID= /etc/os-release | cut -d '"' -f 2)" = "24.04"; then
+            # Set cosmic-greeter as the default display manager
+            rm -f /etc/systemd/system/display-manager.service
+            ln -sf /lib/systemd/system/cosmic-greeter.service /etc/systemd/system/display-manager.service
+        fi
 
         message -i "Upgrade complete. Removing old kernels..."
         apt remove linux-image-*hwe*
