@@ -1,2 +1,5 @@
 [workspace]
 members = [ "daemon", "gtk", "gtk/ffi"]
+
+[profile.release]
+lto = "fat"
