@@ -509,6 +509,16 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
         if package.contains("pop-upgrade") || package.contains("pop-system-updater") {
             continue;
         }
+        
+        // Papirus's elementary variant must be removed prior to downgrading the main package.
+        if package.contains("papirus-icon-theme") {
+            info!("papirus-icon-theme will be downgraded, so removing epapirus-icon-theme");
+            let mut remove_epapirus_cmd = AptGet::new().allow_downgrades().force().noninteractive();
+            remove_epapirus_cmd.arg("remove");
+            remove_epapirus_cmd.arg("epapirus-icon-theme");
+            let _remove_epapirus = remove_epapirus_cmd.status().await
+                .context("apt-get remove epapirus-icon-theme").map_err(ReleaseError::Downgrade);
+        }
 
         if let Some(version) = version.split_ascii_whitespace().next() {
             cmd.arg([&package, "=", version].concat());
