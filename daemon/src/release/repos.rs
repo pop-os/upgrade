@@ -348,7 +348,9 @@ Types: deb deb-src
 URIs: http://apt.pop-os.org/ubuntu
 Suites: {0} {0}-security {0}-updates {0}-backports
 Components: main restricted universe multiverse
+Signed-By:  /etc/apt/trusted.gpg.d/ubuntu-keyring-2018-archive.gpg
 X-Repolib-Default-Mirror: http://apt.pop-os.org/ubuntu
+X-Repolib-ID: system
 "#,
         release
     )
@@ -369,6 +371,7 @@ Types: deb
 URIs: http://apt.pop-os.org/proprietary
 Suites: {0}
 Components: main
+Signed-By: /etc/apt/trusted.gpg.d/pop-keyring-2017-archive.gpg
 "#,
         release
     )
@@ -382,6 +385,7 @@ Types: deb deb-src
 URIs: http://apt.pop-os.org/release
 Suites: {0}
 Components: main
+Signed-By: /etc/apt/trusted.gpg.d/pop-keyring-2017-archive.gpg
 "#,
         release
     )
