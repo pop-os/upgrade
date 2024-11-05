@@ -2,7 +2,7 @@ use super::eol::{EolDate, EolStatus};
 use crate::ubuntu_version::Codename;
 use anyhow::Context;
 use const_format::concatcp;
-use os_str_bytes::{OsStrBytes, OsStrBytesExt};
+use os_str_bytes::OsStrBytesExt;
 use std::{
     ffi::OsStr,
     fs::{self, DirEntry, ReadDir},
@@ -341,8 +341,7 @@ fn ubuntu_uri() -> &'static str {
 }
 
 fn system_sources(release: &str) -> String {
-    let uri =
-        if cfg!(target_arch = "aarch64") { ubuntu_uri() } else { "apt.pop-os.org/ubuntu" };
+    let uri = if cfg!(target_arch = "aarch64") { ubuntu_uri() } else { "apt.pop-os.org/ubuntu" };
     format!(
         r#"X-Repolib-Name: Pop_OS System Sources
 Enabled: yes
@@ -351,6 +350,7 @@ URIs: http://{1}
 Suites: {0} {0}-security {0}-updates {0}-backports
 Components: main restricted universe multiverse
 X-Repolib-Default-Mirror: http://{1}
+Signed-By:  /etc/apt/trusted.gpg.d/ubuntu-keyring-2018-archive.gpg
 "#,
         release, uri
     )
@@ -371,6 +371,7 @@ Types: deb
 URIs: http://apt.pop-os.org/proprietary
 Suites: {0}
 Components: main
+Signed-By: /etc/apt/trusted.gpg.d/pop-keyring-2017-archive.gpg
 "#,
         release
     )
@@ -384,6 +385,7 @@ Types: deb deb-src
 URIs: http://apt.pop-os.org/release
 Suites: {0}
 Components: main
+Signed-By: /etc/apt/trusted.gpg.d/pop-keyring-2017-archive.gpg
 "#,
         release
     )
@@ -436,7 +438,9 @@ pub fn iter_files(dir: ReadDir) -> impl Iterator<Item = DirEntry> {
     dir.filter_map(Result::ok).filter(|entry| entry.metadata().ok().map_or(false, |m| m.is_file()))
 }
 
-fn is_save_file(path: &Path) -> bool { path.extension() == Some(OsStr::from_bytes(b"save")) }
+fn is_save_file(path: &Path) -> bool {
+    path.extension() == Some(OsStr::from_bytes(b"save"))
+}
 
 #[cfg(test)]
 mod tests {
