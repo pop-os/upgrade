@@ -505,7 +505,7 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
 
     cmd.arg("install");
 
-    for (package, version) in downgradable {
+    'downgrades: for (package, version) in &downgradable {
         if package.contains("pop-upgrade") || package.contains("pop-system-updater") {
             continue;
         }
@@ -518,6 +518,25 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
             remove_epapirus_cmd.arg("epapirus-icon-theme");
             let _remove_epapirus = remove_epapirus_cmd.status().await
                 .context("apt-get remove epapirus-icon-theme").map_err(ReleaseError::Downgrade);
+        }
+        
+        // In Ubuntu 22.04, the `ansible` and `ansible-core` packages are not compatible.
+        // If `ansible-core` is downgradable, check if `ansible` is downgradable;
+        // if so, remove `ansible-core` and skip adding it to the downgrade command.
+        if package.contains("ansible-core") && version.contains("2.12") {
+            info!("ansible-core downgrade candidate version is from Ubuntu 22.04");
+            for (package, _version) in &downgradable {
+                if package.eq("ansible") {
+                    info!("ansible will also be downgraded, so removing ansible-core");
+                    let mut remove_ansible_core_cmd = AptGet::new().allow_downgrades().force().noninteractive();
+                        remove_ansible_core_cmd.arg("remove");
+                        remove_ansible_core_cmd.arg("ansible-core");
+                        let _remove_ansible_core = remove_ansible_core_cmd.status().await
+                            .context("apt-get remove ansible-core").map_err(ReleaseError::Downgrade);
+                    continue 'downgrades;
+                }
+            }
+            info!("ansible is not installed, so ansible-core will be downgraded");
         }
 
         if let Some(version) = version.split_ascii_whitespace().next() {
