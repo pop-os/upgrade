@@ -23,7 +23,6 @@ endif
 
 VENDOR ?= 0
 ifeq ($(VENDOR),1)
-	ARGS += "--frozen" "--offline"
 endif
 
 BINARY=target/$(TARGET)/$(BIN)
