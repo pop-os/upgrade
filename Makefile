@@ -34,6 +34,9 @@ NOTIFY = pop-upgrade-notify
 NOTIFY_APPID = $(ID).Notify
 STARTUP_DESKTOP = $(NOTIFY_APPID).desktop
 
+VERSION=$(shell lsb_release -rs)
+ENABLE_GTK_LIB=$(shell dpkg --compare-versions 22.04 le $(VERSION) && echo 1 || echo 0)
+
 .PHONY: all clean distclean install uninstall update vendor
 
 all: $(BINARY) $(LIBRARY) $(PKGCONFIG)
@@ -59,9 +62,6 @@ endif
 install:
 	install -Dm0755 "$(BINARY)" "$(DESTDIR)$(bindir)/$(BIN)"
 	install -Dm0755 "data/$(BIN).sh" "$(DESTDIR)$(libdir)/$(BIN)/upgrade.sh"
-	install -Dm0644 "$(HEADER)" "$(DESTDIR)$(includedir)/$(PACKAGE).h"
-	install -Dm0644 "$(LIBRARY)" "$(DESTDIR)$(libdir)/$(LIB)"
-	install -Dm0644 "$(PKGCONFIG)" "$(DESTDIR)$(libdir)/pkgconfig/$(PACKAGE).pc"
 	install -Dm0644 "data/$(BIN)-init.service" "$(DESTDIR)$(libdir)/systemd/system/$(BIN)-init.service"
 	install -Dm0644 "data/$(BIN).conf" "$(DESTDIR)$(sysconfdir)/dbus-1/system.d/$(BIN).conf"
 	install -Dm0644 "data/$(BIN).service" "$(DESTDIR)$(libdir)/systemd/system/$(BIN).service"
@@ -69,15 +69,24 @@ install:
 	install -Dm0644 "data/$(NOTIFY).service" "$(DESTDIR)$(libdir)/systemd/user/$(NOTIFY).service"
 	install -Dm0644 "data/$(NOTIFY).timer" "$(DESTDIR)$(libdir)/systemd/user/$(NOTIFY).timer"
 	install -Dm0644 "data/$(STARTUP_DESKTOP)" "$(DESTDIR)/etc/xdg/autostart/$(STARTUP_DESKTOP)"
+ifeq ($(ENABLE_GTK_LIB),1)
+	install -Dm0644 "$(HEADER)" "$(DESTDIR)$(includedir)/$(PACKAGE).h"
+	install -Dm0644 "$(LIBRARY)" "$(DESTDIR)$(libdir)/$(LIB)"
+	install -Dm0644 "$(PKGCONFIG)" "$(DESTDIR)$(libdir)/pkgconfig/$(PACKAGE).pc"
+endif
 
 $(BINARY): extract-vendor
 	cargo build $(ARGS) -p pop-upgrade
 
 $(LIBRARY): extract-vendor
+ifeq ($(ENABLE_GTK_LIB),1)
 	cargo build $(ARGS) -p pop-upgrade-gtk-ffi
+endif
 
 $(PKGCONFIG):
+ifeq ($(ENABLE_GTK_LIB),1)
 	echo "libdir=$(libdir)" > "$@.partial"
 	echo "includedir=$(includedir)" >> "$@.partial"
 	cat "$(PKGCONFIG).stub" >> "$@.partial"
 	mv "$@.partial" "$@"
+endif

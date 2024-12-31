@@ -3,6 +3,9 @@
 export VENDOR ?= 1
 CLEAN ?= 1
 
+VERSION=$(shell lsb_release -rs)
+ENABLE_GTK_LIB=$(shell dpkg --compare-versions 22.04 le $(VERSION) && echo 1 || echo 0)
+
 %:
 	dh $@ --with=systemd
 
@@ -22,3 +25,12 @@ override_dh_installinit:
 
 override_dh_systemd_start:
 	dh_systemd_start -r
+
+override_dh_install:
+	dh_install
+ifeq ($(ENABLE_GTK_LIB),1)
+	mkdir -p debian/libpop-upgrade-gtk/usr/lib debian/libpop-upgrade-gtk-dev/usr debian/libpop-upgrade-gtk-dev/usr
+	install debian/tmp/usr/lib/libpop_upgrade_gtk.so debian/libpop-upgrade-gtk/usr/lib/libpop_upgrade_gtk.so
+	install debian/tmp/usr/include/pop_upgrade_gtk.h debian/libpop-upgrade-gtk-dev/usr/pop_upgrade_gtk.h
+	install debian/tmp/usr/lib/pkgconfig/pop_upgrade_gtk.pc debian/libpop-upgrade-gtk-dev/usr/pop_upgrade_gtk.pc
+endif
