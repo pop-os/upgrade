@@ -341,16 +341,18 @@ fn ubuntu_uri() -> &'static str {
 }
 
 fn system_sources(release: &str) -> String {
+    let uri =
+        if cfg!(target_arch = "aarch64") { ubuntu_uri() } else { "apt.pop-os.org/ubuntu" };
     format!(
         r#"X-Repolib-Name: Pop_OS System Sources
 Enabled: yes
 Types: deb deb-src
-URIs: http://apt.pop-os.org/ubuntu
+URIs: http://{1}
 Suites: {0} {0}-security {0}-updates {0}-backports
 Components: main restricted universe multiverse
-X-Repolib-Default-Mirror: http://apt.pop-os.org/ubuntu
+X-Repolib-Default-Mirror: http://{1}
 "#,
-        release
+        release, uri
     )
 }
 
