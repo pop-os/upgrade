@@ -5,24 +5,24 @@ use crate::{
 
 use pop_upgrade::{
     client::{Client, Error as ClientError, ReleaseInfo},
-    daemon::DaemonStatus,
     release::{self, STARTUP_UPGRADE_FILE},
 };
+use pop_upgrade_client::DaemonStatus;
 
 use std::path::Path;
 
 #[derive(Debug)]
 pub enum ScanEvent {
     Found {
-        is_current:         bool,
-        is_lts:             bool,
-        refresh:            bool,
-        status_failed:      bool,
-        reboot_ready:       bool,
+        is_current: bool,
+        is_lts: bool,
+        refresh: bool,
+        status_failed: bool,
+        reboot_ready: bool,
         upgrading_recovery: bool,
-        urgent:             bool,
+        urgent: bool,
 
-        current:      Option<Box<str>>,
+        current: Option<Box<str>>,
         upgrade_text: Box<str>,
 
         upgrade: Option<ReleaseInfo>,
@@ -54,10 +54,10 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
     let upgrading_recovery =
         daemon_status_is(client, DaemonStatus::RecoveryUpgrade).unwrap_or(false);
 
-    let upgrade_text: String = if !reboot_ready && release::upgrade_in_progress() {
+    let upgrade_text: String = if !reboot_ready && pop_upgrade_client::upgrade_in_progress() {
         fl!("upgrade-downloading")
     } else {
-        let devel = pop_upgrade::development_releases_enabled();
+        let devel = pop_upgrade_client::development_releases_enabled();
         let result = client.release_check(devel);
         match result {
             Ok(info) => {

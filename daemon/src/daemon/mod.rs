@@ -1,14 +1,6 @@
 pub mod signals;
 
 pub mod methods {
-    #[repr(u8)]
-    #[derive(Clone, Copy, Debug, FromPrimitive, PartialEq)]
-    pub enum DismissEvent {
-        ByTimestamp = 1,
-        ByUser = 2,
-        Unset = 3,
-    }
-
     pub const CANCEL: &str = "Cancel";
     pub const DISMISS_NOTIFICATION: &str = "DismissNotification";
     pub const FETCH_UPDATES: &str = "FetchUpdates";
@@ -30,17 +22,15 @@ pub mod methods {
 }
 
 mod error;
-mod status;
 
-pub use self::{
-    error::DaemonError, methods::DismissEvent, signals::SignalEvent, status::DaemonStatus,
-};
+pub use self::{error::DaemonError, signals::SignalEvent};
+pub use pop_upgrade_client::{DaemonStatus, DismissEvent, UpgradeMethod as RecoveryUpgradeMethod};
 
 use crate::{
     misc::{self, format_error},
     recovery::{
         self, RecoveryError, RecoveryVersion, RecoveryVersionError,
-        ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
+        ReleaseFlags as RecoveryReleaseFlags,
     },
     release::{
         self, FetchEvent, RefreshOp, ReleaseError, ReleaseStatus,
@@ -306,7 +296,7 @@ impl Daemon {
                             info!("upgrading packages");
                             let _ = crate::release::package_upgrade(|event| {
                                 let _ = dbus_tx.send(SignalEvent::Upgrade(event));
-                            });
+                            }).await;
 
                             info!("packages upgraded");
                         }
@@ -756,7 +746,7 @@ impl Daemon {
                 ("status", "sub_status"),
                 |_ctx: &mut Context, daemon: &mut Daemon, _inputs: ()| {
                     let status = daemon.shared_state.status.load(Ordering::SeqCst) as u8;
-                    let sub_status = daemon.shared_state.sub_status.load(Ordering::SeqCst) as u8;
+                    let sub_status = daemon.shared_state.sub_status.load(Ordering::SeqCst);
                     Ok((status, sub_status))
                 },
             );

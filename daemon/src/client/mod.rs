@@ -1,9 +1,12 @@
 use crate::{
     daemon::*,
     recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags},
-    release::{RefreshOp, UpgradeEvent, UpgradeMethod},
+    release::{RefreshOp, UpgradeMethod},
     sighandler, DBUS_IFACE, DBUS_NAME, DBUS_PATH,
 };
+
+pub use pop_upgrade_client::{DaemonState, Fetched, RecoveryVersion, ReleaseInfo, Status};
+use pop_upgrade_client::{FetchStatus, Progress, UpgradeEvent};
 
 use dbus::{
     arg::messageitem::{MessageItem, MessageItemArray},
@@ -16,28 +19,6 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 const TIMEOUT: i32 = 0x7fff_ffff;
-
-// Information about the current fetch progress.
-#[derive(Clone, Debug)]
-pub struct FetchStatus {
-    pub package:   Box<str>,
-    pub completed: u32,
-    pub total:     u32,
-}
-
-/// Data for tracking progress of an action.
-#[derive(Clone, Debug)]
-pub struct Progress {
-    pub progress: u64,
-    pub total:    u64,
-}
-
-/// Contains information about good and bad repositories.
-#[derive(Clone, Debug)]
-pub struct RepoCompatError {
-    pub success: Vec<String>,
-    pub failure: Vec<(String, String)>,
-}
 
 /// A signal received by the daemon.
 #[derive(Debug)]
@@ -59,48 +40,6 @@ pub enum Signal {
 pub enum Continue {
     True,
     False,
-}
-
-/// The status of the daemon that was retrieved.
-#[derive(Clone, Debug)]
-pub struct DaemonStatus {
-    pub status:     u8,
-    pub sub_status: u8,
-}
-
-/// Information about available system updates.
-#[derive(Clone, Debug)]
-pub struct Fetched {
-    pub updates_available: bool,
-    pub completed:         u32,
-    pub total:             u32,
-}
-
-/// The version of the recovery partition's image.
-#[derive(Clone, Debug)]
-pub struct RecoveryVersion {
-    pub version: Box<str>,
-    pub build:   i16,
-}
-
-/// Information about the current and next release.
-///
-/// The build is set to `-1` if the next release is
-/// not available.
-#[derive(Clone, Debug)]
-pub struct ReleaseInfo {
-    pub current: Box<str>,
-    pub next:    Box<str>,
-    pub build:   i16,
-    pub urgent:  Option<u16>,
-    pub is_lts:  bool,
-}
-
-/// The status of an action, and a description of why.
-#[derive(Clone, Debug)]
-pub struct Status {
-    pub status: u8,
-    pub why:    Box<str>,
 }
 
 #[derive(Debug, Error)]
@@ -309,11 +248,11 @@ impl Client {
     }
 
     /// Retrieves the status of the daemon.
-    pub fn status(&self) -> Result<DaemonStatus, Error> {
+    pub fn status(&self) -> Result<DaemonState, Error> {
         self.call_method(methods::STATUS, |m| m)?
             .read2::<u8, u8>()
             .map_err(|why| Error::ArgumentMismatch(methods::STATUS, why))
-            .map(|(status, sub_status)| DaemonStatus { status, sub_status })
+            .map(|(status, sub_status)| DaemonState { status, sub_status })
     }
 
     pub fn update_and_restart(&self) -> Result<bool, Error> {

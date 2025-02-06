@@ -1,6 +1,8 @@
 mod errors;
 mod version;
 
+pub use pop_upgrade_client::{RecoveryEvent, ReleaseFlags, UpgradeMethod};
+
 use crate::daemon::SignalEvent;
 use anyhow::Context;
 use async_fetcher::{Checksum, FetchEvent, Fetcher, SumStr};
@@ -23,40 +25,7 @@ pub use self::{
     version::{recovery_file, version, RecoveryVersion, RecoveryVersionError, RECOVERY_VERSION},
 };
 
-bitflags! {
-    #[derive(Clone, Copy, Debug)]
-    pub struct ReleaseFlags: u8 {
-        const NEXT = 1;
-    }
-}
-
 const CACHE_PATH: &str = "/var/cache/pop-upgrade/";
-
-#[repr(u8)]
-#[derive(Clone, Copy, Debug, FromPrimitive, PartialEq)]
-pub enum RecoveryEvent {
-    Fetching = 1,
-    Verifying = 2,
-    Syncing = 3,
-    Complete = 4,
-}
-
-impl From<RecoveryEvent> for &'static str {
-    fn from(event: RecoveryEvent) -> Self {
-        match event {
-            RecoveryEvent::Fetching => "fetching recovery files",
-            RecoveryEvent::Syncing => "syncing recovery files with recovery partition",
-            RecoveryEvent::Verifying => "verifying checksums of fetched files",
-            RecoveryEvent::Complete => "recovery partition upgrade completed",
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum UpgradeMethod {
-    FromFile(PathBuf),
-    FromRelease { version: Option<String>, arch: Option<String>, flags: ReleaseFlags },
-}
 
 pub async fn recovery(
     cancel: Shutdown<()>,
@@ -100,16 +69,7 @@ pub async fn recovery(
 }
 
 pub fn recovery_exists() -> Result<bool, RecoveryError> {
-    let mounts = proc_mounts::MountIter::new().map_err(RecoveryError::Mounts)?;
-
-    for mount in mounts {
-        let mount = mount.map_err(RecoveryError::Mounts)?;
-        if mount.dest == Path::new("/recovery") {
-            return Ok(true);
-        }
-    }
-
-    Ok(false)
+    pop_upgrade_client::recovery_exists().map_err(RecoveryError::Mounts)
 }
 
 async fn fetch_iso<P: AsRef<Path>>(

@@ -1,0 +1,13 @@
+[package]
+name = "pop-upgrade-client"
+version = "0.1.0"
+edition = "2021"
+rust-version.workspace = true
+
+[dependencies]
+bitflags = "2.5"
+bytemuck = "1.15"
+num-derive = "0.4"
+num-traits = "0.2"
+proc-mounts = "0.3.0"
+thiserror = "1.0"

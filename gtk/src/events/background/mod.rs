@@ -7,11 +7,8 @@ use crate::{errors::UnderlyingError, events::*, reboot};
 use self::scan::scan;
 
 use num_traits::cast::FromPrimitive;
-use pop_upgrade::{
-    client::{Client, ReleaseInfo, Status},
-    daemon::{DaemonStatus, DismissEvent},
-    release::RefreshOp,
-};
+use pop_upgrade::client::Client;
+use pop_upgrade_client::{DaemonStatus, DismissEvent, RefreshOp, ReleaseInfo, Status};
 
 use std::sync::mpsc::{self, SyncSender};
 

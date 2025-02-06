@@ -25,7 +25,7 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: &ReleaseInfo) {
         return;
     }
 
-    use pop_upgrade::client::Progress;
+    use pop_upgrade_client::Progress;
 
     let result = client.event_listen(
         Client::release_upgrade_status,
@@ -118,12 +118,14 @@ pub fn update(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
 
                         return Ok(client::Continue::False);
                     }
+
                     Signal::PackageFetched(status) => {
                         send(UiEvent::Progress(ProgressEvent::Fetching(
                             status.completed.into(),
                             status.total.into(),
                         )));
                     }
+
                     Signal::PackageUpgrade(event) => {
                         match AptUpgradeEvent::from_dbus_map(event.into_iter()) {
                             Ok(AptUpgradeEvent::Progress { percent }) => {
@@ -135,9 +137,11 @@ pub fn update(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
                             _ => (),
                         }
                     }
+
                     Signal::ReleaseEvent(event) => {
                         send(UiEvent::Upgrade(OsUpgradeEvent::Event(event)));
                     }
+
                     _ => (),
                 }
 

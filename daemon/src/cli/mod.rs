@@ -43,7 +43,9 @@ const UPGRADE_RESULT_ERROR: &str = "release upgrade aborted";
 pub struct Client(client::Client);
 
 impl Client {
-    pub fn new() -> Result<Self, client::Error> { client::Client::new().map(Client) }
+    pub fn new() -> Result<Self, client::Error> {
+        client::Client::new().map(Client)
+    }
 
     /// Executes the recovery subcommand of the client.
     pub fn recovery(&self, matches: &ArgMatches) -> anyhow::Result<()> {
@@ -91,7 +93,7 @@ impl Client {
     pub fn release(&self, matches: &ArgMatches) -> anyhow::Result<()> {
         match matches.subcommand() {
             Some(("dismiss", _)) => {
-                let devel = pop_upgrade::development_releases_enabled();
+                let devel = pop_upgrade_client::development_releases_enabled();
                 let (_, _, _, is_lts) = self.release_check(devel)?;
                 if is_lts {
                     self.dismiss_notification(DismissEvent::ByUser)?;
@@ -137,8 +139,8 @@ impl Client {
             // Perform an upgrade to the next release. Supports either systemd or recovery upgrades.
             Some(("upgrade", matches)) => {
                 let (method, matches) = (UpgradeMethod::Offline, matches);
-                let forcing =
-                    matches.is_present("force-next") || pop_upgrade::development_releases_enabled();
+                let forcing = matches.is_present("force-next")
+                    || pop_upgrade_client::development_releases_enabled();
                 let (current, next, available, _is_lts) = self.release_check(forcing)?;
 
                 if atty::is(atty::Stream::Stdout) {

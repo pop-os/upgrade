@@ -65,7 +65,7 @@ fn ymd_to_utc(y: i32, m: u32, d: u32) -> Date<Utc> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ubuntu_version::Codename;
+    use crate::ubuntu_version::Codename;
 
     #[test]
     fn eol_exceeded() {

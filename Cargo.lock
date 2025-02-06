@@ -2427,6 +2427,7 @@ dependencies = [
  "num-traits",
  "os-release",
  "os_str_bytes 7.0.0",
+ "pop-upgrade-client",
  "proc-mounts",
  "procfs",
  "pwd",
@@ -2451,6 +2452,18 @@ dependencies = [
  "ward",
  "whitespace-conf",
  "yansi",
+]
+
+[[package]]
+name = "pop-upgrade-client"
+version = "0.1.0"
+dependencies = [
+ "bitflags 2.5.0",
+ "bytemuck",
+ "num-derive",
+ "num-traits",
+ "proc-mounts",
+ "thiserror",
 ]
 
 [[package]]
@@ -2482,6 +2495,7 @@ dependencies = [
  "pango",
  "pkg-config",
  "pop-upgrade",
+ "pop-upgrade-client",
  "rust-embed",
  "shrinkwraprs",
  "thiserror",

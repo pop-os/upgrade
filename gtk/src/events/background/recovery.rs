@@ -7,9 +7,9 @@ use super::status_changed;
 
 use pop_upgrade::{
     client::{self, Client, Signal},
-    daemon::DaemonStatus,
     recovery::ReleaseFlags,
 };
+use pop_upgrade_client::DaemonStatus;
 
 pub fn upgrade(client: &Client, send: &dyn Fn(UiEvent), version: &str) -> bool {
     send(UiEvent::Initiated(InitiatedEvent::Recovery));
@@ -30,7 +30,7 @@ pub fn upgrade_listen(client: &Client, send: &dyn Fn(UiEvent)) -> bool {
         Client::recovery_upgrade_release_status,
         |status| status_changed(send, status, DaemonStatus::RecoveryUpgrade),
         |_client, signal| {
-            use pop_upgrade::client::Progress;
+            use pop_upgrade_client::Progress;
             match signal {
                 Signal::RecoveryDownloadProgress(Progress { progress, total }) => {
                     send(UiEvent::Progress(ProgressEvent::Recovery(progress, total)));

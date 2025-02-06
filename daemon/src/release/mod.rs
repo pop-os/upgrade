@@ -8,6 +8,9 @@ mod recovery;
 mod snapd;
 
 use self::systemd::LoaderEntry;
+pub use pop_upgrade_client::{
+    UpgradeEvent, RELEASE_FETCH_FILE, RESTART_SCHEDULED, STARTUP_UPGRADE_FILE,
+};
 
 pub use self::{
     check::{BuildStatus, ReleaseStatus},
@@ -26,6 +29,7 @@ use apt_cmd::{
 };
 use async_shutdown::ShutdownManager as Shutdown;
 use futures::prelude::*;
+
 use std::{
     collections::HashSet,
     convert::TryFrom,
@@ -35,8 +39,6 @@ use std::{
     sync::Arc,
 };
 use systemd_boot_conf::SystemdBootConf;
-
-pub const STARTUP_UPGRADE_FILE: &str = "/pop-upgrade";
 
 /// Packages which should be removed before upgrading.
 ///
@@ -66,22 +68,11 @@ const CORE_PACKAGES: &[&str] = &["pop-desktop-raspi"];
 
 const DPKG_LOCK: &str = "/var/lib/dpkg/lock";
 const LISTS_LOCK: &str = "/var/lib/apt/lists/lock";
-const RELEASE_FETCH_FILE: &str = "/pop_preparing_release_upgrade";
 const SYSTEM_UPDATE: &str = "/system-update";
 const SYSTEMD_BOOT_LOADER_PATH: &str = "/boot/efi/loader";
 const SYSTEMD_BOOT_LOADER: &str = "/boot/efi/EFI/systemd/systemd-bootx64.efi";
 
-pub fn upgrade_in_progress() -> bool {
-    Path::new(STARTUP_UPGRADE_FILE).exists() || Path::new(RELEASE_FETCH_FILE).exists()
-}
-
-#[repr(u8)]
-#[derive(Copy, Clone, Debug)]
-pub enum RefreshOp {
-    Status = 0,
-    Enable = 1,
-    Disable = 2,
-}
+pub use pop_upgrade_client::RefreshOp;
 
 /// Configure the system to refresh the OS in the recovery partition.
 pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
@@ -133,54 +124,6 @@ impl From<UpgradeMethod> for &'static str {
     }
 }
 
-#[repr(u8)]
-#[derive(Clone, Copy, Debug, FromPrimitive, PartialEq)]
-pub enum UpgradeEvent {
-    UpdatingPackageLists = 1,
-    FetchingPackages = 2,
-    UpgradingPackages = 3,
-    InstallingPackages = 4,
-    UpdatingSourceLists = 5,
-    FetchingPackagesForNewRelease = 6,
-    AttemptingLiveUpgrade = 7,
-    AttemptingSystemdUnit = 8,
-    AttemptingRecovery = 9,
-    Success = 10,
-    SuccessLive = 11,
-    Failure = 12,
-    AptFilesLocked = 13,
-    RemovingConflicts = 14,
-    Simulating = 15,
-}
-
-impl From<UpgradeEvent> for &'static str {
-    fn from(action: UpgradeEvent) -> Self {
-        match action {
-            UpgradeEvent::AptFilesLocked => "waiting on a process holding the apt lock files",
-            UpgradeEvent::AttemptingLiveUpgrade => "attempting live upgrade to the new release",
-            UpgradeEvent::AttemptingSystemdUnit => {
-                "setting up the system to perform an offline upgrade on the next boot"
-            }
-            UpgradeEvent::AttemptingRecovery => {
-                "setting up the recovery partition to install the new release"
-            }
-            UpgradeEvent::Failure => "an error occurred while setting up the release upgrade",
-            UpgradeEvent::FetchingPackages => "fetching updated packages for the current release",
-            UpgradeEvent::FetchingPackagesForNewRelease => "fetching packages for the new release",
-            UpgradeEvent::InstallingPackages => {
-                "ensuring that system-critical packages are installed"
-            }
-            UpgradeEvent::RemovingConflicts => "removing deprecated and/or conflicting packages",
-            UpgradeEvent::Success => "new release is ready to install",
-            UpgradeEvent::SuccessLive => "new release was successfully installed",
-            UpgradeEvent::UpdatingPackageLists => "updating package lists",
-            UpgradeEvent::UpdatingSourceLists => "updating the source lists",
-            UpgradeEvent::UpgradingPackages => "upgrading packages for the current release",
-            UpgradeEvent::Simulating => "simulating upgrade",
-        }
-    }
-}
-
 /// Get a list of APT URIs to fetch for this operation, and then fetch them.
 pub async fn apt_fetch(
     shutdown: Shutdown<()>,
@@ -227,9 +170,7 @@ pub async fn apt_fetch(
     futures::pin_mut!(task);
     futures::pin_mut!(cancel);
 
-    let result = future::select(cancel, task).await.factor_first().0;
-
-    result
+    future::select(cancel, task).await.factor_first().0
 }
 
 async fn apt_fetch_(
@@ -509,15 +450,18 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
         if package.contains("pop-upgrade") || package.contains("pop-system-updater") {
             continue;
         }
-        
+
         // Papirus's elementary variant must be removed prior to downgrading the main package.
         if package.contains("papirus-icon-theme") {
             info!("papirus-icon-theme will be downgraded, so removing epapirus-icon-theme");
             let mut remove_epapirus_cmd = AptGet::new().allow_downgrades().force().noninteractive();
             remove_epapirus_cmd.arg("remove");
             remove_epapirus_cmd.arg("epapirus-icon-theme");
-            let _remove_epapirus = remove_epapirus_cmd.status().await
-                .context("apt-get remove epapirus-icon-theme").map_err(ReleaseError::Downgrade);
+            let _remove_epapirus = remove_epapirus_cmd
+                .status()
+                .await
+                .context("apt-get remove epapirus-icon-theme")
+                .map_err(ReleaseError::Downgrade);
         }
 
         if let Some(version) = version.split_ascii_whitespace().next() {

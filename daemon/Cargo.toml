@@ -1,7 +1,7 @@
 [package]
 name = "pop-upgrade"
 version = "1.0.0"
-authors = ["Michael Aaron Murphy <mmstickman@gmail.com>"]
+authors = ["Michael Aaron Murphy <michael@mmurphy.dev>"]
 license = "GPL-3.0"
 edition = "2021"
 
@@ -42,6 +42,7 @@ num-derive = "0.4.2"
 num-traits = "0.2.19"
 os-release = "0.1.0"
 os_str_bytes = "7.0.0"
+pop-upgrade-client = { path = "../client" }
 proc-mounts = "0.3.0"
 procfs = "0.16.0"
 pwd = "1.4.0"

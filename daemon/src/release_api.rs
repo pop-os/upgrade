@@ -24,12 +24,12 @@ pub enum ApiError {
 #[derive(Debug, Deserialize)]
 pub struct RawRelease {
     pub version: String,
-    pub url:     String,
-    pub size:    u64,
+    pub url: String,
+    pub size: u64,
     pub sha_sum: String,
     pub channel: String,
-    pub build:   String,
-    pub urgent:  String,
+    pub build: String,
+    pub urgent: String,
 }
 
 impl RawRelease {
@@ -45,12 +45,12 @@ impl RawRelease {
 #[derive(Debug)]
 pub struct Release {
     pub version: String,
-    pub url:     String,
-    pub size:    u64,
+    pub url: String,
+    pub size: u64,
     pub sha_sum: String,
     pub channel: String,
-    pub build:   u16,
-    pub urgent:  bool,
+    pub build: u16,
+    pub urgent: bool,
 }
 
 impl Release {
@@ -76,7 +76,7 @@ impl Release {
 
         let bytes = response.bytes().await?;
 
-        serde_json::from_slice::<RawRelease>(&*bytes).map_err(ApiError::Json)?.into_release()
+        serde_json::from_slice::<RawRelease>(&bytes).map_err(ApiError::Json)?.into_release()
     }
 
     pub async fn build_exists(version: &str, channel: &str) -> Result<u16, ApiError> {

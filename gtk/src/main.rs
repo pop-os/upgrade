@@ -95,19 +95,19 @@ fn install_logging(filter: LevelFilter) -> Result<(), InitError> {
         match (record.file(), record.line()) {
             (Some(file), Some(line)) => format!(
                 "{} {}{}{}",
-                Paint::cyan(target).bold(),
-                Paint::blue(file).bold(),
+                Paint::new(target).cyan().bold(),
+                Paint::new(file).blue().bold(),
                 Paint::new(":").bold(),
-                Paint::magenta(line).bold()
+                Paint::new(&line).magenta().bold()
             ),
             _ => String::new(),
         }
     };
 
     let format_level = |record: &Record| match record.level() {
-        level @ Level::Trace => Paint::green(level).bold(),
-        level @ Level::Warn => Paint::yellow(level).bold(),
-        level @ Level::Error => Paint::red(level).bold(),
+        level @ Level::Trace => Paint::new(level).green().bold(),
+        level @ Level::Warn => Paint::new(level).yellow().bold(),
+        level @ Level::Error => Paint::new(level).red().bold(),
         level => Paint::new(level).bold(),
     };
 
