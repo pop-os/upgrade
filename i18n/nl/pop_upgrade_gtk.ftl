@@ -2,16 +2,16 @@
 
 battery-notice = <b>Sluit de netstroomadapter aan</b> voordat u doorgaat.
 
-button-cancel = Afbreken
+button-cancel = Annuleren
 button-dismiss = Verwerpen
 button-download = Downloaden
 button-perform-refresh = Herstarten en herstellen
 button-perform-upgrade = Herstarten en bijwerken
 button-refresh = Herstellen
 button-update = Bijwerken
-button-upgrade = Bijwerken
+button-upgrade = Upgraden
 
-checking-for-updates = Bezig met controleren op updates…
+checking-for-updates = Naar updates zoeken...
 
 dialog-refresh-title = Systeeminstallatie herstellen
 dialog-refresh-description =
@@ -29,11 +29,11 @@ dialog-refresh-description =
  
  Maak een back-up van al uw bestanden voordat u doorgaat.
 
-daemon-checking = Bezig met controleren op updates…
-daemon-updating = Bezig met bijwerken van dienst…
+daemon-checking = Zoeken naar daemon-updates
+daemon-updating = De upgrade-daemon bijwerken
 
-download-os = Bezig met downloaden van {-os} {$version}…
-download-os-complete = {-os} {$version} is gedownload
+download-os = {-os} {$version} wordt gedownload
+download-os-complete = {-os} {$version} download voltooid
 
 eol-exceeded = De ondersteuning van {-os} {$current} is beëindigd: er worden geen (beveiligings)updates meer uitgebracht voor {-os} {$current}. Werk uw systeem bij naar {-os} {$next} om veilig te blijven werken.
 eol-imminent = De ondersteuning van {-os} {$current} eindigt op {$date}. Werk uw systeem bij om updates te blijven ontvangen.
@@ -66,17 +66,18 @@ most-current-recovery = U beschikt over de nieuwste versie van de herstelpartiti
 
 os-upgrade = Systeemupgrade
 os-recovery = Systeemherstel
+os-updates = Systeem- en applicatie-updates
 
 permission-denied = Toestemming vereist
 
  Alleen beheerders mogen het systeem bijwerken.
 
-recovery-downloading = Bezig met downloaden van partitie-update…
+recovery-downloading = De update voor de herstelpartitie downloaden
 recovery-header = Herstelpartitie
 recovery-progress = {recovery-downloading}: ({$current} van {$total} MiB)
-recovery-sync = Bezig met synchroniseren naar schijf…
+recovery-sync = Herstelimage naar schijf synchoniseren
 recovery-update-found = Er is een update van de herstelpartitie beschikbaar
-recovery-verify = Bezig met verifiëren van schijfkopie…
+recovery-verify = De opgehaalde herstelimage verifiëren
 
 refresh-description = Herstel het systeem, maar behoud gebruikersaccounts en -bestanden
 refresh-header = Systeemherstel
@@ -85,7 +86,7 @@ release-current = U beschikt over de nieuwste versie: {-os}
 
 upgrade-available = {-os} {$version} is beschikbaar
 upgrade-canceling = Bezig met afbreken…
-upgrade-downloading = Bezig met downloaden van{-os}…
+upgrade-downloading = {-os} wordt gedownload
 upgrade-from-to = Er is een upgrade van {$current} naar {$next} beschikbaar
-upgrade-preparing = Bezig met voorbereiden…
+upgrade-preparing = Update wordt voorbereid
 upgrade-ready = {-os} kan worden bijgewerkt naar versie {$version}
