@@ -584,7 +584,10 @@ async fn remove_conflicting_packages(logger: &dyn Fn(UpgradeEvent)) -> Result<()
     .map_err(ReleaseError::ConflictRemoval)?;
 
     // Add packages which have no remote to the conflict list
-    if let Ok(packages) = apt_cmd::apt::remoteless_packages().await {
+    if let Ok(mut packages) = apt_cmd::apt::remoteless_packages().await {
+        // Add exemptions for specific packages that we know to be safe.
+        packages.retain(|name| name != "sentinelagent");
+        // Add the packages that remain to our list of conflicting packages for removal.
         conflicting.extend_from_slice(&packages);
     }
 
