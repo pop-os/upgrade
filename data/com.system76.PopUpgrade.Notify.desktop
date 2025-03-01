@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Pop!_OS Release Check
+Name[hu]=Pop!_OS Kiadásellenőrző
 Icon=distributor-logo-upgrade-symbolic
 Comment=Check for a new OS release, and display notification if found
+Comment[hu]=Új operációs rendszerkiadás keresése, és értesítés megjelenítése, ha található
 Categories=System
 Exec=/usr/bin/pop-upgrade release check
