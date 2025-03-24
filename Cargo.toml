@@ -6,4 +6,4 @@ members = ["daemon", "gtk", "gtk/ffi"]
 rust-version = "1.75.0"
 
 [workspace.dependencies]
-apt-cmd = { git = "https://github.com/pop-os/apt-cmd.git", branch = "jacob-debugging" }
+apt-cmd = { git = "https://github.com/pop-os/apt-cmd.git", branch = "pin-is-not-part-of-version" }
