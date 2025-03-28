@@ -84,7 +84,7 @@ refresh-header = Reparar o Sistema Operacional
 
 release-current = Você está rodando a versão mais recente do {-os}
 
-upgrade-available = {-os} {$version} está disponível
+upgrade-available = {-os} {$version} está disponível!
 upgrade-canceling = Cancelando atualização
 upgrade-downloading = {-os} está sendo baixado
 upgrade-from-to = Atualização do {$current} para o {$next} está disponível

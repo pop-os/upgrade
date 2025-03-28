@@ -84,7 +84,7 @@ refresh-header = OSのリフレッシュ
 
 release-current = 最新の {-os} バージョンを実行しています
 
-upgrade-available = {-os} {$version} が利用可能
+upgrade-available = {-os} {$version} が利用可能!
 upgrade-canceling = アップグレードをキャンセル中
 upgrade-downloading = 現在 {-os} をダウンロード中
 upgrade-from-to = {$current} から {$next} へアップグレードが可能

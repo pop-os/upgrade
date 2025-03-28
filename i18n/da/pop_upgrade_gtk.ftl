@@ -84,7 +84,7 @@ refresh-header = Nulstil operativsystemet
 
 release-current = Du kører den nyeste {-os} version
 
-upgrade-available = {-os} {$version} er tilgængelig
+upgrade-available = {-os} {$version} er tilgængelig!
 upgrade-canceling = Annullerer opgradering
 upgrade-downloading = {-os} downloader i øjeblikket
 upgrade-from-to = opgradering fra {$current} til {$next} er tilgængelig

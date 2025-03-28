@@ -83,7 +83,7 @@ refresh-header = İşletim Sistemini Tazele
 
 release-current = En güncel {-os} sürümüne sahipsiniz
 
-upgrade-available = {-os} {$version} sürüm yükseltmesi mevcut
+upgrade-available = {-os} {$version} sürüm yükseltmesi mevcut!
 upgrade-canceling = Yükseltme iptal ediliyor.
 upgrade-downloading = {-os} indiriliyor
 upgrade-from-to = {$current} sürümünden {$next} sürümüne bir yükseltme mevcut

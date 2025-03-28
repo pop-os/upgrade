@@ -83,7 +83,7 @@ refresh-header = Actualizar el SO
 
 release-current = Está ejecutando la versión más actual de {-os}
 
-upgrade-available = {-os} {$version} está disponible
+upgrade-available = {-os} {$version} está disponible!
 upgrade-canceling = Cancelando la actualización
 upgrade-downloading = {-os} está descargando
 upgrade-from-to = La actualización de {$current} a {$next} está disponible

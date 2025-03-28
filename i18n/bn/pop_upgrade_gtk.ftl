@@ -83,7 +83,7 @@ refresh-header = রিফ্রেশ ওএস
 
 release-current = সবচেয়ে আধুনিক {-os} সংস্করণ তুমি চালাচ্ছ
 
-upgrade-available = {-os} {$version} এসেছে
+upgrade-available = {-os} {$version} এসেছে!
 upgrade-canceling = হালনাগাদ বাতিল করা হচ্ছে
 upgrade-downloading = {-os} বর্তমানে নামানো হচ্ছে
 upgrade-from-to = যখন আসবে তখন {$current} থেকে {$next} এ হালনাগাদ করবে
