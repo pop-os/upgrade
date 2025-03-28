@@ -83,7 +83,7 @@ refresh-header = Grundinstallation wiederherstellen
 
 release-current = Sie benutzen die aktuellste {-os} Version
 
-upgrade-available = {-os} {$version} ist verfügbar
+upgrade-available = {-os} {$version} ist verfügbar!
 upgrade-canceling = Aktualisierung abbrechen
 upgrade-downloading = {-os} wird derzeit heruntergeladen
 upgrade-from-to = Aktualisierung von {$current} zu {$next} ist verfügbar

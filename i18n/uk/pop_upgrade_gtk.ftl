@@ -84,7 +84,7 @@ refresh-header = Скинути ОС
 
 release-current = Ви використовуєте найостаннішу версію {-os}
 
-upgrade-available = Доступне оновлення {-os} {$version}
+upgrade-available = Доступне оновлення {-os} {$version}!
 upgrade-canceling = Скасувати оновлення
 upgrade-downloading = {-os} наразі завантажується
 upgrade-from-to = Доступне оновлення з {$current} до {$next}

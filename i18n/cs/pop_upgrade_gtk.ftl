@@ -84,7 +84,7 @@ refresh-header = Přeinstalace OS
 
 release-current = Používáte nejnovější verzi {-os}
 
-upgrade-available = {-os} {$version} je k dizpozici
+upgrade-available = {-os} {$version} je k dizpozici!
 upgrade-canceling = Rušení upgrade
 upgrade-downloading = {-os}  se stahuje
 upgrade-from-to = Aktualizace z {$current} na {$next} je k dizpozici

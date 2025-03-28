@@ -84,7 +84,7 @@ refresh-header = Rendszer helyreállítása
 
 release-current = A(z) {-os} legújabb verzióját használja.
 
-upgrade-available = {-os} {$version} elérhető
+upgrade-available = {-os} {$version} elérhető!
 upgrade-canceling = Rendszerfrissítés megszakítása
 upgrade-downloading = A(z) {-os} letöltése folyamatban
 upgrade-from-to = Frissítés a(z) {$current} verzióról a(z) {$next} verzióra

@@ -84,7 +84,7 @@ refresh-header = 刷新操作系统
 
 release-current = 你正在运行最新的 {-os} 版本
 
-upgrade-available = {-os} {$version} 可升级
+upgrade-available = {-os} {$version} 可升级!
 upgrade-canceling = 正在取消升级系统
 upgrade-downloading = {-os} 现在正在下载
 upgrade-from-to = 从 {$current} 升级到 {$next} 已准备好

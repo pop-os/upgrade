@@ -84,7 +84,7 @@ refresh-header = Systeemherstel
 
 release-current = U beschikt over de nieuwste versie: {-os}
 
-upgrade-available = {-os} {$version} is beschikbaar
+upgrade-available = {-os} {$version} is beschikbaar!
 upgrade-canceling = Bezig met afbreken…
 upgrade-downloading = {-os} wordt gedownload
 upgrade-from-to = Er is een upgrade van {$current} naar {$next} beschikbaar

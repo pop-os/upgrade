@@ -83,7 +83,7 @@ refresh-header = Osveži OS
 
 release-current = Uporabljate najnovejšo različico {-os}
 
-upgrade-available = {-os} {$version} je navoljo
+upgrade-available = {-os} {$version} je navoljo!
 upgrade-canceling = Preklic nadgradnje
 upgrade-downloading = {-os} se trenutno prenaša
 upgrade-from-to = Na voljo je nadgradnja s {$current} na {$next}

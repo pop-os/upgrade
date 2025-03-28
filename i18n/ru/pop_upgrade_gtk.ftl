@@ -84,7 +84,7 @@ refresh-header = Восстановить ОС
 
 release-current = У вас установлена последняя версия {-os}
 
-upgrade-available = {-os} {$version} доступна
+upgrade-available = {-os} {$version} доступна!
 upgrade-canceling = Отмена обновления
 upgrade-downloading = {-os} загружается
 upgrade-from-to = Доступно обновление с {$current} до {$next}
