@@ -51,7 +51,11 @@ pub fn wipe_pulse() -> io::Result<()> {
     for user in pwd::Passwd::iter() {
         let path = Path::new(&*user.dir).join(".config/pulse");
         if path.exists() {
-            std::fs::remove_dir_all(&path)?;
+            if path.is_dir() {
+                std::fs::remove_dir_all(&path)?;
+            } else {
+                std::fs::remove_file(&path)?;
+            }
         }
     }
 
