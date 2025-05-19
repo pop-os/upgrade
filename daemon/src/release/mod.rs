@@ -142,15 +142,16 @@ pub enum UpgradeEvent {
     InstallingPackages = 4,
     UpdatingSourceLists = 5,
     FetchingPackagesForNewRelease = 6,
-    AttemptingLiveUpgrade = 7,
-    AttemptingSystemdUnit = 8,
-    AttemptingRecovery = 9,
-    Success = 10,
-    SuccessLive = 11,
-    Failure = 12,
-    AptFilesLocked = 13,
-    RemovingConflicts = 14,
-    Simulating = 15,
+    FetchingAdditionalPackagesForNewRelease = 7,
+    AttemptingLiveUpgrade = 8,
+    AttemptingSystemdUnit = 9,
+    AttemptingRecovery = 10,
+    Success = 11,
+    SuccessLive = 12,
+    Failure = 13,
+    AptFilesLocked = 14,
+    RemovingConflicts = 15,
+    Simulating = 16,
 }
 
 impl From<UpgradeEvent> for &'static str {
@@ -166,7 +167,8 @@ impl From<UpgradeEvent> for &'static str {
             }
             UpgradeEvent::Failure => "an error occurred while setting up the release upgrade",
             UpgradeEvent::FetchingPackages => "fetching updated packages for the current release",
-            UpgradeEvent::FetchingPackagesForNewRelease => "fetching packages for the new release",
+            UpgradeEvent::FetchingPackagesForNewRelease => "fetching updated packages for the new release",
+            UpgradeEvent::FetchingAdditionalPackagesForNewRelease => "fetching additional packages for the new release",
             UpgradeEvent::InstallingPackages => {
                 "ensuring that system-critical packages are installed"
             }
@@ -469,7 +471,7 @@ pub async fn upgrade<'a>(
     release_upgrade(logger, from, to).await.map_err(ReleaseError::Check)?;
 
     // Update lists and fetch packages for the new release.
-    fetch_new_release_packages(logger, fetch, from).await?;
+    fetch_new_release_packages(logger, fetch, from, to).await?;
 
     // Remove packages that are orphaned in the new release
 
@@ -673,10 +675,27 @@ async fn attempt_fetch<'a>(
     logger: &'a dyn Fn(UpgradeEvent),
     fetch: &'a dyn Fn(FetchEvent),
 ) -> RelResult<()> {
-    info!("fetching packages for the new release");
+    info!("fetching updated packages for the new release");
     (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
 
     let uris = crate::fetch::apt::fetch_uris(shutdown.clone(), None)
+        .await
+        .map_err(ReleaseError::AptList)?;
+
+    apt_fetch(shutdown.clone(), uris, fetch).await
+}
+
+async fn additional_fetch<'a>(
+    shutdown: &Shutdown<()>,
+    logger: &'a dyn Fn(UpgradeEvent),
+    fetch: &'a dyn Fn(FetchEvent),
+    new_packages: &'static [&str],
+) -> RelResult<()> {
+    info!("fetching additional packages for the new release");
+    (*logger)(UpgradeEvent::FetchingAdditionalPackagesForNewRelease);
+
+    let packages = Some(ExtraPackages::Static(new_packages));
+    let uris = crate::fetch::apt::fetch_uris(shutdown.clone(), packages)
         .await
         .map_err(ReleaseError::AptList)?;
 
@@ -690,6 +709,7 @@ async fn fetch_new_release_packages<'b>(
     logger: &'b dyn Fn(UpgradeEvent),
     fetch: &'b dyn Fn(FetchEvent),
     current: &'b str,
+    to: &'b str,
 ) -> RelResult<()> {
     // Use a closure to capture any early returns due to an error.
     let updated_list_ops = || async {
@@ -699,6 +719,13 @@ async fn fetch_new_release_packages<'b>(
         AptGet::new().noninteractive().update().await.map_err(ReleaseError::ReleaseUpdate)?;
 
         attempt_fetch(&Shutdown::new(), logger, fetch).await?;
+
+        // If upgrading to 24.04, download an additional package.
+        if to == "24.04" {
+            //const NEW_PACKAGES &[&str] = &["gnome-online-accounts-gtk"];
+            //new_packages = Some(ExtraPackages::Static(NEW_PACKAGES));
+            additional_fetch(&Shutdown::new(), logger, fetch, &["gnome-online-accounts-gtk"]).await?;
+        }
 
         snapd::hold_transitional_packages().await?;
 

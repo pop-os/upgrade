@@ -201,7 +201,7 @@ attempt_upgrade () {
             message -i "Upgrade complete. Replacing GNOME..."
             apt-get remove --autoremove -y ~nlanguage-pack-gnome ~ngnome-user-docs gdm3 gnome-bluetooth gnome-calendar \
                 gnome-contacts gnome-online-miners gnome-orca gnome-shell ~ngnome-shell-extension gnome-themes-standard \
-                gnome-tweaks
+                gnome-tweaks gnome-control-center gnome-online-accounts-gtk+
         fi
 
         message -i "Upgrade complete. Updating initramfs for all kernels..."
