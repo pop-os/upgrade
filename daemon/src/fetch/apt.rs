@@ -11,6 +11,7 @@ pub enum ExtraPackages {
 pub async fn fetch_uris(
     shutdown: Shutdown<()>,
     packages: Option<ExtraPackages>,
+    dependencies: bool,
 ) -> anyhow::Result<HashSet<AptRequest>> {
     let task = tokio::spawn(async move {
         apt_lock_wait().await;
@@ -23,7 +24,7 @@ pub async fn fetch_uris(
             .context("failed to fetch package URIs from apt-get full-upgrade")?;
 
         if let Some(packages) = packages {
-            let mut args = vec!["install"];
+            let mut args = if dependencies { vec!["install"] } else { vec!["download"] };
             match packages {
                 ExtraPackages::Static(packages) => {
                     args.extend_from_slice(packages);
@@ -43,8 +44,8 @@ pub async fn fetch_uris(
                 .noninteractive()
                 .fetch_uris(&args)
                 .await
-                .context("failed to exec `apt-get install --print-uris`")?
-                .context("failed to fetch package URIs from `apt-get install`")?;
+                .context("failed to exec `apt-get install --print-uris` or `apt-get download --print-uris`")?
+                .context("failed to fetch package URIs from `apt-get install` or `apt-get download`")?;
 
             for uri in install_uris {
                 uris.insert(uri);
