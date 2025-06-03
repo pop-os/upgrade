@@ -564,7 +564,7 @@ async fn update_package_lists() -> Result<(), ReleaseError> {
 /// Fetch apt packages and retry if network connections are changed.
 async fn fetch_current_updates(fetch: &dyn Fn(FetchEvent)) -> Result<(), ReleaseError> {
     let packages = Some(ExtraPackages::Static(CORE_PACKAGES));
-    let uris = crate::fetch::apt::fetch_uris(Shutdown::new(), packages)
+    let uris = crate::fetch::apt::fetch_uris(Shutdown::new(), packages, true)
         .await
         .map_err(ReleaseError::AptList)?;
 
@@ -678,7 +678,7 @@ async fn attempt_fetch<'a>(
     info!("fetching updated packages for the new release");
     (*logger)(UpgradeEvent::FetchingPackagesForNewRelease);
 
-    let uris = crate::fetch::apt::fetch_uris(shutdown.clone(), None)
+    let uris = crate::fetch::apt::fetch_uris(shutdown.clone(), None, true)
         .await
         .map_err(ReleaseError::AptList)?;
 
@@ -695,7 +695,7 @@ async fn additional_fetch<'a>(
     (*logger)(UpgradeEvent::FetchingAdditionalPackagesForNewRelease);
 
     let packages = Some(ExtraPackages::Static(new_packages));
-    let uris = crate::fetch::apt::fetch_uris(shutdown.clone(), packages)
+    let uris = crate::fetch::apt::fetch_uris(shutdown.clone(), packages, false)
         .await
         .map_err(ReleaseError::AptList)?;
 

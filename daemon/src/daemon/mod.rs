@@ -959,7 +959,7 @@ impl Daemon {
 
         use crate::fetch::apt::ExtraPackages;
         let packages = Some(ExtraPackages::Dynamic(extra_packages));
-        let apt_uris = crate::fetch::apt::fetch_uris(shutdown, packages).await?;
+        let apt_uris = crate::fetch::apt::fetch_uris(shutdown, packages, true).await?;
 
         if apt_uris.is_empty() {
             info!("no updates available to fetch");
