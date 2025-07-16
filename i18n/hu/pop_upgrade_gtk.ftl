@@ -1,6 +1,6 @@
 -os = Pop!_OS
 
-battery-notice = <b>Csatlakoztassa a tápegységet</b> mielőtt folytatná.
+battery-notice = <b>Csatlakoztasd a tápegységet</b> mielőtt folytatnád.
 
 button-cancel = Mégse
 button-dismiss = Elrejtés
@@ -15,7 +15,7 @@ checking-for-updates = Frissítések keresése ...
 
 dialog-refresh-title = Operációs rendszer helyreállítása
 dialog-refresh-description =
- Amikor helyreállítja az operációs rendszert:
+ Amikor helyreállítod az operációs rendszert:
  
  {"*"} Minden felhasználói fiók és a /home könyvtárban lévő fájlok megmaradnak
  {"*"} A felhasználók és felhasználói csoportok megmaradnak
@@ -27,29 +27,29 @@ dialog-refresh-description =
      - A rendszer billentyűzetkiosztása
      - A NetworkManager által kezelt hálózati beállítások
  
- Kérjük, mentse el minden munkáját, mielőtt újraindítja a rendszert.
+ Ments el minden munkát, mielőtt újraindítod a rendszert.
 
 daemon-checking = Frissítések keresése a démonhoz
-daemon-updating = A frissítési démon frissítése
+daemon-updating = A frissítési szolgáltatás frissítése
 
 download-os = {-os} {$version} letöltése
 download-os-complete = {-os} {$version} letöltése befejeződött
 
-eol-exceeded = A(z) {-os} {$current} támogatása megszűnt. Biztonsági és alkalmazásfrissítések már nem érhetők el ehhez a verzióhoz. Frissítsen a(z) {-os} {$next} verzióra a számítógépe biztonsága érdekében.
-eol-imminent = A(z) {-os} {$current} támogatása véget ér ekkor: {$date}. Frissítsen a biztonsági és alkalmazásfrissítésekhez
+eol-exceeded = A(z) {-os} {$current} támogatása megszűnt. Biztonsági és alkalmazásfrissítések már nem érhetők el ehhez a verzióhoz. Frissíts a(z) {-os} {$next} verzióra a számítógéped biztonsága érdekében.
+eol-imminent = A(z) {-os} {$current} támogatása véget ér ekkor: {$date}. Frissíts a biztonsági és alkalmazásfrissítésekhez
 eol-error = Nem sikerült lekérni a támogatási idő végét
 
 error-build-status = Nem sikerült lekérni a build állapotát belső hiba miatt
-error-collect-logs = Amennyiben Ön a System76 ügyfele, kérjük, futtassa a System76 Driver eszközt a naplók összegyűjtéséhez, és küldje el azokat a támogatásnak.
+error-collect-logs = Ha System76 ügyfél vagy, futtasd a System76 Driver eszközt a naplók összegyűjtéséhez, és küldd el őket az ügyfélszolgáltatásnak.
 error-connection = Kapcsolati hiba. Lehet, hogy nincs internetkapcsolat
-error-header = Úgy tűnik, problémába ütköztünk! Ne aggódjon, itt egy lista a módosított fájlokról:
+error-header = Úgy tűnik, problémába ütköztünk! Ne aggódj, itt egy lista a módosított fájlokról:
 error-no-changelog-found = Nem található változásnapló
 error-originating-cause = Eredeti hiba oka
-error-package-manager = Ha csomagkezelővel kapcsolatos problémák merülnek fel, futtassa az alábbi parancsokat, és küldje el azokat a támogatási jegyében:
+error-package-manager = Ha csomagkezelővel kapcsolatos problémák merülnek fel, futtasd az alábbi parancsokat, és küldd el őket a hibajegyben:
 error-recovery-check = A helyreállítási frissítések ellenőrzése sikertelen volt
 error-recovery-download = Nem sikerült letölteni a helyreállítási frissítést
 error-recovery-update = A helyreállítási frissítés sikertelen volt
-error-try-again = Próbálja újra később
+error-try-again = Próbáld újra később
 error-unknown-status = Ismeretlen állapot érkezett.
 error-update-check = Nem sikerült ellenőrizni a frissítéseket
 error-upgrade-status = Nem sikerült ellenőrizni a frissítési állapotot
