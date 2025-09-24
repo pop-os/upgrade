@@ -6,6 +6,7 @@ pub mod systemd;
 mod errors;
 mod recovery;
 mod snapd;
+mod switchable_graphics;
 
 use self::systemd::LoaderEntry;
 
@@ -473,7 +474,8 @@ pub async fn upgrade<'a>(
     // Update lists and fetch packages for the new release.
     fetch_new_release_packages(logger, fetch, from, to).await?;
 
-    // Remove packages that are orphaned in the new release
+    // Reset system76-power modprobe configurations to the system defaults.
+    _ = switchable_graphics::reset_to_default();
 
     if let Err(why) = crate::gnome_extensions::disable() {
         error!(
