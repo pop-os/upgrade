@@ -8,13 +8,13 @@ edition = "2021"
 apt-cmd.workspace = true
 better-panic = "0.3.0"
 cascade = "1.0.1"
-chrono = "0.4.38"
+chrono = "0.4.42"
 clap = "3.2.25"
-derive_more = "0.99.17"
+derive_more = "0.99.20"
 derive-new = "0.6.0"
-enclose = "1.1.8"
+enclose = "1.2.1"
 fern = "0.6.2"
-flume = "0.11.0"
+flume = "0.11.1"
 fomat-macros = "0.3.2"
 gio = "0.15.12"
 glib = "0.15.12"
@@ -24,18 +24,18 @@ i18n-embed = { version = "0.14.1", features = [
     "desktop-requester",
 ] }
 i18n-embed-fl = "0.8.0"
-log = "0.4.21"
-notify-rust = { version = "4.11.0", default-features = false, features = [
+log = "0.4.28"
+notify-rust = { version = "4.11.7", default-features = false, features = [
     "dbus",
 ] }
 num-traits = "0.2.19"
-once_cell = "1.19.0"
+once_cell = "1.21.3"
 os-release = "0.1.0"
 pango = "0.15.10"
 pop-upgrade = { path = "../daemon/" }
-rust-embed = { version = "8.3.0", features = ["debug-embed"] }
+rust-embed = { version = "8.7.2", features = ["debug-embed"] }
 shrinkwraprs = "0.3.0"
-thiserror = "1.0.60"
+thiserror = "1.0.69"
 ubuntu-version = "0.2.5"
 upower_dbus = "=0.1.0"
 users = "0.11.0"
@@ -43,4 +43,4 @@ yansi = "1.0.1"
 gtk-sys = "0.15.3"
 
 [build-dependencies]
-pkg-config = "0.3.30"
+pkg-config = "0.3.32"
