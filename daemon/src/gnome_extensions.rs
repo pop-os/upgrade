@@ -6,7 +6,7 @@ pub fn disable() -> anyhow::Result<()> {
 
     let (uid_min, uid_max) = crate::misc::uid_min_max()?;
 
-    for user in unsafe { users::all_users() } {
+    for user in unsafe { uzers::all_users() } {
         if user.uid() >= uid_min && user.uid() <= uid_max {
             let name = user.name();
             if let Some(name) = name.to_str() {

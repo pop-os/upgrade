@@ -38,7 +38,7 @@ shrinkwraprs = "0.3.0"
 thiserror = "1.0.69"
 ubuntu-version = "0.2.5"
 upower_dbus = "=0.1.0"
-users = "0.11.0"
+uzers = "0.12.1"
 yansi = "1.0.1"
 gtk-sys = "0.15.3"
 
