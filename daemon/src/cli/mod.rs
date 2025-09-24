@@ -22,7 +22,7 @@ use pop_upgrade::{
 use std::{
     convert::TryFrom,
     fs,
-    io::{self, Write},
+    io::{self, IsTerminal, Write},
     path::Path,
 };
 use yansi::Paint;
@@ -102,7 +102,7 @@ impl Client {
             Some(("check", _)) => {
                 let (current, next, available, is_lts) = self.release_check(false)?;
 
-                if atty::is(atty::Stream::Stdout) {
+                if std::io::stdout().is_terminal() {
                     println!("Checking if {} can be upgraded to {}", current, next);
                 } else if available >= 0 {
                     if is_lts && (self.dismissed(&next) || self.dismiss_by_timestamp(&next)?) {
@@ -141,7 +141,7 @@ impl Client {
                     matches.is_present("force-next") || pop_upgrade::development_releases_enabled();
                 let (current, next, available, _is_lts) = self.release_check(forcing)?;
 
-                if atty::is(atty::Stream::Stdout) {
+                if std::io::stdout().is_terminal() {
                     let mut buffer = String::new();
                     pintln!(
                         (color_primary("Current Release")) ": " (color_secondary(&current)) "\n"
