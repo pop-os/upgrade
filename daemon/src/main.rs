@@ -57,7 +57,6 @@ pub mod error {
     }
 }
 
-use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use std::{path::Path, process::exit, time::Duration};
 
 use self::error::InitError;
@@ -77,123 +76,122 @@ async fn main() {
 
     let _ = setup_logging(::log::LevelFilter::Debug);
 
-    let clap = App::new("pop-upgrade")
+    let clap = clap::Command::new("pop-upgrade")
         .about("Pop!_OS Upgrade Utility")
-        .global_setting(AppSettings::ColoredHelp)
-        .global_setting(AppSettings::UnifiedHelpMessage)
-        .setting(AppSettings::SubcommandRequiredElseHelp)
+        .subcommand_required(true)
         // Recovery partition tools.
         .subcommand(
-            SubCommand::with_name("cancel")
+            clap::Command::new("cancel")
                 .about("cancels any process which is currently in progress"),
         )
         .subcommand(
-            SubCommand::with_name("daemon")
+            clap::Command::new("daemon")
                 .about("launch a daemon for integration with control centers like GNOME's"),
         )
         .subcommand(
-            SubCommand::with_name("recovery")
+            clap::Command::new("recovery")
                 .about("tools for managing the recovery partition")
-                .setting(AppSettings::SubcommandRequiredElseHelp)
+                .subcommand_required(true)
                 // Reboot into the recovery partition.
                 .subcommand(
-                    SubCommand::with_name("default-boot")
+                    clap::Command::new("default-boot")
                         .about("set the recovery partition as the default boot target")
                         .arg(
-                            Arg::with_name("reboot")
+                            clap::Arg::new("reboot")
                                 .help("immediately reboot the system into the recovery partition")
-                                .long("reboot"),
+                                .long("reboot")
+                                .action(clap::ArgAction::SetTrue),
                         ),
                 )
                 // Upgrade the recovery partition.
                 .subcommand(
-                    SubCommand::with_name("upgrade")
+                    clap::Command::new("upgrade")
                         .about("upgrade the recovery partition")
-                        .setting(AppSettings::SubcommandRequiredElseHelp)
+                        .subcommand_required(true)
                         .subcommand(
-                            SubCommand::with_name("from-release")
+                            clap::Command::new("from-release")
                                 .about("update the recovery partition using a the Pop release API")
                                 .arg(
-                                    Arg::with_name("VERSION")
+                                    clap::Arg::new("VERSION")
                                         .help("release version to fetch. IE: `18.04`"),
                                 )
                                 .arg(
-                                    Arg::with_name("ARCH")
+                                    clap::Arg::new("ARCH")
                                         .help("release arch to fetch: IE: `nvidia` or `intel`"),
                                 )
                                 .arg(
-                                    Arg::with_name("next")
+                                    clap::Arg::new("next")
                                         .help(
                                             "fetches the next release's ISO if VERSION is not set",
                                         )
-                                        .long("next"),
+                                        .long("next")
+                                        .action(clap::ArgAction::SetTrue),
                                 ),
                         ),
                 )
                 .subcommand(
-                    SubCommand::with_name("check")
-                        .about("check the status of the recovery partition"),
+                    clap::Command::new("check").about("check the status of the recovery partition"),
                 ),
         )
         // Distribution release tools
         .subcommand(
-            SubCommand::with_name("release")
+            clap::Command::new("release")
                 .about("check for new distribution releases, or upgrade to a new release")
-                .setting(AppSettings::SubcommandRequiredElseHelp)
+                .subcommand_required(true)
                 .subcommand(
-                    SubCommand::with_name("check").about("check for a new distribution release"),
+                    clap::Command::new("check").about("check for a new distribution release"),
                 )
                 .subcommand(
-                    SubCommand::with_name("dismiss")
+                    clap::Command::new("dismiss")
                         .about("dismiss the current release notification (LTS only)"),
                 )
                 .subcommand(
-                    SubCommand::with_name("update")
+                    clap::Command::new("update")
                         .about("fetch the latest updates for the current release")
                         .arg(
-                            Arg::with_name("download-only")
+                            clap::Arg::new("download-only")
                                 .help(
                                     "instruct the daemon to fetch updates, without installing them",
                                 )
                                 .short('d')
-                                .long("download-only"),
+                                .long("download-only")
+                                .action(clap::ArgAction::SetTrue),
                         ),
                 )
                 .subcommand(
-                    SubCommand::with_name("refresh")
+                    clap::Command::new("refresh")
                         .about("refresh the existing OS (requires recovery partition)")
-                        .subcommand(SubCommand::with_name("disable"))
-                        .subcommand(SubCommand::with_name("enable")),
+                        .subcommand(clap::Command::new("disable"))
+                        .subcommand(clap::Command::new("enable")),
                 )
                 .subcommand(
-                    SubCommand::with_name("repair")
+                    clap::Command::new("repair")
                         .about("search for issues in the system, and repair them"),
                 )
                 .subcommand(
-                    SubCommand::with_name("upgrade")
+                    clap::Command::new("upgrade")
                         .about("update the system, and fetch the packages for the next release")
                         .arg(
-                            Arg::with_name("force-next")
+                            clap::Arg::new("force-next")
                                 .help(
                                     "Attempt to upgrade to the next release, even if it is not \
                                      released",
                                 )
                                 .short('f')
                                 .long("force-next")
+                                .action(clap::ArgAction::SetTrue)
                                 .global(true),
                         ),
                 ),
         )
-        .subcommand(
-            SubCommand::with_name("status").about("get the status of the pop upgrade daemon"),
-        );
+        .subcommand(clap::Command::new("status").about("get the status of the pop upgrade daemon"));
 
     if main_(&clap.get_matches()).await.is_err() {
         exit(1);
     }
 }
 
-async fn main_(matches: &ArgMatches) -> anyhow::Result<()> {
+async fn main_(matches: &clap::ArgMatches) -> anyhow::Result<()> {
     init()?;
 
     match matches.subcommand() {

@@ -58,18 +58,16 @@ fn main() {
 ///
 /// Currently the primary purpose is to determine the logging level.
 fn argument_parsing() {
-    use clap::{App, Arg};
-
-    let matches = App::new("com.system76.FirmwareManager")
+    let matches = clap::Command::new("com.system76.FirmwareManager")
         .arg(
-            Arg::with_name("verbose")
+            clap::Arg::new("verbose")
                 .short('v')
-                .multiple(true)
-                .help("define the logging level; multiple occurrences increases the logging level"),
+                .help("define the logging level; multiple occurrences increases the logging level")
+                .action(clap::ArgAction::Count),
         )
         .get_matches();
 
-    let logging_level = match matches.occurrences_of("verbose") {
+    let logging_level = match matches.get_count("verbose") {
         0 => LevelFilter::Info,
         1 => LevelFilter::Debug,
         _ => LevelFilter::Trace,
@@ -98,17 +96,17 @@ fn install_logging(filter: LevelFilter) -> Result<(), InitError> {
                 Paint::cyan(target).bold(),
                 Paint::blue(file).bold(),
                 Paint::new(":").bold(),
-                Paint::magenta(line).bold()
+                Paint::magenta(&line).bold()
             ),
             _ => String::new(),
         }
     };
 
     let format_level = |record: &Record| match record.level() {
-        level @ Level::Trace => Paint::green(level).bold(),
-        level @ Level::Warn => Paint::yellow(level).bold(),
-        level @ Level::Error => Paint::red(level).bold(),
-        level => Paint::new(level).bold(),
+        level @ Level::Trace => level.green().bold().to_string(),
+        level @ Level::Warn => level.yellow().bold().to_string(),
+        level @ Level::Error => level.red().bold().to_string(),
+        level => level.bold().to_string(),
     };
 
     Dispatch::new()
