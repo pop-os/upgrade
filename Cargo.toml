@@ -6,4 +6,4 @@ members = ["daemon", "gtk", "gtk/ffi"]
 rust-version = "1.89.0"
 
 [workspace.dependencies]
-apt-cmd = "0.5.2"
+apt-cmd = "0.6.0"
