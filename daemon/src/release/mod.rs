@@ -476,6 +476,9 @@ pub async fn upgrade<'a>(
 
     // Reset system76-power modprobe configurations to the system defaults.
     _ = switchable_graphics::reset_to_default();
+    
+    // Reset the user shell to /bin/bash in case the shell was removed in upgrade
+    _ = logins::reset_shell();
 
     if let Err(why) = crate::gnome_extensions::disable() {
         error!(
@@ -854,5 +857,42 @@ async fn unhold_all() {
 
             let _ = AptMark::new().unhold(&packages).await;
         }
+    }
+}
+
+mod logins {
+    use bstr::ByteSlice;
+    use std::process::{Command, Stdio};
+
+    fn login_is_disabled(user: &str) -> bool {
+        Command::new("getent")
+            .args(&["passwd", user])
+            .stdout(Stdio::piped())
+            .output()
+            .map_or(true, |output| {
+                let stdout = output.stdout.trim_end();
+                stdout.ends_with(b"/bin/false") || stdout.ends_with(b"/usr/sbin/nologin")
+            })
+    }
+    
+    /// Reset the user shell to /bin/bash in case the shell was removed in upgrade
+    pub fn reset_shell() -> anyhow::Result<()> {
+        let (uid_min, uid_max) = crate::misc::uid_min_max()?;
+    
+        for user in unsafe { uzers::all_users() } {
+            if user.uid() >= uid_min && user.uid() <= uid_max {
+                let name = user.name();
+                
+                if let Some(name) = name.to_str() {
+                    if !login_is_disabled(name) {
+                        _ = std::process::Command::new("usermod")
+                            .args(&["--shell", "/bin/bash", name])
+                            .status();
+                    }
+                }
+            }
+        }
+        
+        Ok(())
     }
 }
