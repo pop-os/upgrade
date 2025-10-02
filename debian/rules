@@ -18,7 +18,7 @@ override_dh_auto_build:
 	env CARGO_HOME="$$(pwd)/target/cargo" make prefix=/usr
 
 override_dh_installinit:
-	dh_installinit -r
+	dh_installinit -r --no-start
 
 override_dh_systemd_start:
-	dh_systemd_start -r
+	dh_systemd_start -r --no-start
