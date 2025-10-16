@@ -1,3 +1,4 @@
+debian/*
 !debian/*.install
 !debian/*.postinst
 !debian/changelog
@@ -7,7 +8,6 @@
 !debian/source
 .cargo/
 **/*.rs.bk
-debian/
 gtk/ffi/examples/c/build
 target/
 vendor.tar
