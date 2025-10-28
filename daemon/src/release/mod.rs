@@ -152,7 +152,8 @@ pub enum UpgradeEvent {
     Failure = 13,
     AptFilesLocked = 14,
     RemovingConflicts = 15,
-    Simulating = 16,
+    RemovingWacomConflicts = 16,
+    Simulating = 17,
 }
 
 impl From<UpgradeEvent> for &'static str {
@@ -174,6 +175,7 @@ impl From<UpgradeEvent> for &'static str {
                 "ensuring that system-critical packages are installed"
             }
             UpgradeEvent::RemovingConflicts => "removing deprecated and/or conflicting packages",
+            UpgradeEvent::RemovingWacomConflicts => "replacing Surface-tailored Wacom packages with standard ones",
             UpgradeEvent::Success => "new release is ready to install",
             UpgradeEvent::SuccessLive => "new release was successfully installed",
             UpgradeEvent::UpdatingPackageLists => "updating package lists",
@@ -589,6 +591,45 @@ async fn old_releases_workaround(version: &str, codename: Codename) -> Result<()
 }
 
 async fn remove_conflicting_packages(logger: &dyn Fn(UpgradeEvent)) -> Result<(), ReleaseError> {
+    // libwacom-common-surface and libwacom9-surface can't just be removed;
+    // the standard versions must be manually installed.
+    // This must be done before checking for remoteless packages,
+    // as other related packages will also be removed.
+     let mut conflicting_surface = (async {
+        let (mut child, package_stream) = 
+        DpkgQuery::new().show_installed(["libwacom-common-surface", "libwacom9-surface"]).await?;
+
+        futures_util::pin_mut!(package_stream);
+
+        let mut packages = Vec::new();
+
+        while let Some(package) = package_stream.next().await {
+            packages.push(package);
+        }
+
+        // NOTE: This is okay to fail since it just means a package is not found
+        let _ = child.wait().await;
+
+        Ok::<_, std::io::Error>(packages)
+    })
+    .await
+    .context("check for known-conflicting Wacom/Surface packages")
+    .map_err(ReleaseError::ConflictRemoval)?;
+    
+    if !conflicting_surface.is_empty() {
+        apt_lock_wait().await;
+        (logger)(UpgradeEvent::RemovingWacomConflicts);
+        let mut apt_get = crate::misc::apt_get();
+
+        apt_get.arg("--auto-remove");
+        apt_get
+            .install(["libwacom-common", "libwacom9"])
+            .await
+            .context("conflict removal (libwacom Surface packages)")
+            .map_err(ReleaseError::ConflictRemoval)?;
+    }
+    // End libwacom-common-surface/libwacom9-surface handling.
+    
     let mut conflicting = (async {
         let (mut child, package_stream) = DpkgQuery::new().show_installed(REMOVE_PACKAGES).await?;
 
