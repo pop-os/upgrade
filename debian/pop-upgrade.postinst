@@ -9,6 +9,4 @@ if ! test -e /var/lib/pop-upgrade/restarting && ! test -e /pop-upgrade && ! test
     fi
 fi
 
-#DEBHELPER#
-
 exit 0
