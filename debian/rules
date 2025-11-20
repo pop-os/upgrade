@@ -4,7 +4,7 @@ export VENDOR ?= 1
 CLEAN ?= 1
 
 %:
-	dh $@ --with=systemd
+	dh $@ --without=systemd
 
 override_dh_auto_clean:
 ifeq ($(CLEAN),1)
