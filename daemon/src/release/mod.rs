@@ -59,11 +59,12 @@ const REMOVE_PACKAGES: &[&str] = &[
 /// - `linux-generic` because some systems may have a different kernel installed
 /// - `pop-desktop` because it pulls in all of our required desktop dependencies
 /// - `sessioninstaller` because it may have been removed by `gnome-software`
+/// - `systemd-resolved` to prevent DNS issues on upgrade
 #[cfg(target_arch = "x86_64")]
-const CORE_PACKAGES: &[&str] = &["linux-generic", "pop-desktop", "sessioninstaller"];
+const CORE_PACKAGES: &[&str] = &["linux-generic", "pop-desktop", "sessioninstaller", "systemd-resolved"];
 
 #[cfg(target_arch = "aarch64")]
-const CORE_PACKAGES: &[&str] = &["pop-desktop-raspi"];
+const CORE_PACKAGES: &[&str] = &["pop-desktop-raspi", "systemd-resolved"];
 
 const DPKG_LOCK: &str = "/var/lib/dpkg/lock";
 const LISTS_LOCK: &str = "/var/lib/apt/lists/lock";
