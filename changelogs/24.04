@@ -1,0 +1,11 @@
+* Includes COSMIC desktop environment.
+
+* Pop!_OS 24.04 includes the COSMIC desktop environment. COSMIC offers better performance, productivity, and in-depth personalization to empower a wide variety of use cases.
+
+* When you upgrade:
+** GNOME desktop will be replaced by the new COSMIC desktop.
+** New system applications will be installed: COSMIC Files, COSMIC Settings, COSMIC Store, COSMIC Terminal, COSMIC Text Editor.
+** Applications pinned tot he dock will need to be pinned again.
+** PPAs will be removed for increased upgrade reliability.
+** Applications installed from PPAs or local DEB files will need to be reinstalled.
+** COSMIC offers all new user settings and customizations.

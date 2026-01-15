@@ -37,6 +37,7 @@ impl From<Codename> for Version {
             Codename::Impish => (21, 10),
             Codename::Jammy => (22, 4),
             Codename::Noble => (24, 4),
+            Codename::Resolute => (26, 4),
         };
 
         Version { major, minor, patch: 0 }
