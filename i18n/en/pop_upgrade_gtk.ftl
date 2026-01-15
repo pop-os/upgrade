@@ -4,12 +4,11 @@ battery-notice = <b>Plug into power</b> before you begin.
 
 button-cancel = Cancel
 button-dismiss = Dismiss
-button-download = Download
-button-perform-refresh = Reboot & Refresh
-button-perform-upgrade = Reboot & Upgrade
+button-perform-refresh = Restart & Refresh
+button-perform-upgrade = Restart & Install
 button-refresh = Refresh
 button-update = Update
-button-upgrade = Upgrade
+button-upgrade = Start Upgrade
 
 checking-for-updates = Checking for updates ...
 
@@ -85,8 +84,11 @@ refresh-header = Refresh OS
 release-current = You are running the most current {-os} version
 
 upgrade-available = {-os} {$version} is available!
+upgrade-cosmic = Includes COSMIC desktop environment
 upgrade-canceling = Canceling upgrade
 upgrade-downloading = {-os} is currently downloading
+upgrade-finalize = The system will be upgraded to {-os} 24.04.
 upgrade-from-to = Upgrade from {$current} to {$next} is available
 upgrade-preparing = Preparing Upgrade
 upgrade-ready = {-os} is ready to upgrade to {$version}
+upgrade-to = Upgrade to {-os} 24.04
