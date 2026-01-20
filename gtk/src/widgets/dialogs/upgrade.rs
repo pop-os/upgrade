@@ -16,7 +16,7 @@ impl UpgradeDialog {
     pub fn new(since: &str, version: &str, start: bool) -> Self {
         let dialog = DialogTemplate::new(
             "distributor-logo",
-            &fl!("upgrade-to"),
+            &fl!("upgrade-to", version = version),
             &if start {
                 fl!("button-upgrade")
             } else {
@@ -53,11 +53,10 @@ impl UpgradeDialog {
                 } else {
                     let message = gtk::Label::builder()
                         .label(&fomat!(
-                            (fl!("upgrade-available", version = version)) " "
                             if battery::active() {
                                 (fl!("battery-notice")) " "
                             }
-                            (fl!("upgrade-finalize"))
+                            (fl!("upgrade-finalize", version = version))
                         ))
                         .use_markup(true)
                         .xalign(0.0)
@@ -83,6 +82,11 @@ fn add_changelog(changelogs: &gtk::Box, changelog: &str) {
         .margin_start(CHANGELOG_PADDING)
         .margin_end(CHANGELOG_PADDING)
         .build();
+
+    changelog_label.connect_activate_link(|_label, uri| {
+        let _ = open::that_detached(uri);
+        gtk::Inhibit(true)
+    });
 
     changelogs.add(&changelog_label);
 }
