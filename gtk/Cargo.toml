@@ -41,6 +41,7 @@ upower_dbus = "=0.1.0"
 uzers = "0.12.1"
 yansi = "1.0.1"
 gtk-sys = "0.15.3"
+open = "5.3.3"
 
 [build-dependencies]
 pkg-config = "0.3.32"
