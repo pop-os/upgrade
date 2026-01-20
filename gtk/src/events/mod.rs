@@ -14,12 +14,14 @@ use crate::{
     RECOVERY_PARTITION, REFRESH_OS,
 };
 
+use chrono::{TimeZone, Utc};
 use gtk::prelude::*;
 
 use pop_upgrade::{
     daemon::{DaemonStatus, DISMISSED},
     recovery::RecoveryEvent,
     release::{
+        eol::{EolDate, EolStatus},
         UpgradeEvent,
     },
 };
@@ -326,11 +328,39 @@ fn connect_refresh(state: &State, widgets: &EventWidgets) {
 
 /// Programs the upgrade button, and optionally enables the dismissal widget.
 fn connect_upgrade(state: &mut State, widgets: &EventWidgets, is_lts: bool, reboot_ready: bool) {
-    let notice = fl!("upgrade-cosmic");
+    let notice = match EolDate::fetch() {
+        Ok(eol) => {
+            if eol.version.major == 24 && eol.version.minor == 4 {
+                let (y, m, d) = eol.ymd;
+                match eol.status() {
+                    EolStatus::Exceeded => Some(fl!(
+                        "eol-exceeded",
+                        current = fomat!((eol.version)),
+                        next = fomat!((eol.version.next_release()))
+                    )),
+                    EolStatus::Imminent => Some(fl!(
+                        "eol-imminent",
+                        current = fomat!((eol.version)),
+                        date = fomat!((Utc.ymd(y as i32, m, d).format("%B %-d, %Y")))
+                    )),
+                    EolStatus::Ok => None,
+                }
+            } else {
+                Some(fl!("upgrade-cosmic"))
+            }
+
+        }
+        Err(why) => {
+            error!("{}: {}", fl!("eol-error"), why);
+            None
+        }
+    };
+
+    let notice = notice.as_deref();
 
     widgets.upgrade.options[0]
         .label(&state.upgrade_label)
-        .sublabel(Some(notice.as_str()))
+        .sublabel(notice)
         .show_button()
         .button_signal({
             if let Some(info) = state.upgrade_version.as_ref() {

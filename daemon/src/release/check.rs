@@ -133,11 +133,11 @@ async fn next_<Check: Fn(String) -> Status, Status: Future<Output = BuildStatus>
     };
 
     // Only permits an upgrade if the development flag is passed
-    let development_enabled = |is_lts: bool, current: &'static str, next: &'static str| async move {
-        let build =
-            if development { release_check(next.into()).await } else { BuildStatus::Blacklisted };
-        ReleaseStatus { current, next, build, is_lts }
-    };
+    // let development_enabled = |is_lts: bool, current: &'static str, next: &'static str| async move {
+    //     let build =
+    //         if development { release_check(next.into()).await } else { BuildStatus::Blacklisted };
+    //     ReleaseStatus { current, next, build, is_lts }
+    // };
 
     match (current.major, current.minor) {
         (18, 4) => available(true, BIONIC, FOCAL).await,
