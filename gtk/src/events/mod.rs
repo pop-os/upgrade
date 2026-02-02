@@ -154,6 +154,7 @@ pub async fn on_event(widgets: &mut EventWidgets, state: &mut State, event: UiEv
             InitiatedEvent::Download(version) => {
                 widgets.upgrade.options[0]
                     .label(&fl!("download-os", version = (&*version)))
+                    .sublabel(None)
                     .reset_progress()
                     .show_progress();
 
@@ -423,7 +424,9 @@ fn download_complete(state: &mut State, widgets: &EventWidgets) {
     widgets.upgrade.options[0]
         .show_button()
         .button_label(&fl!("button-upgrade"))
-        .label(&fl!("download-os-complete", version = (&*state.upgrading_to)));
+        .label(&fl!("download-os-complete", version = (&*state.upgrading_to)))
+        .sublabel(None)
+        .button_signal(Some(upgrade_action(state.gui_sender.clone())));
 }
 
 use once_cell::sync::Lazy;
