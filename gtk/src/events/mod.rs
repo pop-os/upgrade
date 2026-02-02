@@ -196,7 +196,9 @@ pub async fn on_event(widgets: &mut EventWidgets, state: &mut State, event: UiEv
                 } else {
                     // Send upgrading event to prevent closing
                     (state.callback_event.borrow())(Event::Upgrading);
-                    widgets.upgrade.options[0].label(&fl!("upgrade-canceling"));
+                    widgets.upgrade.options[0]
+                        .button_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION)
+                        .label(&fl!("upgrade-canceling"));
                     let _ = state.sender.send(BackgroundEvent::Reset);
                 }
             }
@@ -407,7 +409,7 @@ fn download_action(sender: sync::Weak<flume::Sender<UiEvent>>) -> (String, Box<d
 }
 
 /// Notify that OS release updates have been downloaded, and are ready to commence.
-fn download_complete(state: &mut State, widgets: &EventWidgets) {
+fn download_complete(state: &mut State, widgets: &mut EventWidgets) {
     state.upgrade_downloaded = true;
 
     let description = fl!("notification-description", version = (&*state.upgrading_to));
@@ -422,6 +424,7 @@ fn download_complete(state: &mut State, widgets: &EventWidgets) {
     (state.callback_event.borrow())(Event::UpgradeReady);
 
     widgets.upgrade.options[0]
+        .button_class(&gtk::STYLE_CLASS_DESTRUCTIVE_ACTION)
         .show_button()
         .button_label(&fl!("button-upgrade"))
         .label(&fl!("download-os-complete", version = (&*state.upgrading_to)))
