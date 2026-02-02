@@ -17,11 +17,7 @@ impl UpgradeDialog {
         let dialog = DialogTemplate::new(
             "distributor-logo",
             &fl!("upgrade-to", version = version),
-            &if start {
-                fl!("button-upgrade")
-            } else {
-                fl!("button-perform-upgrade")
-            },
+            &if start { fl!("button-upgrade") } else { fl!("button-perform-upgrade") },
             &gtk::STYLE_CLASS_DESTRUCTIVE_ACTION,
             |content| {
                 if start {
@@ -39,7 +35,8 @@ impl UpgradeDialog {
                         Some((_version, changelog)) => {
                             add_changelog(&changelog_list, changelog);
                             for (version, changelog) in iter {
-                                changelog_list.add(&gtk::Separator::new(gtk::Orientation::Horizontal));
+                                changelog_list
+                                    .add(&gtk::Separator::new(gtk::Orientation::Horizontal));
                                 add_version(&changelog_list, version);
                                 add_changelog(&changelog_list, changelog);
                             }
@@ -76,6 +73,7 @@ impl UpgradeDialog {
 fn add_changelog(changelogs: &gtk::Box, changelog: &str) {
     let changelog_label = gtk::Label::builder()
         .label(changelog)
+        .use_markup(true)
         .wrap(true)
         .xalign(0.0)
         .max_width_chars(40)
