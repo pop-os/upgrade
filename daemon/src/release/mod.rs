@@ -39,6 +39,13 @@ use systemd_boot_conf::SystemdBootConf;
 
 pub const STARTUP_UPGRADE_FILE: &str = "/pop-upgrade";
 
+/// Packages which need to be removed *before* the sources are reset to defaults
+/// and updates are applied (e.g. DKMS packages that work with the Pop!_OS kernel when
+/// installed from third-party sources, but not when installed from the Ubuntu repo).
+const REMOVE_PACKAGES_EARLY: &[&str] = &[
+    "openrazer-driver-dkms",
+];
+
 /// Packages which should be removed before upgrading.
 ///
 /// - `gnome-software` conflicts with `pop-desktop` and its `sessioninstaller` dependency
@@ -137,23 +144,24 @@ impl From<UpgradeMethod> for &'static str {
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, FromPrimitive, PartialEq)]
 pub enum UpgradeEvent {
-    UpdatingPackageLists = 1,
-    FetchingPackages = 2,
-    UpgradingPackages = 3,
-    InstallingPackages = 4,
-    UpdatingSourceLists = 5,
-    FetchingPackagesForNewRelease = 6,
-    FetchingAdditionalPackagesForNewRelease = 7,
-    AttemptingLiveUpgrade = 8,
-    AttemptingSystemdUnit = 9,
-    AttemptingRecovery = 10,
-    Success = 11,
-    SuccessLive = 12,
-    Failure = 13,
-    AptFilesLocked = 14,
-    RemovingConflicts = 15,
-    RemovingWacomConflicts = 16,
-    Simulating = 17,
+    RemovingConflictsEarly = 1,
+    UpdatingPackageLists = 2,
+    FetchingPackages = 3,
+    UpgradingPackages = 4,
+    InstallingPackages = 5,
+    UpdatingSourceLists = 6,
+    FetchingPackagesForNewRelease = 7,
+    FetchingAdditionalPackagesForNewRelease = 8,
+    AttemptingLiveUpgrade = 9,
+    AttemptingSystemdUnit = 10,
+    AttemptingRecovery = 11,
+    Success = 12,
+    SuccessLive = 13,
+    Failure = 14,
+    AptFilesLocked = 15,
+    RemovingConflicts = 16,
+    RemovingWacomConflicts = 17,
+    Simulating = 18,
 }
 
 impl From<UpgradeEvent> for &'static str {
@@ -175,6 +183,7 @@ impl From<UpgradeEvent> for &'static str {
                 "ensuring that system-critical packages are installed"
             }
             UpgradeEvent::RemovingConflicts => "removing deprecated and/or conflicting packages",
+            UpgradeEvent::RemovingConflictsEarly => "removing third-party packages known to break early",
             UpgradeEvent::RemovingWacomConflicts => "replacing Surface-tailored Wacom packages with standard ones",
             UpgradeEvent::Success => "new release is ready to install",
             UpgradeEvent::SuccessLive => "new release was successfully installed",
@@ -438,6 +447,10 @@ pub async fn upgrade<'a>(
     // Check the system and perform any repairs necessary for success.
     autorepair(version).await?;
 
+    // Remove packages that may've worked from third-party sources
+    // but will cause problems if downgraded to the built-in sources' version.
+    remove_conflicting_packages_early(logger).await?;
+
     info!("creating backup of source lists");
     repos::backup(version).await.map_err(ReleaseError::BackupPPAs)?;
 
@@ -585,6 +598,43 @@ async fn old_releases_workaround(version: &str, codename: Codename) -> Result<()
     if repos::is_old_release(<&'static str>::from(codename)).await {
         info!("switching to old-releases repositories");
         repos::replace_with_old_releases().map_err(ReleaseError::OldReleaseSwitch)?;
+    }
+
+    Ok(())
+}
+
+async fn remove_conflicting_packages_early(logger: &dyn Fn(UpgradeEvent)) -> Result<(), ReleaseError> {    
+    let mut conflicting = (async {
+        let (mut child, package_stream) = DpkgQuery::new().show_installed(REMOVE_PACKAGES_EARLY).await?;
+
+        futures_util::pin_mut!(package_stream);
+
+        let mut packages = Vec::new();
+
+        while let Some(package) = package_stream.next().await {
+            packages.push(package);
+        }
+
+        // NOTE: This is okay to fail since it just means a package is not found
+        let _ = child.wait().await;
+
+        Ok::<_, std::io::Error>(packages)
+    })
+    .await
+    .context("check for known-conflicting packages (early)")
+    .map_err(ReleaseError::ConflictRemoval)?;
+
+    if !conflicting.is_empty() {
+        apt_lock_wait().await;
+        (logger)(UpgradeEvent::RemovingConflictsEarly);
+        let mut apt_get = crate::misc::apt_get();
+
+        apt_get.arg("--auto-remove");
+        apt_get
+            .remove(conflicting)
+            .await
+            .context("conflict removal")
+            .map_err(ReleaseError::ConflictRemoval)?;
     }
 
     Ok(())
