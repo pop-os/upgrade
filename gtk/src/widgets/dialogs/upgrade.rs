@@ -64,7 +64,7 @@ impl UpgradeDialog {
             },
         );
 
-        dialog.set_size_request(800, 600);
+        dialog.set_size_request(560, if start { 334 } else { 147 });
 
         Self { dialog }
     }
