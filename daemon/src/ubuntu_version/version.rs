@@ -48,7 +48,7 @@ impl Version {
 
     /// The number of months that have passed since this version was released.
     pub fn months_since(self) -> i32 {
-        let today = Utc::today();
+        let today = Utc::now().date_naive();
 
         let major = 2000 - today.year() as u32;
         let minor = today.month() as u32;

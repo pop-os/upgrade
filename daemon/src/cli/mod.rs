@@ -4,7 +4,7 @@ mod prompt;
 use self::colors::*;
 use crate::notify::notify;
 use apt_cmd::AptUpgradeEvent;
-use chrono::{TimeZone, Utc};
+use chrono::NaiveDate;
 use clap::ArgMatches;
 use num_traits::FromPrimitive;
 use pop_upgrade::{
@@ -576,7 +576,9 @@ fn notification_message(current: &str, next: &str) -> (String, String) {
                 return (
                     fomat!(
                         "Support for Pop!_OS " (current) " ends "
-                        (Utc.ymd(y as i32, m, d).format("%B %-d, %Y"))
+                        (NaiveDate::from_ymd_opt(y as i32, m, d)
+                            .expect("invalid EOL date")
+                            .format("%B %-d, %Y"))
                     ),
                     fomat!(
                         "This computer will soon stop receiving updates"

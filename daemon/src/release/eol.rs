@@ -1,6 +1,6 @@
 use crate::ubuntu_version::{Codename, Version};
 use anyhow::Context;
-use chrono::{Date, NaiveDate, Utc};
+use chrono::{NaiveDate, Utc};
 use std::convert::TryFrom;
 
 #[derive(Debug, PartialEq)]
@@ -35,11 +35,11 @@ impl EolDate {
     }
 
     #[inline]
-    pub fn status(&self) -> EolStatus { self.status_from(Utc::now().date()) }
+    pub fn status(&self) -> EolStatus { self.status_from(Utc::now().date_naive()) }
 
-    pub fn status_from(&self, date: Date<Utc>) -> EolStatus {
+    pub fn status_from(&self, date: NaiveDate) -> EolStatus {
         let (year, month, day) = self.ymd;
-        let eol = ymd_to_utc(year as i32, month, day);
+        let eol = ymd_to_naive(year as i32, month, day);
 
         if date >= eol {
             EolStatus::Exceeded
@@ -52,14 +52,14 @@ impl EolDate {
 }
 
 #[inline]
-fn imminent(current: Date<Utc>, eol: Date<Utc>, codename: Codename) -> bool {
+fn imminent(current: NaiveDate, eol: NaiveDate, codename: Codename) -> bool {
     let days_until = eol.signed_duration_since(current).num_days();
     let days_left = if codename == Codename::Groovy { 7 } else { 30 };
     days_until >= 0 && days_until <= days_left
 }
 
-fn ymd_to_utc(y: i32, m: u32, d: u32) -> Date<Utc> {
-    Date::from_utc(NaiveDate::from_ymd(y, m, d), Utc)
+fn ymd_to_naive(y: i32, m: u32, d: u32) -> NaiveDate {
+    NaiveDate::from_ymd_opt(y, m, d).expect("invalid EOL date")
 }
 
 #[cfg(test)]
@@ -70,22 +70,22 @@ mod tests {
     #[test]
     fn eol_exceeded() {
         let disco = EolDate::from(Codename::Disco);
-        assert_eq!(disco.status_from(ymd_to_utc(2020, 1, 18)), EolStatus::Exceeded);
-        assert_eq!(disco.status_from(ymd_to_utc(2020, 2, 1)), EolStatus::Exceeded);
-        assert_eq!(disco.status_from(ymd_to_utc(2021, 1, 1)), EolStatus::Exceeded);
+        assert_eq!(disco.status_from(ymd_to_naive(2020, 1, 18)), EolStatus::Exceeded);
+        assert_eq!(disco.status_from(ymd_to_naive(2020, 2, 1)), EolStatus::Exceeded);
+        assert_eq!(disco.status_from(ymd_to_naive(2021, 1, 1)), EolStatus::Exceeded);
     }
 
     #[test]
     fn eol_imminent() {
         let disco = EolDate::from(Codename::Disco);
-        assert_eq!(disco.status_from(ymd_to_utc(2019, 12, 30)), EolStatus::Imminent);
-        assert_eq!(disco.status_from(ymd_to_utc(2020, 1, 17)), EolStatus::Imminent);
+        assert_eq!(disco.status_from(ymd_to_naive(2019, 12, 30)), EolStatus::Imminent);
+        assert_eq!(disco.status_from(ymd_to_naive(2020, 1, 17)), EolStatus::Imminent);
     }
 
     #[test]
     fn eol_ok() {
         let disco = EolDate::from(Codename::Disco);
-        assert_eq!(disco.status_from(ymd_to_utc(2019, 10, 30)), EolStatus::Ok);
-        assert_eq!(disco.status_from(ymd_to_utc(2019, 12, 10)), EolStatus::Ok);
+        assert_eq!(disco.status_from(ymd_to_naive(2019, 10, 30)), EolStatus::Ok);
+        assert_eq!(disco.status_from(ymd_to_naive(2019, 12, 10)), EolStatus::Ok);
     }
 }
