@@ -562,6 +562,27 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
             }
             info!("ansible is not installed, so ansible-core will be downgraded");
         }
+        
+        // dotnet-sdk-8.0 depends on dotnet-host in Microsoft's repository,
+        // but dotnet-sdk-8.0 conflicts with dotnet-host in the Ubuntu repository.
+        // If both are installed, the're probably installed from the Microsoft repository,
+        // and the latter must be removed before the former's downgraded.
+        // (Need to check for this on dotnet-host since it's earlier than dotnet-sdk-8.0 alphabetically.)
+        if package.contains("dotnet-host") {
+            info!("dotnet-host is to be downgraded");
+            for (package, _version) in &downgradable {
+                if package.eq("dotnet-sdk-8.0") {
+                    info!("dotnet-sdk-8.0 will also be downgraded, so removing dotnet-host");
+                    let mut remove_dotnet_cmd = AptGet::new().allow_downgrades().force().noninteractive();
+                        remove_dotnet_cmd.arg("remove");
+                        remove_dotnet_cmd.arg("dotnet-host");
+                        let _remove_dotnet = remove_dotnet_cmd.status().await
+                            .context("apt-get remove dotnet-host").map_err(ReleaseError::Downgrade);
+                    continue 'downgrades;
+                }
+            }
+            info!("dotnet-sdk-8.0 is not installed, so dotnet-host will be downgraded");
+        }
 
         if let Some(version) = version.split_ascii_whitespace().next() {
             cmd.arg([&package, "=", version].concat());
