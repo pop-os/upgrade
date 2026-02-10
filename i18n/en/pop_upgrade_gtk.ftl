@@ -15,7 +15,7 @@ checking-for-updates = Checking for updates ...
 dialog-refresh-title = Refresh OS Install
 dialog-refresh-description =
  When you refresh the OS:
- 
+
  {"*"} All user accounts and files in the /home directory will be kept
  {"*"} Users and user groups will be retained
  {"*"} All system applications installed by the user will be removed
@@ -25,7 +25,7 @@ dialog-refresh-description =
      - The system language
      - The system keyboard layout
      - Network configurations managed by NetworkManager
- 
+
  Please be sure to save all of your work before clicking to reboot.
 
 daemon-checking = Checking for updates to daemon
@@ -78,13 +78,13 @@ recovery-sync = Syncing recovery image to disk
 recovery-update-found = Recovery partition update is available
 recovery-verify = Verifying the fetched recovery image
 
-refresh-description = Reinstall while keeping user accounts and files
+refresh-description = Reinstall while retaining user accounts and files.
 refresh-header = Refresh OS
 
 release-current = You are running the most current {-os} version
 
-upgrade-available = {-os} {$version} is available!
-upgrade-cosmic = Includes COSMIC desktop environment
+upgrade-available = {-os} {$version} is available
+upgrade-cosmic = Includes the COSMIC desktop environment.
 upgrade-canceling = Canceling upgrade
 upgrade-downloading = {-os} is currently downloading
 upgrade-finalize = The system will be upgraded to {-os} { $version }.
