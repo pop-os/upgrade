@@ -51,7 +51,7 @@ impl UpgradeDialog {
                     let message = gtk::Label::builder()
                         .label(&fomat!(
                             if battery::active() {
-                                (fl!("battery-notice")) " "
+                                (fl!("battery-notice")) " \n\n"
                             }
                             (fl!("upgrade-finalize", version = version))
                         ))
