@@ -2796,7 +2796,6 @@ dependencies = [
  "once_cell",
  "os-release",
  "pango",
- "pkg-config",
  "pop-upgrade",
  "rust-embed",
  "shrinkwraprs",

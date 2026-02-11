@@ -7,3 +7,6 @@ rust-version = "1.90.0"
 
 [workspace.dependencies]
 apt-cmd = "0.6.0"
+
+[workspace.lints.clippy]
+all = "deny"

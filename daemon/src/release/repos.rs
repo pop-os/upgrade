@@ -64,7 +64,7 @@ pub async fn backup(release: &str) -> anyhow::Result<()> {
     // Delete old backups first.
     for path in &delete {
         info!("removing old backup at {}", path.display());
-        fs::remove_file(&path)
+        fs::remove_file(path)
             .with_context(|| fomat!("failed to remove backup at "(path.display())))?;
     }
 
@@ -75,7 +75,7 @@ pub async fn backup(release: &str) -> anyhow::Result<()> {
         let dst_path = Path::new(&dst_path_str);
 
         info!("creating backup of {} to {}", src.display(), dst_path.display());
-        fs::copy(&src, dst_path).with_context(
+        fs::copy(src, dst_path).with_context(
             || fomat!("failed to copy " (src.display()) " to " (dst_path.display())),
         )?;
     }
@@ -92,7 +92,7 @@ fn delete_system76_ubuntu_ppa_list() {
     if let Ok(ppa_directory) = Path::new(PPA_DIR).read_dir() {
         for entry in ppa_directory.filter_map(Result::ok) {
             let path = entry.path();
-            if path.extension().map_or(false, |e| e == "list") {
+            if path.extension().is_some_and(|e| e == "list") {
                 if let Some(fname) = path.file_name() {
                     if fname.contains("system76-ubuntu-pop") {
                         let _ = fs::remove_file(&path);
@@ -109,7 +109,7 @@ pub async fn disable_third_parties(release: &str) -> anyhow::Result<()> {
     let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
     for entry in iter_files(dir) {
         let path = entry.path();
-        if path.extension().map_or(false, |e| e == "list") {
+        if path.extension().is_some_and(|e| e == "list") {
             info!("disabling sources in {}", path.display());
 
             let contents = fs::read_to_string(&path)
@@ -128,7 +128,7 @@ pub async fn disable_third_parties(release: &str) -> anyhow::Result<()> {
 
             fs::write(&path, replaced.as_bytes())
                 .with_context(|| fomat!("failed to open " (&path.display()) " for writing"))?;
-        } else if path.extension().map_or(false, |e| e == "sources") {
+        } else if path.extension().is_some_and(|e| e == "sources") {
             if let Some(fname) = path.file_name() {
                 if !(fname.starts_with("pop-os") || fname.starts_with("system")) {
                     let _ = fs::remove_file(&path);
@@ -435,12 +435,10 @@ deb-src http://ppa.launchpad.net/system76/pop/ubuntu {0} main
 }
 
 pub fn iter_files(dir: ReadDir) -> impl Iterator<Item = DirEntry> {
-    dir.filter_map(Result::ok).filter(|entry| entry.metadata().ok().map_or(false, |m| m.is_file()))
+    dir.filter_map(Result::ok).filter(|entry| entry.metadata().ok().is_some_and(|m| m.is_file()))
 }
 
-fn is_save_file(path: &Path) -> bool {
-    path.extension() == Some(OsStr::from_bytes(b"save"))
-}
+fn is_save_file(path: &Path) -> bool { path.extension() == Some(OsStr::from_bytes(b"save")) }
 
 #[cfg(test)]
 mod tests {

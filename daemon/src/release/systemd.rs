@@ -109,7 +109,7 @@ pub fn upgrade_set(from: &str, to: &str) -> RelResult<()> {
         .map(<&'static str>::from)
         .unwrap_or(to);
 
-    fs::write(STARTUP_UPGRADE_FILE, &format!("{} {}", current, new))
+    fs::write(STARTUP_UPGRADE_FILE, format!("{} {}", current, new))
         .and_then(|_| symlink("/var/cache/apt/archives", SYSTEM_UPDATE))
         .map_err(ReleaseError::StartupFileCreation)
 }

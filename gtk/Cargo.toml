@@ -42,5 +42,5 @@ uzers = "0.12.1"
 yansi = "1.0.1"
 gtk-sys = "0.15.3"
 
-[build-dependencies]
-pkg-config = "0.3.32"
+[lints]
+workspace = true

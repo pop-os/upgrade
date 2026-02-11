@@ -14,7 +14,7 @@ pub fn download(client: &Client, send: &dyn Fn(UiEvent), info: &ReleaseInfo) {
         return;
     }
 
-    let &ReleaseInfo { ref current, ref next, .. } = &info;
+    let ReleaseInfo { current, next, .. } = &info;
 
     let how = UpgradeMethod::Offline;
 

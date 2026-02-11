@@ -14,7 +14,7 @@ use crate::{
     RECOVERY_PARTITION, REFRESH_OS,
 };
 
-use chrono::{TimeZone, Utc};
+use chrono::NaiveDate;
 use gtk::prelude::*;
 
 use pop_upgrade::{
@@ -294,7 +294,7 @@ fn cancelled_upgrade(state: &mut State, widgets: &EventWidgets) {
 
     state.upgrade_downloaded = false;
     widgets.upgrade.options[0]
-        .label(&*state.upgrade_label)
+        .label(&state.upgrade_label)
         .button_signal(Some(download_action(state.gui_sender.clone())))
         .reset_progress()
         .show_button();
@@ -327,7 +327,11 @@ fn connect_upgrade(state: &mut State, widgets: &EventWidgets, is_lts: bool, rebo
                 EolStatus::Imminent => Some(fl!(
                     "eol-imminent",
                     current = fomat!((eol.version)),
-                    date = fomat!((Utc.ymd(y as i32, m, d).format("%B %-d, %Y")))
+                    date = fomat!(
+                        (NaiveDate::from_ymd_opt(y as i32, m, d)
+                            .expect("invalid EOL date")
+                            .format("%B %-d, %Y"))
+                    )
                 )),
                 EolStatus::Ok => None,
             }

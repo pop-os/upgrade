@@ -8,7 +8,7 @@ pub fn mode_is(option: &str) -> RelResult<bool> {
     Ok(EnvFile::new(Path::new("/recovery/recovery.conf"))
         .map_err(ReleaseError::RecoveryConfOpen)?
         .get("MODE")
-        .map_or(false, |mode| mode == option))
+        == Some(option))
 }
 
 /// Fetch the systemd-boot configuration, and designate the recovery partition as the default

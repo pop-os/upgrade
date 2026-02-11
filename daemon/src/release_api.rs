@@ -76,7 +76,7 @@ impl Release {
 
         let bytes = response.bytes().await?;
 
-        serde_json::from_slice::<RawRelease>(&*bytes).map_err(ApiError::Json)?.into_release()
+        serde_json::from_slice::<RawRelease>(&bytes).map_err(ApiError::Json)?.into_release()
     }
 
     pub async fn build_exists(version: &str, channel: &str) -> Result<u16, ApiError> {

@@ -162,7 +162,7 @@ async fn fetch_iso<P: AsRef<Path>>(
             let cancel = cancel.clone();
 
             // Fetch the latest ISO from the release repository.
-            let iso = (|| async {
+            let iso = async {
                 let arch = match arch {
                     Some(arch) => arch,
                     None => detect_arch()?,
@@ -186,7 +186,7 @@ async fn fetch_iso<P: AsRef<Path>>(
                 shutdown_check(&cancel)?;
 
                 Ok::<PathBuf, RecoveryError>(iso_path)
-            })()
+            }
             .await?;
 
             (build, version, iso)

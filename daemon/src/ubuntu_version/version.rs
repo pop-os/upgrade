@@ -44,14 +44,14 @@ impl Version {
     }
 
     /// Returns `true` if this is a LTS release.
-    pub fn is_lts(self) -> bool { self.major % 2 == 0 && self.minor == 4 }
+    pub fn is_lts(self) -> bool { self.major.is_multiple_of(2) && self.minor == 4 }
 
     /// The number of months that have passed since this version was released.
     pub fn months_since(self) -> i32 {
-        let today = Utc::today();
+        let today = Utc::now().date_naive();
 
         let major = 2000 - today.year() as u32;
-        let minor = today.month() as u32;
+        let minor = today.month();
 
         months_since(self, major, minor)
     }

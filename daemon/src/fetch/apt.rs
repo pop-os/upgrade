@@ -44,8 +44,13 @@ pub async fn fetch_uris(
                 .noninteractive()
                 .fetch_uris(&args)
                 .await
-                .context("failed to exec `apt-get install --print-uris` or `apt-get download --print-uris`")?
-                .context("failed to fetch package URIs from `apt-get install` or `apt-get download`")?;
+                .context(
+                    "failed to exec `apt-get install --print-uris` or `apt-get download \
+                     --print-uris`",
+                )?
+                .context(
+                    "failed to fetch package URIs from `apt-get install` or `apt-get download`",
+                )?;
 
             for uri in install_uris {
                 uris.insert(uri);

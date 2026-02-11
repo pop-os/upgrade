@@ -23,29 +23,20 @@ pub fn apt_get() -> apt_cmd::AptGet {
 
 pub async fn create<P: AsRef<Path>>(path: P) -> io::Result<File> {
     File::create(&path).await.map_err(|why| {
-        io::Error::new(
-            io::ErrorKind::Other,
-            format!("unable to create file at {:?}: {}", path.as_ref(), why),
-        )
+        io::Error::other(format!("unable to create file at {:?}: {}", path.as_ref(), why))
     })
 }
 
 pub async fn open<P: AsRef<Path>>(path: P) -> io::Result<File> {
     File::open(&path).await.map_err(|why| {
-        io::Error::new(
-            io::ErrorKind::Other,
-            format!("unable to open file at {:?}: {}", path.as_ref(), why),
-        )
+        io::Error::other(format!("unable to open file at {:?}: {}", path.as_ref(), why))
     })
 }
 
 pub async fn cp<'a>(src: &'a Path, dst: &'a Path) -> io::Result<u64> {
-    copy(src, dst).await.map_err(|why| {
-        io::Error::new(
-            io::ErrorKind::Other,
-            format!("failed to copy {:?} to {:?}: {}", src, dst, why),
-        )
-    })
+    copy(src, dst)
+        .await
+        .map_err(|why| io::Error::other(format!("failed to copy {:?} to {:?}: {}", src, dst, why)))
 }
 
 pub fn format_build_number(value: i16, buffer: &mut String) -> &str {

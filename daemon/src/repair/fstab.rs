@@ -31,7 +31,7 @@ fn mount_required_partitions() -> anyhow::Result<()> {
     let mounts = proc_mounts::MountList::new().context("failed to read /proc/mounts")?;
 
     for mount_point in &["/", "/boot/efi"] {
-        if let Some(_) = mounts.get_mount_by_dest(mount_point) {
+        if mounts.get_mount_by_dest(mount_point).is_some() {
             continue; // Already mounted.
         }
         Command::new("mount")

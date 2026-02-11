@@ -34,7 +34,7 @@ fn cryptswap_plain_warning(input: &str) -> Option<String> {
 
         if let Some(options) = line.split_ascii_whitespace().nth(3) {
             let fields = options.split(',').collect::<Vec<_>>();
-            if fields.iter().any(|&e| e == "swap") && !fields.iter().any(|&e| e == "plain") {
+            if fields.contains(&"swap") && !fields.contains(&"plain") {
                 new.push_str(&line.replace("swap,", "swap,plain,"));
                 new.push('\n');
                 correction_needed = true;

@@ -64,7 +64,7 @@ pub fn scan(client: &Client, send: &dyn Fn(UiEvent)) {
                 current = dbg!(Some(info.current.clone()));
                 match client.recovery_version() {
                     Ok(rinfo) => {
-                        urgent = info.urgent.map_or(false, |urgent| {
+                        urgent = info.urgent.is_some_and(|urgent| {
                             rinfo.version != info.current
                                 || rinfo.build < 0
                                 || (rinfo.build as u16) < urgent

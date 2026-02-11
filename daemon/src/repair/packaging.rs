@@ -93,7 +93,7 @@ async fn base_requirements() -> anyhow::Result<()> {
         }
     }
 
-    let _ = child.wait();
+    let _ = child.wait().await;
 
     info!("installing required prerequisites: {:?}", to_install);
 

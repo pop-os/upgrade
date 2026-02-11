@@ -35,7 +35,7 @@ impl DialogTemplate {
             .build();
 
         let title =
-            gtk::Label::builder().label(&*["<b>", title, "</b>"].concat()).use_markup(true).build();
+            gtk::Label::builder().label(&["<b>", title, "</b>"].concat()).use_markup(true).build();
 
         cascade! {
             dialog
