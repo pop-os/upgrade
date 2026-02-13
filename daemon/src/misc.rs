@@ -90,6 +90,9 @@ where
     Fun: Fn() -> Fut,
     Fut: Future<Output = Res>,
 {
+    const MAX_RETRIES: u32 = 10;
+    let mut retries = 0;
+
     loop {
         let request = func();
         let changed = async_fetcher::iface::watch_change();
@@ -101,7 +104,22 @@ where
 
         match futures::future::select(request, changed).await {
             Either::Left((result, _)) => break result,
-            Either::Right(_) => tokio::time::sleep(Duration::from_secs(3)).await,
+            Either::Right(_) => {
+                retries += 1;
+                if retries >= MAX_RETRIES {
+                    warn!(
+                        "network_reconnect: max retries ({}) reached, proceeding with final \
+                         attempt",
+                        MAX_RETRIES
+                    );
+                    break func().await;
+                }
+                warn!(
+                    "network_reconnect: network change detected, retry {}/{}",
+                    retries, MAX_RETRIES
+                );
+                tokio::time::sleep(Duration::from_secs(3)).await;
+            }
         }
     }
 }
