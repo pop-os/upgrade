@@ -9,7 +9,7 @@ pub enum ApiError {
     BuildNaN(String),
 
     #[error("failed to GET release API")]
-    Get(#[from] isahc::Error),
+    Get(#[from] reqwest::Error),
 
     #[error("I/O error on reading response from release API")]
     Io(#[from] std::io::Error),
@@ -18,7 +18,7 @@ pub enum ApiError {
     Json(#[from] serde_json::Error),
 
     #[error("server returned an error status: {:?}", _0)]
-    Status(isahc::http::StatusCode),
+    Status(reqwest::StatusCode),
 }
 
 #[derive(Debug, Deserialize)]
@@ -63,10 +63,11 @@ impl Release {
         info!("checking for build {} in channel {}", version, channel);
         let url = [BASE, "builds/", version, "/", channel].concat();
 
-        let mut response = crate::misc::network_reconnect(|| async {
+        let response = crate::misc::network_reconnect(|| async {
             crate::misc::http_client()
                 .map_err(ApiError::Get)?
-                .get_async(&url)
+                .get(&url)
+                .send()
                 .await
                 .map_err(ApiError::Get)
         })
@@ -76,8 +77,6 @@ impl Release {
         if !status.is_success() {
             return Err(ApiError::Status(status));
         }
-
-        use isahc::AsyncReadResponseExt;
 
         let bytes = response.bytes().await?;
 

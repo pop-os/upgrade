@@ -9,13 +9,15 @@ use std::future::Future;
 pub enum BuildStatus {
     Blacklisted,
     Build(u16),
-    ConnectionIssue(isahc::Error),
+    ConnectionIssue(reqwest::Error),
     InternalIssue(ApiError),
-    ServerStatus(isahc::http::StatusCode),
+    ServerStatus(reqwest::StatusCode),
 }
 
 impl BuildStatus {
-    pub fn is_ok(&self) -> bool { matches!(*self, BuildStatus::Build(_)) }
+    pub fn is_ok(&self) -> bool {
+        matches!(*self, BuildStatus::Build(_))
+    }
 
     pub fn status_code(&self) -> i16 {
         match *self {
@@ -55,13 +57,15 @@ impl PartialEq for BuildStatus {
 #[derive(Debug, PartialEq)]
 pub struct ReleaseStatus {
     pub current: &'static str,
-    pub next:    &'static str,
-    pub build:   BuildStatus,
-    pub is_lts:  bool,
+    pub next: &'static str,
+    pub build: BuildStatus,
+    pub is_lts: bool,
 }
 
 impl ReleaseStatus {
-    pub fn is_lts(&self) -> bool { self.is_lts }
+    pub fn is_lts(&self) -> bool {
+        self.is_lts
+    }
 }
 
 pub async fn next(development: bool) -> Result<ReleaseStatus, VersionError> {
