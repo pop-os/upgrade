@@ -2,12 +2,12 @@ use anyhow::Context;
 use std::{fs, future::Future, io, path::Path, time::Duration};
 use tokio::fs::{copy, File};
 
-pub fn http_client() -> Result<isahc::HttpClient, isahc::Error> {
-    use isahc::config::Configurable;
-
-    isahc::HttpClient::builder()
-        .low_speed_timeout(1, std::time::Duration::from_secs(1))
-        .redirect_policy(isahc::config::RedirectPolicy::Follow)
+pub fn http_client() -> Result<reqwest::Client, reqwest::Error> {
+    reqwest::ClientBuilder::new()
+        // Error if the HTTP header response, or the time to fetch a chunk of a body, exceeds 30 seconds.
+        .read_timeout(Duration::from_secs(30))
+        // Limit to following 10 redirects before failing.
+        .redirect(reqwest::redirect::Policy::limited(10))
         .build()
 }
 

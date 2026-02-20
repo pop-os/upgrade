@@ -152,7 +152,7 @@ pub async fn is_old_release(codename: &str) -> bool {
     let url = &["http://old-releases.ubuntu.com/ubuntu/dists/", codename, "/Release"].concat();
 
     if let Ok(client) = crate::misc::http_client() {
-        let request = || async { client.head_async(url).await };
+        let request = || async { client.head(url).send().await };
         if let Ok(resp) = crate::misc::network_reconnect(request).await {
             return resp.status().is_success();
         }
