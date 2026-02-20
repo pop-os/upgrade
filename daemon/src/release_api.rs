@@ -24,12 +24,12 @@ pub enum ApiError {
 #[derive(Debug, Deserialize)]
 pub struct RawRelease {
     pub version: String,
-    pub url:     String,
-    pub size:    u64,
+    pub url: String,
+    pub size: u64,
     pub sha_sum: String,
     pub channel: String,
-    pub build:   String,
-    pub urgent:  String,
+    pub build: String,
+    pub urgent: String,
 }
 
 impl RawRelease {
@@ -45,16 +45,21 @@ impl RawRelease {
 #[derive(Debug)]
 pub struct Release {
     pub version: String,
-    pub url:     String,
-    pub size:    u64,
+    pub url: String,
+    pub size: u64,
     pub sha_sum: String,
     pub channel: String,
-    pub build:   u16,
-    pub urgent:  bool,
+    pub build: u16,
+    pub urgent: bool,
 }
 
 impl Release {
-    pub async fn get_release(version: &str, channel: &str) -> Result<Release, ApiError> {
+    pub async fn get_release(version: &str, mut channel: &str) -> Result<Release, ApiError> {
+        // Switched in 24.04 starting with ISO build 21.
+        if version != "22.04" && channel == "intel" {
+            channel = "generic";
+        }
+
         info!("checking for build {} in channel {}", version, channel);
         let url = [BASE, "builds/", version, "/", channel].concat();
 
