@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 export LANG=C
 export DEBIAN_FRONTEND="noninteractive"
@@ -19,7 +19,7 @@ message () {
     }
 }
 
-efi_rename () {
+efi_rename() {
     if test -d '/sys/firmware/efi/'; then
         current_bootnum="$(efibootmgr | grep BootCurrent | awk -F' ' '{print $2}')"
         new_label="$(cat /etc/os-release | grep PRETTY | awk -F'"' '{print $2}')"
@@ -29,12 +29,12 @@ efi_rename () {
 
         for block in /sys/block/*; do
             if test -e "${block}/${efi_part}"; then
-                efi_disk="/dev/$(echo ${block} | cut -c 12-)"
+                efi_disk="/dev/$(echo "${block}" | cut -c 12-)"
                 break
             fi
         done
 
-        efi_num="$(cat /sys/class/block/${efi_part}/partition)"
+        efi_num="$(cat "/sys/class/block/${efi_part}/partition")"
 
         # Remove the current boot entry
         efibootmgr -b "${current_bootnum}" -B
@@ -47,8 +47,8 @@ efi_rename () {
     fi
 }
 
-dpkg_configure () {
-    dpkg --configure -a --force-overwrite | while read -r line; do
+dpkg_configure() {
+    dpkg --configure -a --force-overwrite | while IFS= read -r line; do
         message -i "Repairing packages: $line"
     done
 
@@ -56,7 +56,7 @@ dpkg_configure () {
     dpkg --configure -a
 }
 
-apt_install_fix () {
+apt_install_fix() {
     message -i "Checking for package fixes..."
     env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
         -o Dpkg::Options::="--force-confdef" \
@@ -69,7 +69,7 @@ apt_install_fix () {
         --no-download --ignore-missing
 }
 
-apt_full_upgrade () {
+apt_full_upgrade() {
     percent=0
 
     # Watch progress of an update, and report it to the splash screen
@@ -81,24 +81,25 @@ apt_full_upgrade () {
         -o Dpkg::Options::="--force-depends" \
         -o Dpkg::Options::="--force-depends-version" \
         full-upgrade -y --allow-downgrades --show-progress \
-        --no-download --ignore-missing | while read -r line; do
-            if test "Progress: [" = "$(echo ${line} | cut -c-11)"; then
+        --no-download --ignore-missing | while IFS= read -r line; do
+            if test "Progress: [" = "$(echo "${line}" | cut -c-11)"; then
                 percent=$(echo "${line}" | cut -c12-14)
                 if test -n "${percent}"; then
                     plymouth system-update --progress="${percent}"
                 fi
             fi
 
-            prefix="Installing Updates (${percent//[[:space:]]/}%)"
+            pclean=$(printf '%s' "$percent" | tr -d '[:space:]')
+            prefix="Installing Updates (${pclean}%)"
 
-            if test "Unpacking" = "$(echo ${line} | cut -c-9)"; then
-                package="$(echo $line | awk '{print $2}')"
+            if test "Unpacking" = "$(echo "${line}" | cut -c-9)"; then
+                package="$(echo "$line" | awk '{print $2}')"
                 message -i "$prefix: Unpacking $package..."
-            elif test "Setting up" = "$(echo ${line} | cut -c-10)"; then
-                package="$(echo $line | awk '{print $3}')"
+            elif test "Setting up" = "$(echo "${line}" | cut -c-10)"; then
+                package="$(echo "$line" | awk '{print $3}')"
                 message -i "$prefix: Setting up $package..."
-            elif test "Processing triggers for" = "$(echo ${line} | cut -c-23)"; then
-                package="$(echo $line | awk '{print $4}')"
+            elif test "Processing triggers for" = "$(echo "${line}" | cut -c-23)"; then
+                package="$(echo "$line" | awk '{print $4}')"
                 message -i "$prefix: Processing triggers for $package..."
             else
                 echo "$line"
@@ -111,16 +112,15 @@ apt_full_upgrade () {
         --no-download --ignore-missing
 }
 
-candidate () {
-    echo "$1"=$(apt-cache policy "$1" | grep Candidate | awk '{print $2}')
+candidate() {
+    printf '%s=%s\n' "$1" "$(apt-cache policy "$1" | awk '/Candidate:/{print $2; exit}')"
 }
 
-package_exists () {
-    dpkg -s "$1" &>/dev/null
+package_exists() {
+    dpkg -s "$1" >/dev/null 2>&1
 }
 
-install_packages () {
-    local args=("$@")
+install_packages() {
     env LANG=C apt-get -o Dpkg::Options::="--force-overwrite" \
         -o Dpkg::Options::="--force-confdef" \
         -o Dpkg::Options::="--force-confold" \
@@ -130,24 +130,25 @@ install_packages () {
         -o Dpkg::Options::="--force-depends-version" \
         install -y --allow-downgrades --show-progress \
         --no-download --ignore-missing \
-        "${args[@]}" | while read -r line; do
-            if test "Progress: [" = "$(echo ${line} | cut -c-11)"; then
-                percent=$(echo "${line}" | cut -c12-14)
-                if test -n "${percent}"; then
-                    plymouth system-update --progress="${percent}"
+        "$@" | while IFS= read -r line; do
+            if test "Progress: [" = "$(echo "$line" | cut -c-11)"; then
+                percent=$(echo "$line" | cut -c12-14)
+                if test -n "$percent"; then
+                    plymouth system-update --progress="$percent"
                 fi
             fi
 
-            prefix="Installing Prerequisites (${percent//[[:space:]]/}%)"
+            pclean=$(printf '%s' "$percent" | tr -d '[:space:]')
+            prefix="Installing Prerequisites (${pclean}%)"
 
-            if test "Unpacking" = "$(echo ${line} | cut -c-9)"; then
-                package="$(echo $line | awk '{print $2}')"
+            if test "Unpacking" = "$(echo "$line" | cut -c-9)"; then
+                package=$(echo "$line" | awk '{print $2}')
                 message -i "$prefix: Unpacking $package..."
-            elif test "Setting up" = "$(echo ${line} | cut -c-10)"; then
-                package="$(echo $line | awk '{print $3}')"
+            elif test "Setting up" = "$(echo "$line" | cut -c-10)"; then
+                package=$(echo "$line" | awk '{print $3}')
                 message -i "$prefix: Setting up $package..."
-            elif test "Processing triggers for" = "$(echo ${line} | cut -c-23)"; then
-                package="$(echo $line | awk '{print $4}')"
+            elif test "Processing triggers for" = "$(echo "$line" | cut -c-23)"; then
+                package=$(echo "$line" | awk '{print $4}')
                 message -i "$prefix: Processing triggers for $package..."
             else
                 echo "$line"
@@ -155,25 +156,27 @@ install_packages () {
         done
 }
 
-upgrade () {
+upgrade() {
     apt_install_fix
     apt_full_upgrade
 }
 
-attempt_repair () {
+attempt_repair() {
     message -i "Repairing packages..."
 
-    for (( i=0; i<10; ++i)); do
+    i=0
+    while [ "$i" -lt 10 ]; do
         if upgrade; then
             message -i "Repair succeeded. Resuming upgrade..."
             sleep 3
             break
         fi
+        i=$((i+1))
     done
 }
 
 # Attempts the upgrade the system, and if the upgrade fails, tries to repair it.
-attempt_upgrade () {
+attempt_upgrade() {
     plymouth change-mode --system-upgrade
     plymouth system-update --progress="0"
     message -i "Installing Updates (0%)"
@@ -210,14 +213,14 @@ attempt_upgrade () {
 
         efi_rename
         message -i "Upgrade complete. Preparing to reboot..."
-        rm -f /etc/systemd/system/{acpid,pop-upgrade}.service
+        rm -f /etc/systemd/system/acpid.service /etc/systemd/system/pop-upgrade.service
         sync
         sleep 3
         message -i "Upgrade complete. Now rebooting..."
         sleep 2
         systemctl reboot
     else
-        rm -f /etc/systemd/system/{acpid,pop-upgrade}.service
+        rm -f /etc/systemd/system/acpid.service /etc/systemd/system/pop-upgrade.service
         sync
         message -f "Upgrade failed. Restarting the system to try again..."
         sleep 5
