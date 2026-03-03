@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 
 pub const CHANGELOGS: &[(&str, &str)] = &[
+    ("24.04", include_str!("../../changelogs/24.04")),
     ("22.04", include_str!("../../changelogs/22.04")),
     ("21.10", include_str!("../../changelogs/21.10")),
     ("21.04", include_str!("../../changelogs/21.04")),

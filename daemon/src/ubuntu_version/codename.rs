@@ -22,6 +22,7 @@ pub enum Codename {
     Impish,
     Jammy,
     Noble,
+    Resolute,
 }
 
 impl Codename {
@@ -49,6 +50,7 @@ impl Codename {
             Codename::Impish => (2021, 10, 14),
             Codename::Jammy => (2022, 4, 21),
             Codename::Noble => (2024, 4, 13),
+            Codename::Resolute => (2026, 4, 23),
         }
     }
 
@@ -66,6 +68,7 @@ impl Codename {
             Codename::Impish => 1_634_191_200,
             Codename::Jammy => 1_650_492_000,
             Codename::Noble => 1_712_959_200,
+            Codename::Resolute => 1_776_895_200
         }
     }
 }
@@ -89,6 +92,7 @@ impl FromStr for Codename {
             "impish" => Codename::Impish,
             "jammy" => Codename::Jammy,
             "noble" => Codename::Noble,
+            "resolute" => Codename::Resolute,
             _ => return Err(CodenameParseError::NotFound),
         };
 
@@ -109,6 +113,7 @@ impl From<Codename> for &'static str {
             Codename::Impish => "impish",
             Codename::Jammy => "jammy",
             Codename::Noble => "noble",
+            Codename::Resolute => "resolute",
         }
     }
 }

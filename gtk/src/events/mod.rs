@@ -101,14 +101,14 @@ pub enum Event {
 }
 
 pub struct EventWidgets {
-    pub button_sg:     gtk::SizeGroup,
-    pub container:     gtk::Box,
-    pub dismisser:     gtk::ListBoxRow,
-    pub stack:         gtk::Stack,
+    pub button_sg: gtk::SizeGroup,
+    pub container: gtk::Box,
+    pub dismisser: gtk::ListBoxRow,
+    pub stack: gtk::Stack,
     pub loading_label: gtk::Label,
 
     pub recovery: UpgradeSection,
-    pub upgrade:  UpgradeSection,
+    pub upgrade: UpgradeSection,
 }
 
 impl EventWidgets {
@@ -154,6 +154,7 @@ pub async fn on_event(widgets: &mut EventWidgets, state: &mut State, event: UiEv
             InitiatedEvent::Download(version) => {
                 widgets.upgrade.options[0]
                     .label(&fl!("download-os", version = (&*version)))
+                    .sublabel(None)
                     .reset_progress()
                     .show_progress();
 
@@ -185,7 +186,22 @@ pub async fn on_event(widgets: &mut EventWidgets, state: &mut State, event: UiEv
         UiEvent::Upgrade(event) => match event {
             OsUpgradeEvent::Cancelled => cancelled_upgrade(state, widgets),
 
-            OsUpgradeEvent::Dialog => release_upgrade_dialog(state, widgets),
+            OsUpgradeEvent::Dialog => {
+                let dialog = UpgradeDialog::new(&state.upgrading_from, &state.upgrading_to, false);
+
+                let answer = dialog.run();
+                dialog.close();
+                if gtk::ResponseType::Accept == answer {
+                    let _ = state.sender.send(BackgroundEvent::Finalize);
+                } else {
+                    // Send upgrading event to prevent closing
+                    (state.callback_event.borrow())(Event::Upgrading);
+                    widgets.upgrade.options[0]
+                        .button_class(&gtk::STYLE_CLASS_SUGGESTED_ACTION)
+                        .label(&fl!("upgrade-canceling"));
+                    let _ = state.sender.send(BackgroundEvent::Reset);
+                }
+            }
 
             OsUpgradeEvent::Dismissed(dismissed) => {
                 info!("{} release", if dismissed { "dismissed" } else { "un-dismissed" });
@@ -207,7 +223,7 @@ pub async fn on_event(widgets: &mut EventWidgets, state: &mut State, event: UiEv
 
             OsUpgradeEvent::Notification => (state.callback_ready.borrow())(),
 
-            OsUpgradeEvent::Upgrade => upgrade_clicked(state, widgets),
+            OsUpgradeEvent::Upgrade => release_upgrade_dialog(state, widgets),
         },
 
         UiEvent::Updating => {
@@ -317,23 +333,27 @@ fn connect_refresh(state: &State, widgets: &EventWidgets) {
 fn connect_upgrade(state: &mut State, widgets: &EventWidgets, is_lts: bool, reboot_ready: bool) {
     let notice = match EolDate::fetch() {
         Ok(eol) => {
-            let (y, m, d) = eol.ymd;
-            match eol.status() {
-                EolStatus::Exceeded => Some(fl!(
-                    "eol-exceeded",
-                    current = fomat!((eol.version)),
-                    next = fomat!((eol.version.next_release()))
-                )),
-                EolStatus::Imminent => Some(fl!(
-                    "eol-imminent",
-                    current = fomat!((eol.version)),
-                    date = fomat!((
-                        NaiveDate::from_ymd_opt(y as i32, m, d)
-                            .expect("invalid EOL date")
-                            .format("%B %-d, %Y")
-                    ))
-                )),
-                EolStatus::Ok => None,
+            if eol.version.major == 24 && eol.version.minor == 4 {
+                let (y, m, d) = eol.ymd;
+                match eol.status() {
+                    EolStatus::Exceeded => Some(fl!(
+                        "eol-exceeded",
+                        current = fomat!((eol.version)),
+                        next = fomat!((eol.version.next_release()))
+                    )),
+                    EolStatus::Imminent => Some(fl!(
+                        "eol-imminent",
+                        current = fomat!((eol.version)),
+                        date = fomat!(
+                            (NaiveDate::from_ymd_opt(y as i32, m, d)
+                                .expect("invalid EOL date")
+                                .format("%B %-d, %Y"))
+                        )
+                    )),
+                    EolStatus::Ok => None,
+                }
+            } else {
+                Some(fl!("upgrade-cosmic"))
             }
         }
         Err(why) => {
@@ -385,11 +405,11 @@ fn download_action(sender: sync::Weak<flume::Sender<UiEvent>>) -> (String, Box<d
         }
     });
 
-    (fl!("button-download"), action)
+    (fl!("button-upgrade"), action)
 }
 
 /// Notify that OS release updates have been downloaded, and are ready to commence.
-fn download_complete(state: &mut State, widgets: &EventWidgets) {
+fn download_complete(state: &mut State, widgets: &mut EventWidgets) {
     state.upgrade_downloaded = true;
 
     let description = fl!("notification-description", version = (&*state.upgrading_to));
@@ -404,9 +424,12 @@ fn download_complete(state: &mut State, widgets: &EventWidgets) {
     (state.callback_event.borrow())(Event::UpgradeReady);
 
     widgets.upgrade.options[0]
+        .button_class(&gtk::STYLE_CLASS_DESTRUCTIVE_ACTION)
         .show_button()
         .button_label(&fl!("button-upgrade"))
-        .label(&fl!("download-os-complete", version = (&*state.upgrading_to)));
+        .label(&fl!("download-os-complete", version = (&*state.upgrading_to)))
+        .sublabel(None)
+        .button_signal(Some(upgrade_action(state.gui_sender.clone())));
 }
 
 use once_cell::sync::Lazy;
@@ -477,17 +500,32 @@ fn is_dismissed(next: &str) -> bool {
 
 /// When the user selects to commence an upgrade, a dialog is shown to confirm.
 fn release_upgrade_dialog(state: &mut State, widgets: &EventWidgets) {
-    let dialog = UpgradeDialog::new(&state.upgrading_from, &state.upgrading_to);
-
-    let answer = dialog.run();
-    dialog.close();
-    if gtk::ResponseType::Accept == answer {
-        let _ = state.sender.send(BackgroundEvent::Finalize);
-    } else {
-        // Send upgrading event to prevent closing
+    if let Some(info) = state.upgrade_version.clone() {
         (state.callback_event.borrow())(Event::Upgrading);
-        widgets.upgrade.options[0].label(&fl!("upgrade-canceling"));
-        let _ = state.sender.send(BackgroundEvent::Reset);
+
+        widgets.upgrade.options[0].label(&fl!("upgrade-preparing")).show_progress();
+
+        widgets.recovery.options[RECOVERY_PARTITION].sensitive(false);
+        widgets.recovery.options[REFRESH_OS].sensitive(false);
+
+        if let Some(dismisser) = state.dismisser.take() {
+            unsafe {
+                dismisser.destroy();
+            }
+        }
+
+        let dialog = UpgradeDialog::new(&state.upgrading_from, &state.upgrading_to, true);
+
+        let answer = dialog.run();
+        dialog.close();
+        if gtk::ResponseType::Accept == answer {
+            let _ = state.sender.send(BackgroundEvent::DownloadUpgrade(info));
+        } else {
+            // Send upgrading event to prevent closing
+            (state.callback_event.borrow())(Event::Upgrading);
+            widgets.upgrade.options[0].label(&fl!("upgrade-canceling"));
+            let _ = state.sender.send(BackgroundEvent::Reset);
+        }
     }
 }
 
@@ -591,32 +629,7 @@ fn upgrade_action(sender: sync::Weak<flume::Sender<UiEvent>>) -> (String, Box<dy
         }
     });
 
-    (fl!("button-upgrade"), action)
-}
-
-/// Triggers on clicking the upgrade button
-fn upgrade_clicked(state: &mut State, widgets: &EventWidgets) {
-    if state.upgrade_downloaded {
-        release_upgrade_dialog(state, widgets);
-        return;
-    }
-
-    if let Some(info) = state.upgrade_version.clone() {
-        (state.callback_event.borrow())(Event::Upgrading);
-
-        widgets.upgrade.options[0].label(&fl!("upgrade-preparing")).show_progress();
-
-        widgets.recovery.options[RECOVERY_PARTITION].sensitive(false);
-        widgets.recovery.options[REFRESH_OS].sensitive(false);
-
-        if let Some(dismisser) = state.dismisser.take() {
-            unsafe {
-                dismisser.destroy();
-            }
-        }
-
-        let _ = state.sender.send(BackgroundEvent::DownloadUpgrade(info));
-    }
+    (fl!("button-perform-upgrade"), action)
 }
 
 mod recovery {
