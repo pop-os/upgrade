@@ -132,16 +132,16 @@ async fn next_<Check: Fn(String) -> Status, Status: Future<Output = BuildStatus>
     };
 
     // Disables any form of upgrades from occurring on this release
-    let blocked = |is_lts: bool, current: &'static str, next: &'static str| async move {
+    let _blocked = |is_lts: bool, current: &'static str, next: &'static str| async move {
         ReleaseStatus { build: BuildStatus::Blacklisted, current, is_lts, next }
     };
 
     // Only permits an upgrade if the development flag is passed
-    // let development_enabled = |is_lts: bool, current: &'static str, next: &'static str| async move {
-    //     let build =
-    //         if development { release_check(next.into()).await } else { BuildStatus::Blacklisted };
-    //     ReleaseStatus { current, next, build, is_lts }
-    // };
+    let development_enabled = |is_lts: bool, current: &'static str, next: &'static str| async move {
+        let build =
+            if development { release_check(next.into()).await } else { BuildStatus::Blacklisted };
+        ReleaseStatus { current, next, build, is_lts }
+    };
 
     match (current.major, current.minor) {
         (18, 4) => available(true, BIONIC, FOCAL).await,
@@ -150,7 +150,7 @@ async fn next_<Check: Fn(String) -> Status, Status: Future<Output = BuildStatus>
         (21, 4) => available(false, HIRSUTE, IMPISH).await,
         (21, 10) => available(false, IMPISH, JAMMY).await,
         (22, 4) => available(true, JAMMY, NOBLE).await,
-        (24, 4) => blocked(true, NOBLE, RESOLUTE).await,
+        (24, 4) => development_enabled(true, NOBLE, RESOLUTE).await,
         _ => panic!("this version of pop-upgrade is not supported on this release"),
     }
 }

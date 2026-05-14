@@ -20,6 +20,7 @@ pub async fn repair(release: &str) -> anyhow::Result<()> {
                     .replace(<&str>::from(Codename::Impish), release)
                     .replace(<&str>::from(Codename::Jammy), release)
                     .replace(<&str>::from(Codename::Noble), release);
+                    .replace(<&str>::from(Codename::Resolute), release);
 
                 if modified != contents {
                     let _ = fs::write(&path, modified.as_bytes());
