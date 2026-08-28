@@ -1,11 +1,7 @@
 export prefix ?= /usr
 sysconfdir ?= /usr/share
 bindir = $(prefix)/bin
-includedir = $(prefix)/include
-libdir = $(prefix)/lib
 
-PACKAGE=pop_upgrade_gtk
-LIB=lib$(PACKAGE).so
 BIN=pop-upgrade
 ID=com.system76.PopUpgrade
 
@@ -27,9 +23,6 @@ ifeq ($(VENDOR),1)
 endif
 
 BINARY=target/$(TARGET)/$(BIN)
-LIBRARY=target/$(TARGET)/$(LIB)
-PKGCONFIG = target/$(PACKAGE).pc
-HEADER = gtk/ffi/$(PACKAGE).h
 NOTIFY = pop-upgrade-notify
 NOTIFY_APPID = $(ID).Notify
 STARTUP_DESKTOP = $(NOTIFY_APPID).desktop
@@ -59,9 +52,6 @@ endif
 install:
 	install -Dm0755 "$(BINARY)" "$(DESTDIR)$(bindir)/$(BIN)"
 	install -Dm0755 "data/$(BIN).sh" "$(DESTDIR)$(libdir)/$(BIN)/upgrade.sh"
-	install -Dm0644 "$(HEADER)" "$(DESTDIR)$(includedir)/$(PACKAGE).h"
-	install -Dm0644 "$(LIBRARY)" "$(DESTDIR)$(libdir)/$(LIB)"
-	install -Dm0644 "$(PKGCONFIG)" "$(DESTDIR)$(libdir)/pkgconfig/$(PACKAGE).pc"
 	install -Dm0644 "data/$(BIN)-init.service" "$(DESTDIR)$(libdir)/systemd/system/$(BIN)-init.service"
 	install -Dm0644 "data/$(BIN).conf" "$(DESTDIR)$(sysconfdir)/dbus-1/system.d/$(BIN).conf"
 	install -Dm0644 "data/$(BIN).service" "$(DESTDIR)$(libdir)/systemd/system/$(BIN).service"
@@ -72,12 +62,3 @@ install:
 
 $(BINARY): extract-vendor
 	cargo build $(ARGS) -p pop-upgrade
-
-$(LIBRARY): extract-vendor
-	cargo build $(ARGS) -p pop-upgrade-gtk-ffi
-
-$(PKGCONFIG):
-	echo "libdir=$(libdir)" > "$@.partial"
-	echo "includedir=$(includedir)" >> "$@.partial"
-	cat "$(PKGCONFIG).stub" >> "$@.partial"
-	mv "$@.partial" "$@"
