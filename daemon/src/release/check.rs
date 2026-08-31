@@ -72,7 +72,7 @@ pub async fn next(development: bool) -> Result<ReleaseStatus, VersionError> {
     let current = Version::detect()?;
 
     Ok(next_(current, development, &|build: String| async move {
-        Release::build_exists(&build, "intel").await.into()
+        Release::build_exists(&build, "generic").await.into()
     })
     .await)
 }
@@ -81,7 +81,7 @@ pub async fn current(version: Option<&str>) -> anyhow::Result<(Box<str>, u16)> {
     info!("Checking for current release of {:?}", version);
 
     if let Some(version) = version {
-        let build = Release::build_exists(version, "intel")
+        let build = Release::build_exists(version, "generic")
             .await
             .with_context(|| fomat!("failed to find build for "(version)))?;
 
@@ -91,7 +91,7 @@ pub async fn current(version: Option<&str>) -> anyhow::Result<(Box<str>, u16)> {
     let current = Version::detect().context("cannot detect current version of Pop")?;
     let release_str = release_str(current.major, current.minor);
 
-    let build = Release::build_exists(release_str, "intel")
+    let build = Release::build_exists(release_str, "generic")
         .await
         .with_context(|| fomat!("failed to find build for "(release_str)))?;
 
@@ -106,6 +106,7 @@ const IMPISH: &str = "21.10";
 const JAMMY: &str = "22.04";
 const NOBLE: &str = "24.04";
 const RESOLUTE: &str = "26.04";
+const UNKNOWN: &str = "28.04";
 
 pub fn release_str(major: u8, minor: u8) -> &'static str {
     match (major, minor) {
@@ -117,6 +118,7 @@ pub fn release_str(major: u8, minor: u8) -> &'static str {
         (22, 4) => JAMMY,
         (24, 4) => NOBLE,
         (26, 4) => RESOLUTE,
+        (28, 4) => UNKNOWN,
         _ => panic!("this version of pop-upgrade is not supported on this release"),
     }
 }
@@ -137,11 +139,11 @@ async fn next_<Check: Fn(String) -> Status, Status: Future<Output = BuildStatus>
     };
 
     // Only permits an upgrade if the development flag is passed
-    // let development_enabled = |is_lts: bool, current: &'static str, next: &'static str| async move {
-    //     let build =
-    //         if development { release_check(next.into()).await } else { BuildStatus::Blacklisted };
-    //     ReleaseStatus { current, next, build, is_lts }
-    // };
+    let development_enabled = |is_lts: bool, current: &'static str, next: &'static str| async move {
+        let build =
+            if development { release_check(next.into()).await } else { BuildStatus::Blacklisted };
+        ReleaseStatus { current, next, build, is_lts }
+    };
 
     match (current.major, current.minor) {
         (18, 4) => available(true, BIONIC, FOCAL).await,
@@ -150,7 +152,8 @@ async fn next_<Check: Fn(String) -> Status, Status: Future<Output = BuildStatus>
         (21, 4) => available(false, HIRSUTE, IMPISH).await,
         (21, 10) => available(false, IMPISH, JAMMY).await,
         (22, 4) => available(true, JAMMY, NOBLE).await,
-        (24, 4) => blocked(true, NOBLE, RESOLUTE).await,
+        (24, 4) => development_enabled(true, NOBLE, RESOLUTE).await,
+        (26, 4) => blocked(false, RESOLUTE, UNKNOWN).await,
         _ => panic!("this version of pop-upgrade is not supported on this release"),
     }
 }
