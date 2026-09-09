@@ -32,6 +32,7 @@ pub fn cryptdata_uuid() -> Option<String> {
 pub fn create_luks_config(luks_uuid: &str) -> io::Result<()> {
     let mut file = std::fs::OpenOptions::new()
         .create(true)
+        .truncate(true)
         .write(true)
         .open(LUKS_CONF_PATH)?;
 
