@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 error_set::error_set! {
     #[display("atomic replace of {} failed", path.display())]
-    struct Error { #[allow(unused)] source: ErrorKind, path: PathBuf }
+    struct Error { source: ErrorKind, path: PathBuf }
 
     ErrorKind := {
         #[display("atomic replace failed")]
