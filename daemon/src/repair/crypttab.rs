@@ -1,20 +1,18 @@
-use anyhow::Context;
+use super::CrypttabErr as Error;
 use std::{fs, path::Path};
 
 const CRYPTTAB: &str = "/etc/crypttab";
-const CRYPTTAB_TMP: &str = "/etc/crypttab.tmp";
 
-pub fn repair() -> anyhow::Result<()> {
-    if !Path::new(CRYPTTAB).exists() {
+pub fn repair() -> Result<(), Error> {
+    let crypttab_path = Path::new(Path::new(CRYPTTAB));
+    if !crypttab_path.exists() {
         return Ok(());
     }
 
-    let contents = fs::read_to_string(CRYPTTAB).context("cannot read the crypttab file")?;
+    let contents = fs::read_to_string(crypttab_path).map_err(Error::CrypttabRead)?;
 
     if let Some(new_contents) = cryptswap_plain_warning(&contents) {
-        fs::write(CRYPTTAB_TMP, new_contents.as_bytes()).context("failed to write new crypttab")?;
-
-        fs::rename(CRYPTTAB_TMP, CRYPTTAB).context("failed to overwrite crypttab")?;
+        crate::fs::atomic_overwrite(crypttab_path, new_contents.as_bytes()).map_err(Error::CrypttabWrite)?;
     }
 
     Ok(())

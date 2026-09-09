@@ -1,0 +1,57 @@
+use super::SwapfileErr as Error;
+use std::{os::unix::fs::OpenOptionsExt, path::Path, process::Command};
+use crate::process::exec;
+use rustix::fs::FallocateFlags;
+
+const SWAPFILE_PATH: &str = "/swapfile";
+
+pub fn create() -> Result<(), Error> {
+    let fs_stats = rustix::fs::statfs("/").map_err(Error::RootFsStats)?;
+    let blocks_per_mib = u64::try_from(1_048_576 / fs_stats.f_bsize)
+        .map_err(|_| Error::RootBlockSizeInvalid { size: fs_stats.f_bsize })?;
+    let available_mib = fs_stats.f_bavail / blocks_per_mib;
+
+    // Up to 40% of total physical memory.
+    let swapfile_capacity = {
+        let mut sysinfo = sysinfo::System::new();
+        sysinfo.refresh_memory();
+        let max_swapfile = sysinfo.total_memory() / 1_048_576 * 10 / 25;
+        let disk_limit = available_mib - 20480;
+        max_swapfile.min(disk_limit).max(4096) * 1_048_576
+    };
+
+    if let Ok(existing_swapfile) = std::fs::metadata(SWAPFILE_PATH) {
+        if existing_swapfile.len() == swapfile_capacity {
+            return Ok(());
+        }
+
+        _ = Command::new("swapoff").arg(SWAPFILE_PATH).status();
+    }
+
+    _ = std::fs::remove_file(SWAPFILE_PATH);
+
+    {
+        let swapfile = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(SWAPFILE_PATH)
+            .map_err(Error::Create)?;
+
+        rustix::fs::fallocate(&swapfile, FallocateFlags::empty(), 0, swapfile_capacity)
+            .map_err(Error::Allocate)?;
+    }
+
+    exec(Command::new("mkswap").args(["-U", "clear", SWAPFILE_PATH])).map_err(Error::Format)?;
+    exec(Command::new("swapon").arg(SWAPFILE_PATH)).map_err(Error::Enable)?;
+
+    let mut fstab = std::fs::read_to_string(super::FSTAB_PATH)
+        .map_err(Error::FstabRead)?;
+
+    if super::fstab::append(&mut fstab, "/swapfile", "none", "swap", "sw", "0", "0") {
+        println!("updating");
+       crate::fs::atomic_overwrite(Path::new(super::FSTAB_PATH), fstab.as_bytes()).map_err(Error::FstabWrite)?;
+    }
+
+    Ok(())
+}
