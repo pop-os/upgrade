@@ -1,4 +1,5 @@
 pub mod check;
+pub mod dracut;
 pub mod eol;
 pub mod repos;
 pub mod systemd;
@@ -469,7 +470,7 @@ pub async fn upgrade<'a>(
 
     // Ensure packages are not newer than what's in the repositories.
     downgrade_packages().await?;
-    
+
     // Replace problematic Wacom packages with supported ones.
     remove_wacom_packages(logger).await?;
 
@@ -493,7 +494,12 @@ pub async fn upgrade<'a>(
 
     // Reset system76-power modprobe configurations to the system defaults.
     _ = switchable_graphics::reset_to_default();
-    
+
+    // Apply dracut configuration for encrypted installs.
+    if let Err(why) = dracut::configure() {
+        error!("failed to configure LUKS configuration for dracut: {why}");
+    }
+
     // Reset the user shell to /bin/bash in case the shell was removed in upgrade
     _ = logins::reset_shell();
 
@@ -533,7 +539,7 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
         if package.contains("pop-upgrade") || package.contains("pop-system-updater") {
             continue;
         }
-        
+
         // Papirus's elementary variant must be removed prior to downgrading the main package.
         if package.contains("papirus-icon-theme") {
             info!("papirus-icon-theme will be downgraded, so removing epapirus-icon-theme");
@@ -543,7 +549,7 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
             let _remove_epapirus = remove_epapirus_cmd.status().await
                 .context("apt-get remove epapirus-icon-theme").map_err(ReleaseError::Downgrade);
         }
-        
+
         // In Ubuntu 22.04, the `ansible` and `ansible-core` packages are not compatible.
         // If `ansible-core` is downgradable, check if `ansible` is downgradable;
         // if so, remove `ansible-core` and skip adding it to the downgrade command.
@@ -562,7 +568,7 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
             }
             info!("ansible is not installed, so ansible-core will be downgraded");
         }
-        
+
         // dotnet-sdk-8.0 depends on dotnet-host in Microsoft's repository,
         // but dotnet-sdk-8.0 conflicts with dotnet-host in the Ubuntu repository.
         // If both are installed, the're probably installed from the Microsoft repository,
@@ -631,8 +637,8 @@ async fn remove_wacom_packages(logger: &dyn Fn(UpgradeEvent)) -> Result<(), Rele
     // the standard versions must be manually installed.
     // This must be done before checking for remoteless packages,
     // as other related packages will also be removed.
-    let mut conflicting_surface = (async {
-        let (mut child, package_stream) = 
+    let conflicting_surface = (async {
+        let (mut child, package_stream) =
         DpkgQuery::new().show_installed(["libwacom-common-surface", "libwacom9-surface"]).await?;
 
         futures_util::pin_mut!(package_stream);
@@ -651,7 +657,7 @@ async fn remove_wacom_packages(logger: &dyn Fn(UpgradeEvent)) -> Result<(), Rele
     .await
     .context("check for known-conflicting Wacom/Surface packages")
     .map_err(ReleaseError::ConflictRemoval)?;
-    
+
     if !conflicting_surface.is_empty() {
         apt_lock_wait().await;
         (logger)(UpgradeEvent::RemovingWacomConflicts);
@@ -664,11 +670,11 @@ async fn remove_wacom_packages(logger: &dyn Fn(UpgradeEvent)) -> Result<(), Rele
             .context("conflict removal (libwacom Surface packages)")
             .map_err(ReleaseError::ConflictRemoval)?;
     }
-    
+
     Ok(())
 }
 
-async fn remove_conflicting_packages(logger: &dyn Fn(UpgradeEvent), packages: &[&str], remoteless: bool) -> Result<(), ReleaseError> {    
+async fn remove_conflicting_packages(logger: &dyn Fn(UpgradeEvent), packages: &[&str], remoteless: bool) -> Result<(), ReleaseError> {
     let mut conflicting = (async {
         let (mut child, package_stream) = DpkgQuery::new().show_installed(packages).await?;
 
@@ -956,15 +962,15 @@ mod logins {
                 stdout.ends_with(b"/bin/false") || stdout.ends_with(b"/usr/sbin/nologin")
             })
     }
-    
+
     /// Reset the user shell to /bin/bash in case the shell was removed in upgrade
     pub fn reset_shell() -> anyhow::Result<()> {
         let (uid_min, uid_max) = crate::misc::uid_min_max()?;
-    
+
         for user in unsafe { uzers::all_users() } {
             if user.uid() >= uid_min && user.uid() <= uid_max {
                 let name = user.name();
-                
+
                 if let Some(name) = name.to_str() {
                     if !login_is_disabled(name) {
                         _ = std::process::Command::new("usermod")
@@ -974,7 +980,7 @@ mod logins {
                 }
             }
         }
-        
+
         Ok(())
     }
 }

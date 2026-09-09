@@ -143,7 +143,7 @@ async fn fetch_iso<P: AsRef<Path>>(
     std::fs::create_dir_all(&efi_recovery).context("failed to create recovery entry directory")?;
 
     let (build, version, iso) = match action {
-        UpgradeMethod::FromRelease { ref version, ref arch, .. } => {
+        UpgradeMethod::FromRelease { version, arch, .. } => {
             let version_ = version.as_ref().map(String::as_str);
             let arch = arch.as_ref().map(String::as_str);
 
@@ -191,7 +191,7 @@ async fn fetch_iso<P: AsRef<Path>>(
 
             (build, version, iso)
         }
-        UpgradeMethod::FromFile(ref _path) => {
+        UpgradeMethod::FromFile(_path) => {
             unimplemented!();
         }
     };
