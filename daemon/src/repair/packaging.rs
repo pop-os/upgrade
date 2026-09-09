@@ -2,12 +2,11 @@ use crate::{
     release::repos::{iter_files, PPA_DIR},
     ubuntu_version::Codename,
 };
-use anyhow::Context;
 use apt_cmd::{lock::apt_lock_wait, AptGet, Dpkg};
 use futures::StreamExt;
-use std::fs;
+use std::{fs, io};
 
-pub async fn repair(release: &str) -> anyhow::Result<()> {
+pub async fn repair(release: &str) -> Result<(), Error> {
     apt_lock_wait().await;
     if let Ok(ppas) = std::fs::read_dir(PPA_DIR) {
         for file in iter_files(ppas) {
@@ -45,7 +44,7 @@ pub async fn repair(release: &str) -> anyhow::Result<()> {
             .fix_broken()
             .status()
             .await
-            .context("failed to repair broken packages with `apt-get install -f`");
+            .map_err(Error::FixBroken);
 
         apt_lock_wait().await;
         let b = Dpkg::new()
@@ -54,7 +53,7 @@ pub async fn repair(release: &str) -> anyhow::Result<()> {
             .configure_all()
             .status()
             .await
-            .context("failed to configure packages with `dpkg --configure -a`");
+            .map_err(Error::Configure);
 
         last_error = a.and(b).and(base_requirements().await);
 
@@ -77,11 +76,13 @@ const PROBLEMATIC_PACKAGES: &[&str] = &[
     "libmount1:i386",
 ];
 
-async fn base_requirements() -> anyhow::Result<()> {
+async fn base_requirements() -> Result<(), Error> {
     info!("ensuring prerequisites are installed");
 
     // Fetch apt-cache policies for each of the problematic packages.
-    let (mut child, policies) = apt_cmd::AptCache::new().policy(PROBLEMATIC_PACKAGES).await?;
+    let (mut child, policies) = apt_cmd::AptCache::new().policy(PROBLEMATIC_PACKAGES).await
+        .map_err(|source| io::Error::other(source))
+        .map_err(Error::FetchPolicy)?;
 
     // Remember which packages are installed with candidates.
     let mut to_install = Vec::new();
@@ -99,5 +100,18 @@ async fn base_requirements() -> anyhow::Result<()> {
     info!("installing required prerequisites: {:?}", to_install);
 
     // Ensure that the packages have their candidate versions installed.
-    crate::misc::apt_get().install(to_install).await.context("failed to install prerequisites")
+    crate::misc::apt_get().install(to_install).await.map_err(Error::InstallPrerequisites)
+}
+
+error_set::error_set! {
+    Error := {
+        #[display("failed to configure packages with `dpkg --configure -a`")]
+        Configure(io::Error),
+        #[display("failed to get `apt-cache policy` info")]
+        FetchPolicy(io::Error),
+        #[display("failed to repair broken packages with `apt-get install -f`")]
+        FixBroken(io::Error),
+        #[display("failed to install prerequisites")]
+        InstallPrerequisites(io::Error),
+    }
 }

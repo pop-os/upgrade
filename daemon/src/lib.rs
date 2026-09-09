@@ -33,11 +33,17 @@ pub mod client;
 /// Features specific to the upgrade daemon
 pub mod daemon;
 
+/// File system operations
+pub mod fs;
+
 /// Functions for determining when the OS was installed
 pub mod install;
 
 /// Miscellaneous functions used throughout the library.
 pub mod misc;
+
+/// Process operations
+pub mod process;
 
 /// Functions for upgrading the recovery partition
 pub mod recovery;
