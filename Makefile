@@ -1,6 +1,7 @@
 export prefix ?= /usr
 sysconfdir ?= /usr/share
 bindir = $(prefix)/bin
+libdir = $(prefix)/lib
 
 BIN=pop-upgrade
 ID=com.system76.PopUpgrade
