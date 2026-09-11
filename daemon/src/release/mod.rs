@@ -821,12 +821,8 @@ async fn fetch_new_release_packages<'b>(
         }
 
         snapd::hold_transitional_packages().await?;
-
         info!("packages fetched successfully");
-
-        (*logger)(UpgradeEvent::Simulating);
-
-        simulate_upgrade().await
+        Ok(())
     };
 
     // On any error, roll back the source lists.
@@ -838,11 +834,6 @@ async fn fetch_new_release_packages<'b>(
             Err(why)
         }
     }
-}
-
-async fn simulate_upgrade() -> RelResult<()> {
-    apt_lock_wait().await;
-    crate::misc::apt_get().simulate().upgrade().await.map_err(ReleaseError::Simulation)
 }
 
 pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResult<()> {
