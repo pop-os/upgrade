@@ -2,8 +2,16 @@ use crate::{
     release_api::{ApiError, Release},
     ubuntu_version::{Version, VersionError},
 };
-use anyhow::Context;
 use std::future::Future;
+
+error_set::error_set! {
+    Error := {
+        #[display("no release ISO available for {version}")]
+        NoBuild(crate::release_api::ApiError) { version: String },
+        #[display("cannot detect current version of Pop!_OS")]
+        UnknownVersion(VersionError)
+    }
+}
 
 #[derive(Debug)]
 pub enum BuildStatus {
@@ -77,23 +85,23 @@ pub async fn next(development: bool) -> Result<ReleaseStatus, VersionError> {
     .await)
 }
 
-pub async fn current(version: Option<&str>) -> anyhow::Result<(Box<str>, u16)> {
+pub async fn current(version: Option<&str>) -> Result<(Box<str>, u16), Error> {
     info!("Checking for current release of {:?}", version);
 
     if let Some(version) = version {
         let build = Release::build_exists(version, "generic")
             .await
-            .with_context(|| fomat!("failed to find build for "(version)))?;
+            .map_err(|source| Error::NoBuild { source, version: version.into() })?;
 
         return Ok((version.into(), build));
     }
 
-    let current = Version::detect().context("cannot detect current version of Pop")?;
+    let current = Version::detect().map_err(Error::UnknownVersion)?;
     let release_str = release_str(current.major, current.minor);
 
     let build = Release::build_exists(release_str, "generic")
         .await
-        .with_context(|| fomat!("failed to find build for "(release_str)))?;
+        .map_err(|source| Error::NoBuild { source, version: release_str.into() })?;
 
     Ok((release_str.into(), build))
 }
