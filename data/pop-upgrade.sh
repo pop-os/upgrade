@@ -158,6 +158,7 @@ install_packages () {
 upgrade () {
     apt_install_fix
     apt_full_upgrade
+    apt-get install -y --allow-downgrades --no-download --ignore-missing pop-server
 }
 
 attempt_repair () {
