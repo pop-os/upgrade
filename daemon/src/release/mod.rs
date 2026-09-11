@@ -12,7 +12,7 @@ mod switchable_graphics;
 use self::systemd::LoaderEntry;
 
 pub use self::{
-    check::{BuildStatus, ReleaseStatus},
+    check::{BuildStatus, Error as ReleaseCheckError, ReleaseStatus},
     errors::{RelResult, ReleaseError},
 };
 use crate::{
