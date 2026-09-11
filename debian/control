@@ -18,6 +18,7 @@ Homepage: https://github.com/pop-os/upgrade
 Package: pop-upgrade
 Architecture: amd64 arm64
 Depends:
+  fdisk,
   pop-system-updater,
   pop-plymouth-theme,
   rsync,
