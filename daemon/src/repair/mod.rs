@@ -5,7 +5,7 @@ pub mod misc;
 pub mod packaging;
 pub mod swapfile;
 
-use crate::process::CommandErr;
+use crate::{process::CommandErr, system_environment::SystemEnvironment};
 use std::io;
 
 const FSTAB_PATH: &str = "/etc/fstab";
@@ -121,7 +121,11 @@ pub async fn repair() -> Result<(), RepairError> {
 
     crypttab::repair()?;
     fstab::repair()?;
-    esp::convert_swap()?;
+
+    if SystemEnvironment::detect() == SystemEnvironment::Efi {
+        esp::convert_swap()?;
+    }
+    
     swapfile::create()?;
     packaging::repair(release).await?;
 
