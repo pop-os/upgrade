@@ -120,13 +120,9 @@ impl Client {
                     }
 
                     let (summary, body) = notification_message(&current, &next);
-
-                    let upgrade_panel =
-                        if &*current == "18.04" { "info-overview" } else { "upgrade" };
-
                     notify(&summary, &body, || {
                         let _ =
-                            exec::Command::new("gnome-control-center").arg(upgrade_panel).exec();
+                            exec::Command::new("cosmic-settings").arg("os-upgrade").exec();
                     });
                 }
             }
