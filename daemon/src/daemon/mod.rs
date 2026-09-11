@@ -782,7 +782,7 @@ impl Daemon {
 
         let cr_ = cr.clone();
         connection.start_receive(
-            MatchRule::new_method_call(),
+            MatchRule::new_method_call().with_interface(DBUS_IFACE),
             Box::new(move |msg, c| {
                 cr_.lock().unwrap().handle_message(msg, c).unwrap();
                 true
