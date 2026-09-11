@@ -1,7 +1,7 @@
 use super::SwapfileErr as Error;
-use std::{os::unix::fs::OpenOptionsExt, path::Path, process::Command};
 use crate::process::exec;
 use rustix::fs::FallocateFlags;
+use std::{os::unix::fs::OpenOptionsExt, path::Path, process::Command};
 
 const SWAPFILE_PATH: &str = "/swapfile";
 
@@ -16,7 +16,12 @@ pub fn create() -> Result<(), Error> {
         let mut sysinfo = sysinfo::System::new();
         sysinfo.refresh_memory();
         let max_swapfile = sysinfo.total_memory() / 1_048_576 * 10 / 25;
-        let disk_limit = available_mib - 20480;
+        let disk_limit = if available_mib < 20480 {
+            return Ok(());
+        } else {
+            available_mib - 20480
+        };
+
         max_swapfile.min(disk_limit).max(4096) * 1_048_576
     };
 
@@ -45,12 +50,11 @@ pub fn create() -> Result<(), Error> {
     exec(Command::new("mkswap").args(["-U", "clear", SWAPFILE_PATH])).map_err(Error::Format)?;
     exec(Command::new("swapon").arg(SWAPFILE_PATH)).map_err(Error::Enable)?;
 
-    let mut fstab = std::fs::read_to_string(super::FSTAB_PATH)
-        .map_err(Error::FstabRead)?;
+    let mut fstab = std::fs::read_to_string(super::FSTAB_PATH).map_err(Error::FstabRead)?;
 
     if super::fstab::append(&mut fstab, "/swapfile", "none", "swap", "sw", "0", "0") {
-        println!("updating");
-       crate::fs::atomic_overwrite(Path::new(super::FSTAB_PATH), fstab.as_bytes()).map_err(Error::FstabWrite)?;
+        crate::fs::atomic_overwrite(Path::new(super::FSTAB_PATH), fstab.as_bytes())
+            .map_err(Error::FstabWrite)?;
     }
 
     Ok(())
