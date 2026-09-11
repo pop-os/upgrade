@@ -17,7 +17,7 @@ pub use self::{
 };
 use crate::{
     fetch::apt::ExtraPackages,
-    repair::{self, RepairError},
+    repair::{self, RepairError}, system_environment::SystemEnvironment,
 };
 
 use crate::ubuntu_version::{Codename, Version};
@@ -516,9 +516,13 @@ pub async fn upgrade<'a>(
 
 async fn autorepair(version: &str) -> Result<(), ReleaseError> {
     (async move {
-        repair::crypttab::repair().map_err(RepairError::Crypttab)?;
-        repair::fstab::repair().map_err(RepairError::Fstab)?;
-        repair::packaging::repair(version).await.map_err(RepairError::Packaging)?;
+        repair::crypttab::repair().map_err(RepairError::from)?;
+        repair::fstab::repair().map_err(RepairError::from)?;
+        repair::packaging::repair(version).await.map_err(RepairError::from)?;
+        if SystemEnvironment::detect() == SystemEnvironment::Efi {
+            repair::esp::convert_swap().map_err(RepairError::from)?;
+        }
+        repair::swapfile::create().map_err(RepairError::from)?;
 
         Ok(())
     })
