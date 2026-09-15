@@ -13,6 +13,7 @@ use self::systemd::LoaderEntry;
 
 pub use self::{
     check::{BuildStatus, Error as ReleaseCheckError, ReleaseStatus},
+    dracut::Error as DracutError,
     errors::{RelResult, ReleaseError},
 };
 use crate::{
@@ -235,9 +236,7 @@ pub async fn apt_fetch(
     futures::pin_mut!(task);
     futures::pin_mut!(cancel);
 
-    let result = future::select(cancel, task).await.factor_first().0;
-
-    result
+    future::select(cancel, task).await.factor_first().0
 }
 
 async fn apt_fetch_(
@@ -312,7 +311,7 @@ async fn apt_fetch_(
         Ok::<(), anyhow::Error>(())
     };
 
-    let _ = futures::try_join!(sender, receiver).map(|_| ()).map_err(ReleaseError::PackageFetch)?;
+    futures::try_join!(sender, receiver).map(|_| ()).map_err(ReleaseError::PackageFetch)?;
     Ok(errored)
 }
 
@@ -491,9 +490,7 @@ pub async fn upgrade<'a>(
     _ = switchable_graphics::reset_to_default();
 
     // Apply dracut configuration for encrypted installs.
-    if let Err(why) = dracut::configure() {
-        error!("failed to configure LUKS configuration for dracut: {why}");
-    }
+    dracut::apply_luks_config().map_err(ReleaseError::DracutConfig)?;
 
     // Make sure the initramfs is updated before we begin the upgrade.
     crate::process::exec(Command::new("update-initramfs").args(["-ck", "all"]))
