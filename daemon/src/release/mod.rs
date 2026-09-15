@@ -64,10 +64,10 @@ const REMOVE_PACKAGES: &[&str] = &[
 /// - `pop-desktop` because it pulls in all of our required desktop dependencies
 /// - `sessioninstaller` because it may have been removed by `gnome-software`
 #[cfg(target_arch = "x86_64")]
-const CORE_PACKAGES: &[&str] = &["dracut", "linux-generic", "pop-desktop", "sessioninstaller"];
+const CORE_PACKAGES: &[&str] = &["linux-generic", "pop-desktop", "sessioninstaller"];
 
 #[cfg(target_arch = "aarch64")]
-const CORE_PACKAGES: &[&str] = &["dracut", "pop-desktop-raspi"];
+const CORE_PACKAGES: &[&str] = &["pop-desktop-raspi"];
 
 const DPKG_LOCK: &str = "/var/lib/dpkg/lock";
 const LISTS_LOCK: &str = "/var/lib/apt/lists/lock";
