@@ -815,9 +815,10 @@ async fn fetch_new_release_packages<'b>(
 
         // If upgrading to 24.04, download an additional package.
         if to == "24.04" {
-            //const NEW_PACKAGES &[&str] = &["gnome-online-accounts-gtk"];
-            //new_packages = Some(ExtraPackages::Static(NEW_PACKAGES));
             additional_fetch(&Shutdown::new(), logger, fetch, &["gnome-online-accounts-gtk"]).await?;
+        } else if to == "26.04" {
+            // Make sure dracut is part of the upgrade
+            additional_fetch(&Shutdown::new(), logger, fetch, &["dracut"]).await?;
         }
 
         snapd::hold_transitional_packages().await?;
