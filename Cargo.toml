@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["daemon", "gtk", "gtk/ffi"]
+members = ["daemon"]
 
 [workspace.package]
 rust-version = "1.90.0"

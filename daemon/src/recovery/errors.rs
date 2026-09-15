@@ -1,65 +1,60 @@
 use crate::{
-    release_api::ApiError, release_architecture::ReleaseArchError, repair::RepairError,
-    ubuntu_version::VersionError,
+    release::ReleaseCheckError, release_api::ApiError, release_architecture::ReleaseArchError,
+    repair::RepairError, ubuntu_version::VersionError,
 };
 use std::{io, path::PathBuf};
-use thiserror::Error;
 
 pub type RecResult<T> = Result<T, RecoveryError>;
 
-#[derive(Debug, Error)]
-pub enum RecoveryError {
-    #[error("failed to fetch release data from server")]
-    ApiError(#[from] ApiError),
-
-    #[error("{:?}", _0)]
-    Anyhow(#[from] anyhow::Error),
-
-    #[error("process has been cancelled")]
-    Cancelled,
-
-    #[error("checksum for {:?} failed: {}", path, source)]
-    Checksum { path: PathBuf, source: async_fetcher::ChecksumError },
-
-    #[error("checksum is not SHA256: {}", checksum)]
-    ChecksumInvalid { checksum: String, source: hex::FromHexError },
-
-    #[error("fetching from {} failed: {}", url, source)]
-    Fetch { url: String, source: async_fetcher::Error },
-
-    #[error("ISO does not exist at path")]
-    IsoNotFound,
-
-    #[error("failed to fetch mount points")]
-    Mounts(#[source] io::Error),
-
-    #[error("no build was found to fetch")]
-    NoBuildAvailable,
-
-    #[error("failed to create temporary directory for ISO")]
-    TempDir(#[source] io::Error),
-
-    #[error("recovery partition was not found")]
-    RecoveryNotFound,
-
-    #[error("failed to apply system repair before recovery upgrade")]
-    Repair(#[from] RepairError),
-
-    #[error("EFI partition was not found")]
-    EfiNotFound,
-
-    #[error("failed to fetch release architecture")]
-    ReleaseArch(#[from] ReleaseArchError),
-
-    #[error("failed to fetch release versions")]
-    ReleaseVersion(#[from] VersionError),
-
-    #[error("failed to get status of recovery fetch task")]
-    TokioJoin(#[from] tokio::task::JoinError),
-
-    #[error("the recovery feature is limited to EFI installs")]
-    Unsupported,
-
-    #[error("failed to write version of ISO now stored on the recovery partition")]
-    WriteVersion(#[source] io::Error),
+error_set::error_set! {
+    RecoveryError := {
+        #[display("failed to fetch release data from server")]
+        Apidisplay(ApiError),
+        #[display("process has been cancelled")]
+        Cancelled,
+        #[display("checksum for {:?} failed", path)]
+        Checksum(async_fetcher::ChecksumError) { path: PathBuf },
+        #[display("checksum is not SHA256: {}", checksum)]
+        ChecksumInvalid(hex::FromHexError) { checksum: String },
+        #[display("failed to copy ISO contents to /recovery")]
+        Copy(io::Error),
+        #[display("failed to copy kernel from ISO to EFI partition")]
+        CopyKernel(io::Error),
+        #[display("failed to create /recovery directory")]
+        CreateRecoveryDir(io::Error),
+        #[display("fetching from {} failed", url)]
+        Fetch(async_fetcher::Error) { url: String },
+        #[display("cannot find UUID of recovery partition")]
+        FindUuid,
+        #[display("ISO does not exist at path")]
+        IsoNotFound,
+        #[display("failed to mount recovery ISO")]
+        MountIso(io::Error),
+        #[display("failed to fetch mount points")]
+        Mounts(io::Error),
+        #[display("no release ISO was found")]
+        NoBuildAvailable,
+        #[display("failed to create temporary directory for ISO")]
+        TempDir(io::Error),
+        #[display("recovery partition was not found")]
+        RecoveryNotFound,
+        #[display("no release ISO found for {version}")]
+        ReleaseCheck(ApiError) { version: String },
+        #[display("no ISO found for current release")]
+        ReleaseCheckCurrent(ReleaseCheckError),
+        #[display("`pop-upgrade release repair` returned an error")]
+        Repair(RepairError),
+        #[display("EFI partition was not found")]
+        EfiNotFound,
+        #[display("failed to fetch release architecture")]
+        ReleaseArch(ReleaseArchError),
+        #[display("failed to fetch release versions")]
+        ReleaseVersion(VersionError),
+        #[display("failed to get status of recovery fetch task")]
+        TokioJoin(tokio::task::JoinError),
+        #[display("the recovery feature is limited to EFI installs")]
+        Unsupported,
+        #[display("failed to write version of ISO now stored on the recovery partition")]
+        WriteVersion(io::Error),
+    }
 }

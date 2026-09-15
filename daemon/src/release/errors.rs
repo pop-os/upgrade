@@ -1,5 +1,6 @@
 use crate::{
-    release_architecture::ReleaseArchError, repair::RepairError, ubuntu_version::VersionError,
+    process::CommandErr, release_architecture::ReleaseArchError, repair::RepairError, ubuntu_version::VersionError,
+    release::DracutError,
 };
 use std::io;
 
@@ -42,6 +43,9 @@ pub enum ReleaseError {
 
     #[error("failed to downgrade packages")]
     Downgrade(#[source] anyhow::Error),
+
+    #[error("failed to create dracut configs")]
+    DracutConfig(#[source] DracutError),
 
     #[error("status for `apt-get install -f` failed")]
     FixBroken(#[source] io::Error),
@@ -102,6 +106,9 @@ pub enum ReleaseError {
 
     #[error("failed to unhold the pop-upgrade package")]
     UnholdPopUpgrade(#[source] io::Error),
+
+    #[error("failed to update initramfs before upgrade")]
+    UpdateInitramfs(#[source] CommandErr),
 
     #[error("failed to perform apt upgrade of the current release")]
     Upgrade(#[source] io::Error),

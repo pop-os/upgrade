@@ -182,6 +182,9 @@ attempt_upgrade () {
     systemctl mask acpid pop-upgrade
 
     if (upgrade || attempt_repair); then
+        # Ensure that pop-server is upgraded to the latest version
+        apt-get install -y --allow-downgrades --no-download --ignore-missing pop-server
+        
         rm -rf  /system-update "$1"
 
         if test "$(grep VERSION_ID= /etc/os-release | cut -d '"' -f 2)" = "24.04"; then

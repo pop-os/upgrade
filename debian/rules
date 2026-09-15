@@ -15,7 +15,7 @@ ifeq ($(VENDOR),1)
 endif
 
 override_dh_auto_build:
-	env CARGO_HOME="$$(pwd)/target/cargo" make prefix=/usr
+	make prefix=/usr
 
 override_dh_installinit:
 	dh_installinit -r

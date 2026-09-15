@@ -1,4 +1,5 @@
 pub mod check;
+pub mod dracut;
 pub mod eol;
 pub mod repos;
 pub mod systemd;
@@ -11,12 +12,13 @@ mod switchable_graphics;
 use self::systemd::LoaderEntry;
 
 pub use self::{
-    check::{BuildStatus, ReleaseStatus},
+    check::{BuildStatus, Error as ReleaseCheckError, ReleaseStatus},
+    dracut::Error as DracutError,
     errors::{RelResult, ReleaseError},
 };
 use crate::{
     fetch::apt::ExtraPackages,
-    repair::{self, RepairError},
+    repair::{self, RepairError}, system_environment::SystemEnvironment,
 };
 
 use crate::ubuntu_version::{Codename, Version};
@@ -28,12 +30,7 @@ use apt_cmd::{
 use async_shutdown::ShutdownManager as Shutdown;
 use futures::prelude::*;
 use std::{
-    collections::HashSet,
-    convert::TryFrom,
-    fs::{self, File},
-    os::unix::fs::symlink,
-    path::Path,
-    sync::Arc,
+    collections::HashSet, convert::TryFrom, fs::{self, File}, os::unix::fs::symlink, path::Path, process::Command, sync::Arc
 };
 use systemd_boot_conf::SystemdBootConf;
 
@@ -239,9 +236,7 @@ pub async fn apt_fetch(
     futures::pin_mut!(task);
     futures::pin_mut!(cancel);
 
-    let result = future::select(cancel, task).await.factor_first().0;
-
-    result
+    future::select(cancel, task).await.factor_first().0
 }
 
 async fn apt_fetch_(
@@ -316,7 +311,7 @@ async fn apt_fetch_(
         Ok::<(), anyhow::Error>(())
     };
 
-    let _ = futures::try_join!(sender, receiver).map(|_| ()).map_err(ReleaseError::PackageFetch)?;
+    futures::try_join!(sender, receiver).map(|_| ()).map_err(ReleaseError::PackageFetch)?;
     Ok(errored)
 }
 
@@ -469,7 +464,7 @@ pub async fn upgrade<'a>(
 
     // Ensure packages are not newer than what's in the repositories.
     downgrade_packages().await?;
-    
+
     // Replace problematic Wacom packages with supported ones.
     remove_wacom_packages(logger).await?;
 
@@ -493,7 +488,14 @@ pub async fn upgrade<'a>(
 
     // Reset system76-power modprobe configurations to the system defaults.
     _ = switchable_graphics::reset_to_default();
-    
+
+    // Apply dracut configuration for encrypted installs.
+    dracut::apply_luks_config().map_err(ReleaseError::DracutConfig)?;
+
+    // Make sure the initramfs is updated before we begin the upgrade.
+    crate::process::exec(Command::new("update-initramfs").args(["-ck", "all"]))
+        .map_err(ReleaseError::UpdateInitramfs)?;
+
     // Reset the user shell to /bin/bash in case the shell was removed in upgrade
     _ = logins::reset_shell();
 
@@ -510,9 +512,13 @@ pub async fn upgrade<'a>(
 
 async fn autorepair(version: &str) -> Result<(), ReleaseError> {
     (async move {
-        repair::crypttab::repair().map_err(RepairError::Crypttab)?;
-        repair::fstab::repair().map_err(RepairError::Fstab)?;
-        repair::packaging::repair(version).await.map_err(RepairError::Packaging)?;
+        repair::crypttab::repair().map_err(RepairError::from)?;
+        repair::fstab::repair().map_err(RepairError::from)?;
+        repair::packaging::repair(version).await.map_err(RepairError::from)?;
+        if SystemEnvironment::detect() == SystemEnvironment::Efi {
+            repair::esp::convert_swap().map_err(RepairError::from)?;
+        }
+        repair::swapfile::create().map_err(RepairError::from)?;
 
         Ok(())
     })
@@ -533,7 +539,7 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
         if package.contains("pop-upgrade") || package.contains("pop-system-updater") {
             continue;
         }
-        
+
         // Papirus's elementary variant must be removed prior to downgrading the main package.
         if package.contains("papirus-icon-theme") {
             info!("papirus-icon-theme will be downgraded, so removing epapirus-icon-theme");
@@ -543,7 +549,7 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
             let _remove_epapirus = remove_epapirus_cmd.status().await
                 .context("apt-get remove epapirus-icon-theme").map_err(ReleaseError::Downgrade);
         }
-        
+
         // In Ubuntu 22.04, the `ansible` and `ansible-core` packages are not compatible.
         // If `ansible-core` is downgradable, check if `ansible` is downgradable;
         // if so, remove `ansible-core` and skip adding it to the downgrade command.
@@ -562,7 +568,7 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
             }
             info!("ansible is not installed, so ansible-core will be downgraded");
         }
-        
+
         // dotnet-sdk-8.0 depends on dotnet-host in Microsoft's repository,
         // but dotnet-sdk-8.0 conflicts with dotnet-host in the Ubuntu repository.
         // If both are installed, the're probably installed from the Microsoft repository,
@@ -631,8 +637,8 @@ async fn remove_wacom_packages(logger: &dyn Fn(UpgradeEvent)) -> Result<(), Rele
     // the standard versions must be manually installed.
     // This must be done before checking for remoteless packages,
     // as other related packages will also be removed.
-    let mut conflicting_surface = (async {
-        let (mut child, package_stream) = 
+    let conflicting_surface = (async {
+        let (mut child, package_stream) =
         DpkgQuery::new().show_installed(["libwacom-common-surface", "libwacom9-surface"]).await?;
 
         futures_util::pin_mut!(package_stream);
@@ -651,7 +657,7 @@ async fn remove_wacom_packages(logger: &dyn Fn(UpgradeEvent)) -> Result<(), Rele
     .await
     .context("check for known-conflicting Wacom/Surface packages")
     .map_err(ReleaseError::ConflictRemoval)?;
-    
+
     if !conflicting_surface.is_empty() {
         apt_lock_wait().await;
         (logger)(UpgradeEvent::RemovingWacomConflicts);
@@ -664,11 +670,11 @@ async fn remove_wacom_packages(logger: &dyn Fn(UpgradeEvent)) -> Result<(), Rele
             .context("conflict removal (libwacom Surface packages)")
             .map_err(ReleaseError::ConflictRemoval)?;
     }
-    
+
     Ok(())
 }
 
-async fn remove_conflicting_packages(logger: &dyn Fn(UpgradeEvent), packages: &[&str], remoteless: bool) -> Result<(), ReleaseError> {    
+async fn remove_conflicting_packages(logger: &dyn Fn(UpgradeEvent), packages: &[&str], remoteless: bool) -> Result<(), ReleaseError> {
     let mut conflicting = (async {
         let (mut child, package_stream) = DpkgQuery::new().show_installed(packages).await?;
 
@@ -809,18 +815,15 @@ async fn fetch_new_release_packages<'b>(
 
         // If upgrading to 24.04, download an additional package.
         if to == "24.04" {
-            //const NEW_PACKAGES &[&str] = &["gnome-online-accounts-gtk"];
-            //new_packages = Some(ExtraPackages::Static(NEW_PACKAGES));
             additional_fetch(&Shutdown::new(), logger, fetch, &["gnome-online-accounts-gtk"]).await?;
+        } else if to == "26.04" {
+            // Make sure dracut is part of the upgrade
+            additional_fetch(&Shutdown::new(), logger, fetch, &["dracut"]).await?;
         }
 
         snapd::hold_transitional_packages().await?;
-
         info!("packages fetched successfully");
-
-        (*logger)(UpgradeEvent::Simulating);
-
-        simulate_upgrade().await
+        Ok(())
     };
 
     // On any error, roll back the source lists.
@@ -832,11 +835,6 @@ async fn fetch_new_release_packages<'b>(
             Err(why)
         }
     }
-}
-
-async fn simulate_upgrade() -> RelResult<()> {
-    apt_lock_wait().await;
-    crate::misc::apt_get().simulate().upgrade().await.map_err(ReleaseError::Simulation)
 }
 
 pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResult<()> {
@@ -956,15 +954,15 @@ mod logins {
                 stdout.ends_with(b"/bin/false") || stdout.ends_with(b"/usr/sbin/nologin")
             })
     }
-    
+
     /// Reset the user shell to /bin/bash in case the shell was removed in upgrade
     pub fn reset_shell() -> anyhow::Result<()> {
         let (uid_min, uid_max) = crate::misc::uid_min_max()?;
-    
+
         for user in unsafe { uzers::all_users() } {
             if user.uid() >= uid_min && user.uid() <= uid_max {
                 let name = user.name();
-                
+
                 if let Some(name) = name.to_str() {
                     if !login_is_disabled(name) {
                         _ = std::process::Command::new("usermod")
@@ -974,7 +972,7 @@ mod logins {
                 }
             }
         }
-        
+
         Ok(())
     }
 }

@@ -2,7 +2,6 @@ mod errors;
 mod version;
 
 use crate::daemon::SignalEvent;
-use anyhow::Context;
 use async_fetcher::{Checksum, FetchEvent, Fetcher, SumStr};
 use async_shutdown::ShutdownManager as Shutdown;
 use std::{
@@ -20,7 +19,7 @@ use crate::{
 
 pub use self::{
     errors::{RecResult, RecoveryError},
-    version::{recovery_file, version, RecoveryVersion, RecoveryVersionError, RECOVERY_VERSION},
+    version::{RECOVERY_VERSION, RecoveryVersion, RecoveryVersionError, recovery_file, version},
 };
 
 bitflags! {
@@ -132,23 +131,23 @@ async fn fetch_iso<P: AsRef<Path>>(
         return Err(RecoveryError::EfiNotFound);
     }
 
-    let recovery_uuid =
-        findmnt_uuid(recovery_path).await.context("cannot find UUID of recover partition")?;
+    let recovery_uuid = findmnt_uuid(recovery_path).await.ok().ok_or(RecoveryError::FindUuid)?;
 
     let casper = ["casper-", &recovery_uuid].concat();
     let recovery = ["Recovery-", &recovery_uuid].concat();
     let efi_recovery = efi_path.join(&recovery);
 
     // TODO: Create recovery entry if it is missing
-    std::fs::create_dir_all(&efi_recovery).context("failed to create recovery entry directory")?;
+    std::fs::create_dir_all(&efi_recovery).map_err(RecoveryError::CreateRecoveryDir)?;
 
     let (build, version, iso) = match action {
-        UpgradeMethod::FromRelease { ref version, ref arch, .. } => {
+        UpgradeMethod::FromRelease { version, arch, .. } => {
             let version_ = version.as_ref().map(String::as_str);
             let arch = arch.as_ref().map(String::as_str);
 
-            let (version, build) =
-                crate::release::check::current(version_).await.context("no build available")?;
+            let (version, build) = crate::release::check::current(version_)
+                .await
+                .map_err(RecoveryError::ReleaseCheckCurrent)?;
 
             shutdown_check(&cancel)?;
 
@@ -162,7 +161,7 @@ async fn fetch_iso<P: AsRef<Path>>(
             let cancel = cancel.clone();
 
             // Fetch the latest ISO from the release repository.
-            let iso = (|| async {
+            let iso = async {
                 let arch = match arch {
                     Some(arch) => arch,
                     None => detect_arch()?,
@@ -170,8 +169,9 @@ async fn fetch_iso<P: AsRef<Path>>(
 
                 shutdown_check(&cancel)?;
 
-                let release =
-                    Release::get_release(&version, arch).await.map_err(RecoveryError::ApiError)?;
+                let release = Release::get_release(&version, arch).await.map_err(|source| {
+                    RecoveryError::ReleaseCheck { source, version: version.as_ref().to_owned() }
+                })?;
 
                 shutdown_check(&cancel)?;
 
@@ -186,12 +186,12 @@ async fn fetch_iso<P: AsRef<Path>>(
                 shutdown_check(&cancel)?;
 
                 Ok::<PathBuf, RecoveryError>(iso_path)
-            })()
+            }
             .await?;
 
             (build, version, iso)
         }
-        UpgradeMethod::FromFile(ref _path) => {
+        UpgradeMethod::FromFile(_path) => {
             unimplemented!();
         }
     };
@@ -207,7 +207,7 @@ async fn fetch_iso<P: AsRef<Path>>(
         .fstype("iso9660")
         .flags(MountFlags::RDONLY)
         .mount(iso, tempdir.path())
-        .context("failed to mount recovery ISO")?
+        .map_err(RecoveryError::MountIso)?
         .into_unmount_drop(UnmountFlags::DETACH);
 
     let disk = tempdir.path().join(".disk");
@@ -228,7 +228,7 @@ async fn fetch_iso<P: AsRef<Path>>(
         ..args(&["-KLavc", "--inplace", "--delete"]);
     };
 
-    cmd.status().await.context("rsync failed to copy")?;
+    cmd.status().await.map_err(RecoveryError::Copy)?;
 
     let mut cmd = cascade! {
         Command::new("rsync");
@@ -237,12 +237,12 @@ async fn fetch_iso<P: AsRef<Path>>(
         ..args(&["-KLavc", "--inplace", "--delete"]);
     };
 
-    cmd.status().await.context("rsync failed to copy casper")?;
+    cmd.status().await.map_err(RecoveryError::Copy)?;
 
     let cp1 = crate::misc::cp(&casper_initrd, &efi_initrd);
     let cp2 = crate::misc::cp(&casper_vmlinuz, &efi_vmlinuz);
 
-    futures::future::try_join(cp1, cp2).await.context("failed to copy kernel to recovery")?;
+    futures::future::try_join(cp1, cp2).await.map_err(RecoveryError::CopyKernel)?;
 
     emit_recovery_event(&sender, RecoveryEvent::Complete);
 

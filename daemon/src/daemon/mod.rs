@@ -398,7 +398,7 @@ impl Daemon {
     }
 
     pub async fn init() -> Result<(), DaemonError> {
-        std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
+        unsafe { std::env::set_var("DEBIAN_FRONTEND", "noninteractive"); }
 
         info!("initializing daemon");
         fs::create_dir_all(crate::VAR_LIB_DIR)
@@ -782,7 +782,7 @@ impl Daemon {
 
         let cr_ = cr.clone();
         connection.start_receive(
-            MatchRule::new_method_call(),
+            MatchRule::new_method_call().with_interface(DBUS_IFACE),
             Box::new(move |msg, c| {
                 cr_.lock().unwrap().handle_message(msg, c).unwrap();
                 true
