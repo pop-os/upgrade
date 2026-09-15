@@ -1,11 +1,24 @@
-use std::io::{self, Write};
+use std::{io::{self, Write}, path::Path};
 
 const LUKS_CONF_PATH: &str = "/etc/dracut.conf.d/luks.conf";
 
-pub fn configure() -> io::Result<()> {
+error_set::error_set! {
+    Error := {
+        #[display("failed to create /etc/dracut.conf.d/luks.conf")]
+        CreateLuksConfig(io::Error),
+        #[display("failed to add rd.luks.uuid option with kernelstub")]
+        AddRdLuksUuid(io::Error),
+    }
+}
+
+pub fn apply_luks_config() -> Result<(), Error> {
+    if Path::new(LUKS_CONF_PATH).exists() {
+        return Ok(());
+    }
+
     if let Some(luks_uuid) = cryptdata_uuid() {
-        create_luks_config(&luks_uuid)?;
-        add_kernelstub_option(&luks_uuid)?;
+        create_luks_config(&luks_uuid).map_err(Error::CreateLuksConfig)?;
+        add_kernelstub_option(&luks_uuid).map_err(Error::AddRdLuksUuid)?;
     }
 
     Ok(())
