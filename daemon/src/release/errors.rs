@@ -1,5 +1,5 @@
 use crate::{
-    release_architecture::ReleaseArchError, repair::RepairError, ubuntu_version::VersionError,
+    process::CommandErr, release_architecture::ReleaseArchError, repair::RepairError, ubuntu_version::VersionError
 };
 use std::io;
 
@@ -102,6 +102,9 @@ pub enum ReleaseError {
 
     #[error("failed to unhold the pop-upgrade package")]
     UnholdPopUpgrade(#[source] io::Error),
+
+    #[error("failed to update initramfs before upgrade")]
+    UpdateInitramfs(#[source] CommandErr),
 
     #[error("failed to perform apt upgrade of the current release")]
     Upgrade(#[source] io::Error),

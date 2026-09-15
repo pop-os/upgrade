@@ -29,12 +29,7 @@ use apt_cmd::{
 use async_shutdown::ShutdownManager as Shutdown;
 use futures::prelude::*;
 use std::{
-    collections::HashSet,
-    convert::TryFrom,
-    fs::{self, File},
-    os::unix::fs::symlink,
-    path::Path,
-    sync::Arc,
+    collections::HashSet, convert::TryFrom, fs::{self, File}, os::unix::fs::symlink, path::Path, process::Command, sync::Arc
 };
 use systemd_boot_conf::SystemdBootConf;
 
@@ -499,6 +494,10 @@ pub async fn upgrade<'a>(
     if let Err(why) = dracut::configure() {
         error!("failed to configure LUKS configuration for dracut: {why}");
     }
+
+    // Make sure the initramfs is updated before we begin the upgrade.
+    crate::process::exec(Command::new("update-initramfs").args(["-ck", "all"]))
+        .map_err(ReleaseError::UpdateInitramfs)?;
 
     // Reset the user shell to /bin/bash in case the shell was removed in upgrade
     _ = logins::reset_shell();
