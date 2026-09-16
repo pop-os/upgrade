@@ -477,6 +477,14 @@ pub async fn upgrade<'a>(
 
     // Apply any fixes necessary before the upgrade.
     repair::pre_upgrade().map_err(ReleaseError::PreUpgrade)?;
+
+    // Apply dracut configuration for encrypted installs.
+    dracut::apply_luks_config().map_err(ReleaseError::DracutConfig)?;
+
+    // Make sure the initramfs is updated before we begin the upgrade.
+    crate::process::exec(Command::new("update-initramfs").args(["-ck", "all"]))
+        .map_err(ReleaseError::UpdateInitramfs)?;
+    
     let _ = AptMark::new().unhold(&["pop-upgrade", "pop-system-updater"]).await;
 
     // Upgrade the apt sources to the new release.
@@ -488,13 +496,6 @@ pub async fn upgrade<'a>(
 
     // Reset system76-power modprobe configurations to the system defaults.
     _ = switchable_graphics::reset_to_default();
-
-    // Apply dracut configuration for encrypted installs.
-    dracut::apply_luks_config().map_err(ReleaseError::DracutConfig)?;
-
-    // Make sure the initramfs is updated before we begin the upgrade.
-    crate::process::exec(Command::new("update-initramfs").args(["-ck", "all"]))
-        .map_err(ReleaseError::UpdateInitramfs)?;
 
     // Reset the user shell to /bin/bash in case the shell was removed in upgrade
     _ = logins::reset_shell();
