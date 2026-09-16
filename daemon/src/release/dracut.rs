@@ -17,6 +17,7 @@ pub fn apply_luks_config() -> Result<(), Error> {
     }
 
     if let Some(luks_uuid) = cryptdata_uuid() {
+        _ = std::fs::create_dir_all("/etc/dracut.conf.d/");
         create_luks_config(&luks_uuid).map_err(Error::CreateLuksConfig)?;
         add_kernelstub_option(&luks_uuid).map_err(Error::AddRdLuksUuid)?;
     }
