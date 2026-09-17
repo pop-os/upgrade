@@ -19,6 +19,7 @@ impl TryFrom<Version> for Codename {
             (21, 10) => Codename::Impish,
             (22, 4) => Codename::Jammy,
             (24, 4) => Codename::Noble,
+            (26, 4) => Codename::Resolute,
             _ => return Err(()),
         })
     }

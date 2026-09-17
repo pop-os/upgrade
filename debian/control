@@ -8,11 +8,9 @@ Build-Depends:
   debhelper-compat (=10),
   libclang-dev,
   libdbus-1-dev,
-  libgtk-3-dev,
   libparted-dev,
   libparted-fs-resize0,
   libssl-dev,
-  libpop-system-updater-gtk-dev,
   rustc (>=1.36)
 Standards-Version: 4.1.1
 Homepage: https://github.com/pop-os/upgrade
@@ -20,29 +18,13 @@ Homepage: https://github.com/pop-os/upgrade
 Package: pop-upgrade
 Architecture: amd64 arm64
 Depends:
+  fdisk,
   pop-system-updater,
   pop-plymouth-theme,
   rsync,
   ${misc:Depends},
   ${shlibs:Depends}
 Description: Utility for performing system upgrades on Pop!_OS
-
-Package: libpop-upgrade-gtk
-Architecture: amd64 arm64
-Depends:
-  libpop-system-updater-gtk,
-  pop-upgrade (= ${binary:Version}),
-  ${shlibs:Depends}
-Description: The Pop upgrade experience as a GTK widget in a dylib
- The Pop upgrade experience as a GTK widget in a dylib
-
-Package: libpop-upgrade-gtk-dev
-Architecture: amd64 arm64
-Depends:
-  libpop-upgrade-gtk (= ${binary:Version}),
-  ${misc:Depends}
-Description: The C headers required for linking the libpop-upgrade-gtk widget
- The C headers required for linking the libpop-upgrade-gtk widget
 
 Package: ubuntu-release-upgrader-qt
 Architecture: amd64 arm64

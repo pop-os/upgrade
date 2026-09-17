@@ -68,13 +68,15 @@ impl Codename {
             Codename::Impish => 1_634_191_200,
             Codename::Jammy => 1_650_492_000,
             Codename::Noble => 1_712_959_200,
-            Codename::Resolute => 1_776_895_200
+            Codename::Resolute => 1_776_895_200,
         }
     }
 }
 
 impl Display for Codename {
-    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result { fmt.write_str(<&'static str>::from(*self)) }
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
+        fmt.write_str(<&'static str>::from(*self))
+    }
 }
 
 impl FromStr for Codename {
