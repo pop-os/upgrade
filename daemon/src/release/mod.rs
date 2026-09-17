@@ -819,7 +819,7 @@ async fn fetch_new_release_packages<'b>(
             additional_fetch(&Shutdown::new(), logger, fetch, &["gnome-online-accounts-gtk"]).await?;
         } else if to == "26.04" {
             // Make sure dracut is part of the upgrade
-            additional_fetch(&Shutdown::new(), logger, fetch, &["pop-server", "dracut"]).await?;
+            additional_fetch(&Shutdown::new(), logger, fetch, &["dracut", "dracut-core", "fwupd-unsigned", "pop-server"]).await?;
         }
 
         snapd::hold_transitional_packages().await?;
