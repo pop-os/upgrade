@@ -182,8 +182,8 @@ attempt_upgrade () {
     systemctl mask acpid pop-upgrade
 
     if (upgrade || attempt_repair); then
-        # Ensure that pop-server is upgraded to the latest version
-        apt-get install -y --allow-downgrades --no-download --ignore-missing pop-server
+        # Ensure that fwupd-unsigned and pop-server are upgraded to the latest version
+        apt-get install -y --allow-downgrades --no-download --ignore-missing fwupd-unsigned pop-server
         
         rm -rf  /system-update "$1"
 
