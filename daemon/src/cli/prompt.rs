@@ -1,7 +1,5 @@
-use std::{
-    io,
-    io::{BufRead, Write},
-};
+use std::io;
+use std::io::{BufRead, Write};
 
 // Write a prompt to the terminal, and wait for an answer.
 pub fn get_bool(message: &str, default: bool) -> bool {

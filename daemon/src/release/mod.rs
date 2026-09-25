@@ -11,27 +11,27 @@ mod switchable_graphics;
 
 use self::systemd::LoaderEntry;
 
-pub use self::{
-    check::{BuildStatus, Error as ReleaseCheckError, ReleaseStatus},
-    dracut::Error as DracutError,
-    errors::{RelResult, ReleaseError},
-};
-use crate::{
-    fetch::apt::ExtraPackages,
-    repair::{self, RepairError}, system_environment::SystemEnvironment,
-};
+pub use self::check::{BuildStatus, Error as ReleaseCheckError, ReleaseStatus};
+pub use self::dracut::Error as DracutError;
+pub use self::errors::{RelResult, ReleaseError};
+use crate::fetch::apt::ExtraPackages;
+use crate::repair::{self, RepairError};
+use crate::system_environment::SystemEnvironment;
 
 use crate::ubuntu_version::{Codename, Version};
 use anyhow::Context;
-use apt_cmd::{
-    lock::apt_lock_wait, request::Request as AptRequest, AptGet, AptMark, AptUpgradeEvent, Dpkg,
-    DpkgQuery,
-};
+use apt_cmd::lock::apt_lock_wait;
+use apt_cmd::request::Request as AptRequest;
+use apt_cmd::{AptGet, AptMark, AptUpgradeEvent, Dpkg, DpkgQuery};
 use async_shutdown::ShutdownManager as Shutdown;
 use futures::prelude::*;
-use std::{
-    collections::HashSet, convert::TryFrom, fs::{self, File}, os::unix::fs::symlink, path::Path, process::Command, sync::Arc
-};
+use std::collections::HashSet;
+use std::convert::TryFrom;
+use std::fs::{self, File};
+use std::os::unix::fs::symlink;
+use std::path::Path;
+use std::process::Command;
+use std::sync::Arc;
 use systemd_boot_conf::SystemdBootConf;
 
 pub const STARTUP_UPGRADE_FILE: &str = "/pop-upgrade";
@@ -39,9 +39,7 @@ pub const STARTUP_UPGRADE_FILE: &str = "/pop-upgrade";
 /// Packages which need to be removed *before* the sources are reset to defaults
 /// and updates are applied (e.g. DKMS packages that work with the Pop!_OS kernel when
 /// installed from third-party sources, but not when installed from the Ubuntu repo).
-const REMOVE_PACKAGES_EARLY: &[&str] = &[
-    "openrazer-driver-dkms",
-];
+const REMOVE_PACKAGES_EARLY: &[&str] = &["openrazer-driver-dkms"];
 
 /// Packages which should be removed before upgrading.
 ///
@@ -173,13 +171,19 @@ impl From<UpgradeEvent> for &'static str {
             }
             UpgradeEvent::Failure => "an error occurred while setting up the release upgrade",
             UpgradeEvent::FetchingPackages => "fetching updated packages for the current release",
-            UpgradeEvent::FetchingPackagesForNewRelease => "fetching updated packages for the new release",
-            UpgradeEvent::FetchingAdditionalPackagesForNewRelease => "fetching additional packages for the new release",
+            UpgradeEvent::FetchingPackagesForNewRelease => {
+                "fetching updated packages for the new release"
+            }
+            UpgradeEvent::FetchingAdditionalPackagesForNewRelease => {
+                "fetching additional packages for the new release"
+            }
             UpgradeEvent::InstallingPackages => {
                 "ensuring that system-critical packages are installed"
             }
             UpgradeEvent::RemovingConflicts => "removing deprecated and/or conflicting packages",
-            UpgradeEvent::RemovingWacomConflicts => "replacing Surface-tailored Wacom packages with standard ones",
+            UpgradeEvent::RemovingWacomConflicts => {
+                "replacing Surface-tailored Wacom packages with standard ones"
+            }
             UpgradeEvent::Success => "new release is ready to install",
             UpgradeEvent::SuccessLive => "new release was successfully installed",
             UpgradeEvent::UpdatingPackageLists => "updating package lists",
@@ -311,7 +315,9 @@ async fn apt_fetch_(
         Ok::<(), anyhow::Error>(())
     };
 
-    futures::try_join!(sender, receiver).map(|_| ()).map_err(ReleaseError::PackageFetch)?;
+    futures::try_join!(sender, receiver)
+        .map(|_| ())
+        .map_err(ReleaseError::PackageFetch)?;
     Ok(errored)
 }
 
@@ -323,10 +329,15 @@ pub async fn release_upgrade<'b>(
     current: &str,
     new: &str,
 ) -> anyhow::Result<()> {
-    let current = codename_from_version(current);
-    let new = codename_from_version(new);
+    let current = codename_from_version(current)
+        .with_context(|| format!("unknown codename for {current}"))?;
 
-    info!("checking if release can be upgraded from {} to {}", current, new);
+    let new = codename_from_version(new).with_context(|| format!("unknown codename for {new}"))?;
+
+    info!(
+        "checking if release can be upgraded from {} to {}",
+        current, new
+    );
 
     // In case the system abruptly shuts down after this point, create a file to signal
     // that packages were being fetched for a new release.
@@ -343,7 +354,11 @@ pub async fn release_upgrade<'b>(
         repos::apply_default_source_lists(new).await?;
 
         apt_lock_wait().await;
-        AptGet::new().noninteractive().update().await.context("failed to update source lists")
+        AptGet::new()
+            .noninteractive()
+            .update()
+            .await
+            .context("failed to update source lists")
     };
 
     if let Err(why) = update_sources.await {
@@ -387,7 +402,11 @@ pub async fn package_upgrade<C: Fn(AptUpgradeEvent)>(callback: C) -> RelResult<(
 
         apt_lock_wait().await;
         info!("checking for broken packages");
-        crate::misc::apt_get().fix_broken().status().await.map_err(ReleaseError::FixBroken)?;
+        crate::misc::apt_get()
+            .fix_broken()
+            .status()
+            .await
+            .map_err(ReleaseError::FixBroken)?;
 
         if dpkg_configure {
             apt_lock_wait().await;
@@ -427,28 +446,31 @@ pub async fn upgrade<'a>(
     // Unhold all held packages
     unhold_all().await;
 
-    let from_version = from.parse::<Version>().expect("invalid version");
-    let from_codename = Codename::try_from(from_version).expect("release doesn't have a codename");
+    let current_version = from.parse::<Version>().expect("invalid version");
+    let current_codename =
+        Codename::try_from(current_version).expect("release doesn't have a codename");
 
     // Ensure that prerequest files and mounts are available.
     systemd::upgrade_prereq()?;
 
-    let _ = AptMark::new().hold(&["pop-upgrade", "pop-system-updater"]).await;
-
-    let version = codename_from_version(from);
+    let _ = AptMark::new()
+        .hold(&["pop-upgrade", "pop-system-updater"])
+        .await;
 
     // Check the system and perform any repairs necessary for success.
-    autorepair(version).await?;
+    autorepair(current_codename).await?;
 
     // Remove packages that may've worked from third-party sources
     // but will cause problems if downgraded to the built-in sources' version.
     remove_conflicting_packages(logger, REMOVE_PACKAGES_EARLY, false).await?;
 
     info!("creating backup of source lists");
-    repos::backup(version).await.map_err(ReleaseError::BackupPPAs)?;
+    repos::backup(current_codename)
+        .await
+        .map_err(ReleaseError::BackupPPAs)?;
 
     // Old releases need a workaround to change their source URIs.
-    old_releases_workaround(version, from_codename).await?;
+    old_releases_workaround(current_codename).await?;
 
     // Update the current release's package lists.
     (logger)(UpgradeEvent::UpdatingPackageLists);
@@ -484,12 +506,16 @@ pub async fn upgrade<'a>(
     // Make sure the initramfs is updated before we begin the upgrade.
     crate::process::exec(Command::new("update-initramfs").args(["-ck", "all"]))
         .map_err(ReleaseError::UpdateInitramfs)?;
-    
-    let _ = AptMark::new().unhold(&["pop-upgrade", "pop-system-updater"]).await;
+
+    let _ = AptMark::new()
+        .unhold(&["pop-upgrade", "pop-system-updater"])
+        .await;
 
     // Upgrade the apt sources to the new release.
     (*logger)(UpgradeEvent::UpdatingSourceLists);
-    release_upgrade(logger, from, to).await.map_err(ReleaseError::Check)?;
+    release_upgrade(logger, from, to)
+        .await
+        .map_err(ReleaseError::Check)?;
 
     // Update lists and fetch packages for the new release.
     fetch_new_release_packages(logger, fetch, from, to).await?;
@@ -511,11 +537,13 @@ pub async fn upgrade<'a>(
     Ok(())
 }
 
-async fn autorepair(version: &str) -> Result<(), ReleaseError> {
+async fn autorepair(version: Codename) -> Result<(), ReleaseError> {
     (async move {
         repair::crypttab::repair().map_err(RepairError::from)?;
         repair::fstab::repair().map_err(RepairError::from)?;
-        repair::packaging::repair(version).await.map_err(RepairError::from)?;
+        repair::packaging::repair(version)
+            .await
+            .map_err(RepairError::from)?;
         if SystemEnvironment::detect() == SystemEnvironment::Efi {
             repair::esp::convert_swap().map_err(RepairError::from)?;
         }
@@ -529,8 +557,9 @@ async fn autorepair(version: &str) -> Result<(), ReleaseError> {
 
 async fn downgrade_packages() -> Result<(), ReleaseError> {
     info!("searching for packages that require downgrading");
-    let downgradable =
-        apt_cmd::apt::downgradable_packages().await.map_err(ReleaseError::Downgrade)?;
+    let downgradable = apt_cmd::apt::downgradable_packages()
+        .await
+        .map_err(ReleaseError::Downgrade)?;
 
     let mut cmd = AptGet::new().allow_downgrades().force().noninteractive();
 
@@ -547,8 +576,11 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
             let mut remove_epapirus_cmd = AptGet::new().allow_downgrades().force().noninteractive();
             remove_epapirus_cmd.arg("remove");
             remove_epapirus_cmd.arg("epapirus-icon-theme");
-            let _remove_epapirus = remove_epapirus_cmd.status().await
-                .context("apt-get remove epapirus-icon-theme").map_err(ReleaseError::Downgrade);
+            let _remove_epapirus = remove_epapirus_cmd
+                .status()
+                .await
+                .context("apt-get remove epapirus-icon-theme")
+                .map_err(ReleaseError::Downgrade);
         }
 
         // In Ubuntu 22.04, the `ansible` and `ansible-core` packages are not compatible.
@@ -559,11 +591,15 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
             for (package, _version) in &downgradable {
                 if package.eq("ansible") {
                     info!("ansible will also be downgraded, so removing ansible-core");
-                    let mut remove_ansible_core_cmd = AptGet::new().allow_downgrades().force().noninteractive();
-                        remove_ansible_core_cmd.arg("remove");
-                        remove_ansible_core_cmd.arg("ansible-core");
-                        let _remove_ansible_core = remove_ansible_core_cmd.status().await
-                            .context("apt-get remove ansible-core").map_err(ReleaseError::Downgrade);
+                    let mut remove_ansible_core_cmd =
+                        AptGet::new().allow_downgrades().force().noninteractive();
+                    remove_ansible_core_cmd.arg("remove");
+                    remove_ansible_core_cmd.arg("ansible-core");
+                    let _remove_ansible_core = remove_ansible_core_cmd
+                        .status()
+                        .await
+                        .context("apt-get remove ansible-core")
+                        .map_err(ReleaseError::Downgrade);
                     continue 'downgrades;
                 }
             }
@@ -574,17 +610,22 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
         // but dotnet-sdk-8.0 conflicts with dotnet-host in the Ubuntu repository.
         // If both are installed, the're probably installed from the Microsoft repository,
         // and the latter must be removed before the former's downgraded.
-        // (Need to check for this on dotnet-host since it's earlier than dotnet-sdk-8.0 alphabetically.)
+        // (Need to check for this on dotnet-host since it's earlier than dotnet-sdk-8.0
+        // alphabetically.)
         if package.contains("dotnet-host") {
             info!("dotnet-host is to be downgraded");
             for (package, _version) in &downgradable {
                 if package.eq("dotnet-sdk-8.0") {
                     info!("dotnet-sdk-8.0 will also be downgraded, so removing dotnet-host");
-                    let mut remove_dotnet_cmd = AptGet::new().allow_downgrades().force().noninteractive();
-                        remove_dotnet_cmd.arg("remove");
-                        remove_dotnet_cmd.arg("dotnet-host");
-                        let _remove_dotnet = remove_dotnet_cmd.status().await
-                            .context("apt-get remove dotnet-host").map_err(ReleaseError::Downgrade);
+                    let mut remove_dotnet_cmd =
+                        AptGet::new().allow_downgrades().force().noninteractive();
+                    remove_dotnet_cmd.arg("remove");
+                    remove_dotnet_cmd.arg("dotnet-host");
+                    let _remove_dotnet = remove_dotnet_cmd
+                        .status()
+                        .await
+                        .context("apt-get remove dotnet-host")
+                        .map_err(ReleaseError::Downgrade);
                     continue 'downgrades;
                 }
             }
@@ -597,18 +638,29 @@ async fn downgrade_packages() -> Result<(), ReleaseError> {
     }
 
     info!("downgrading packages with: {:?}", cmd.as_std());
-    cmd.status().await.context("apt-get downgrade").map_err(ReleaseError::Downgrade).map(drop)
+    cmd.status()
+        .await
+        .context("apt-get downgrade")
+        .map_err(ReleaseError::Downgrade)
+        .map(drop)
 }
 
 async fn install_essential_packages() -> Result<(), ReleaseError> {
     apt_lock_wait().await;
-    crate::misc::apt_get().install(CORE_PACKAGES).await.map_err(ReleaseError::InstallCore)
+    crate::misc::apt_get()
+        .install(CORE_PACKAGES)
+        .await
+        .map_err(ReleaseError::InstallCore)
 }
 
 /// Update the package lists for the current release.
 async fn update_package_lists() -> Result<(), ReleaseError> {
     apt_lock_wait().await;
-    AptGet::new().noninteractive().update().await.map_err(ReleaseError::CurrentUpdate)
+    AptGet::new()
+        .noninteractive()
+        .update()
+        .await
+        .map_err(ReleaseError::CurrentUpdate)
 }
 
 /// Fetch apt packages and retry if network connections are changed.
@@ -621,11 +673,13 @@ async fn fetch_current_updates(fetch: &dyn Fn(FetchEvent)) -> Result<(), Release
     apt_fetch(Shutdown::new(), uris, fetch).await
 }
 
-async fn old_releases_workaround(version: &str, codename: Codename) -> Result<(), ReleaseError> {
+async fn old_releases_workaround(codename: Codename) -> Result<(), ReleaseError> {
     info!("disabling third party sources");
-    repos::disable_third_parties(version).await.map_err(ReleaseError::DisablePPAs)?;
+    repos::disable_third_parties(codename)
+        .await
+        .map_err(ReleaseError::DisablePPAs)?;
 
-    if repos::is_old_release(<&'static str>::from(codename)).await {
+    if repos::is_old_release(codename).await {
         info!("switching to old-releases repositories");
         repos::replace_with_old_releases().map_err(ReleaseError::OldReleaseSwitch)?;
     }
@@ -639,8 +693,9 @@ async fn remove_wacom_packages(logger: &dyn Fn(UpgradeEvent)) -> Result<(), Rele
     // This must be done before checking for remoteless packages,
     // as other related packages will also be removed.
     let conflicting_surface = (async {
-        let (mut child, package_stream) =
-        DpkgQuery::new().show_installed(["libwacom-common-surface", "libwacom9-surface"]).await?;
+        let (mut child, package_stream) = DpkgQuery::new()
+            .show_installed(["libwacom-common-surface", "libwacom9-surface"])
+            .await?;
 
         futures_util::pin_mut!(package_stream);
 
@@ -675,7 +730,11 @@ async fn remove_wacom_packages(logger: &dyn Fn(UpgradeEvent)) -> Result<(), Rele
     Ok(())
 }
 
-async fn remove_conflicting_packages(logger: &dyn Fn(UpgradeEvent), packages: &[&str], remoteless: bool) -> Result<(), ReleaseError> {
+async fn remove_conflicting_packages(
+    logger: &dyn Fn(UpgradeEvent),
+    packages: &[&str],
+    remoteless: bool,
+) -> Result<(), ReleaseError> {
     let mut conflicting = (async {
         let (mut child, package_stream) = DpkgQuery::new().show_installed(packages).await?;
 
@@ -805,21 +864,43 @@ async fn fetch_new_release_packages<'b>(
     current: &'b str,
     to: &'b str,
 ) -> RelResult<()> {
+    let Some(current) = codename_from_version(current) else {
+        return Err(ReleaseError::UnknownCodename {
+            codename: current.to_owned(),
+        });
+    };
+
     // Use a closure to capture any early returns due to an error.
     let updated_list_ops = || async {
         info!("updating the package lists for the new release");
         apt_lock_wait().await;
         (logger)(UpgradeEvent::UpdatingPackageLists);
-        AptGet::new().noninteractive().update().await.map_err(ReleaseError::ReleaseUpdate)?;
+        AptGet::new()
+            .noninteractive()
+            .update()
+            .await
+            .map_err(ReleaseError::ReleaseUpdate)?;
 
         attempt_fetch(&Shutdown::new(), logger, fetch).await?;
 
         // If upgrading to 24.04, download an additional package.
         if to == "24.04" {
-            additional_fetch(&Shutdown::new(), logger, fetch, &["gnome-online-accounts-gtk"]).await?;
+            additional_fetch(
+                &Shutdown::new(),
+                logger,
+                fetch,
+                &["gnome-online-accounts-gtk"],
+            )
+            .await?;
         } else if to == "26.04" {
             // Make sure dracut is part of the upgrade
-            additional_fetch(&Shutdown::new(), logger, fetch, &["dracut", "dracut-core", "fwupd-unsigned", "pop-server"]).await?;
+            additional_fetch(
+                &Shutdown::new(),
+                logger,
+                fetch,
+                &["dracut", "dracut-core", "fwupd-unsigned", "pop-server"],
+            )
+            .await?;
         }
 
         snapd::hold_transitional_packages().await?;
@@ -831,7 +912,7 @@ async fn fetch_new_release_packages<'b>(
     match updated_list_ops().await {
         Ok(_) => Ok(()),
         Err(why) => {
-            rollback(codename_from_version(current), &why).await;
+            rollback(current, &why).await;
 
             Err(why)
         }
@@ -842,7 +923,10 @@ pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResul
     // Ensure that the splash kernel option is enabled in case it was removed.
     // This kernel option is required to show the Plymouth splash on next boot.
     if Path::new("/usr/bin/kernelstub").exists() {
-        let _res = std::process::Command::new("kernelstub").arg("-a").arg("splash").status();
+        let _res = std::process::Command::new("kernelstub")
+            .arg("-a")
+            .arg("splash")
+            .status();
     }
 
     match action {
@@ -850,8 +934,11 @@ pub fn upgrade_finalize(action: UpgradeMethod, from: &str, to: &str) -> RelResul
     }
 }
 
-async fn rollback(release: &str, why: &(dyn std::error::Error + 'static)) {
-    error!("failed to fetch packages: {}", crate::misc::format_error(why));
+async fn rollback(release: Codename, why: &(dyn std::error::Error + 'static)) {
+    error!(
+        "failed to fetch packages: {}",
+        crate::misc::format_error(why)
+    );
     warn!("attempting to roll back apt release files");
     if let Err(why) = repos::restore(release).await {
         error!(
@@ -880,12 +967,9 @@ pub async fn cleanup() {
 
             match Version::detect() {
                 Ok(version) => {
-                    let codename = Codename::try_from(version)
-                        .ok()
-                        .map(<&'static str>::from)
-                        .expect("no codename for version");
+                    let codename = Codename::try_from(version).expect("no codename for version");
 
-                    let _ = crate::release::repos::restore(codename);
+                    _ = crate::release::repos::restore(codename).await;
                 }
                 Err(why) => {
                     error!("could not detect distro release version: {}", why);
@@ -918,18 +1002,20 @@ fn hold_apt_locks() -> RelResult<(File, File)> {
         .map_err(ReleaseError::Lock)
 }
 
-fn codename_from_version(version: &str) -> &str {
+fn codename_from_version(version: &str) -> Option<Codename> {
     version
         .parse::<Version>()
         .ok()
         .and_then(|x| Codename::try_from(x).ok())
-        .map(<&'static str>::from)
-        .unwrap_or(version)
 }
 
 /// apt-mark unhold all held packages.
 async fn unhold_all() {
-    if let Ok(output) = tokio::process::Command::new("apt-mark").arg("showhold").output().await {
+    if let Ok(output) = tokio::process::Command::new("apt-mark")
+        .arg("showhold")
+        .output()
+        .await
+    {
         if let Ok(output) = String::from_utf8(output.stdout) {
             let mut packages = Vec::new();
             for line in output.lines() {

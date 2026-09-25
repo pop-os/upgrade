@@ -1,7 +1,5 @@
-use std::{
-    fmt::{self, Display, Formatter},
-    str::FromStr,
-};
+use std::fmt::{self, Display, Formatter};
+use std::str::FromStr;
 
 #[derive(Debug, thiserror::Error)]
 pub enum CodenameParseError {
@@ -26,6 +24,10 @@ pub enum Codename {
 }
 
 impl Codename {
+    pub fn as_str(self) -> &'static str {
+        <&'static str>::from(self)
+    }
+
     /// The date when this release is to be, or was, EOL'd.
     pub fn eol_date(self) -> (u32, u32, u32) {
         let (y, m, d) = self.release_date();

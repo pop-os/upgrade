@@ -2,7 +2,8 @@
 //! TODO: Switch to zbus and system76-power-zbus crates when dbus is dropped as a dependency
 
 use dbus::blocking::Connection;
-use std::{fs, io, time::Duration};
+use std::time::Duration;
+use std::{fs, io};
 
 const POWER: &str = "/etc/modprobe.d/system76-power.conf";
 const PRIME_DISCRETE: &str = "/etc/prime-discrete";
@@ -79,8 +80,9 @@ fn has_switchable_graphics() -> bool {
             "/com/system76/PowerDaemon",
             Duration::from_millis(1000),
         );
-        let (switchable,): (bool,) =
-            proxy.method_call("com.system76.PowerDaemon", "GetSwitchable", ()).unwrap_or_default();
+        let (switchable,): (bool,) = proxy
+            .method_call("com.system76.PowerDaemon", "GetSwitchable", ())
+            .unwrap_or_default();
 
         // Limit configuring graphics to System76 models
         switchable && (system_vendor() == "System76")
@@ -90,5 +92,8 @@ fn has_switchable_graphics() -> bool {
 }
 
 fn system_vendor() -> String {
-    fs::read_to_string("/sys/class/dmi/id/sys_vendor").unwrap_or_default().trim().into()
+    fs::read_to_string("/sys/class/dmi/id/sys_vendor")
+        .unwrap_or_default()
+        .trim()
+        .into()
 }

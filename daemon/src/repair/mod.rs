@@ -5,7 +5,9 @@ pub mod misc;
 pub mod packaging;
 pub mod swapfile;
 
-use crate::{process::CommandErr, system_environment::SystemEnvironment};
+use crate::process::CommandErr;
+use crate::system_environment::SystemEnvironment;
+use crate::ubuntu_version::Codename;
 use std::io;
 
 const FSTAB_PATH: &str = "/etc/fstab";
@@ -32,6 +34,9 @@ error_set::error_set! {
 
         #[display("failed to update swapfile")]
         Swapfile(SwapfileErr),
+
+        #[display("unknown release codename: {codename}")]
+        UnknownCodename { codename: String },
 
         #[display("failed to wipe pulseaudio settings for users")]
         WipePulse(io::Error),
@@ -88,6 +93,10 @@ error_set::error_set! {
         EspUuid,
         #[display("failed to format new EFI partition")]
         EspFormat(CommandErr),
+        #[display("failed to get size of EFI partition")]
+        EspSize(io::Error),
+        #[display("EFI partition size is not a number")]
+        EspSizeInvalid(std::num::ParseIntError),
         #[display("failed to update initramfs")]
         InitramfsUpdate(CommandErr),
         #[display("could not get swap devices from /proc/swaps")]
@@ -117,22 +126,31 @@ error_set::error_set! {
 pub async fn repair() -> Result<(), RepairError> {
     info!("performing release repair");
 
-    let release = &os_release::OS_RELEASE.as_ref().unwrap().version_codename;
+    let version_str = &os_release::OS_RELEASE.as_ref().unwrap().version_codename;
+    let Ok(release) = version_str.parse::<Codename>() else {
+        error!("unknown codename: {version_str}");
+        return Err(RepairError::UnknownCodename {
+            codename: version_str.to_owned(),
+        });
+    };
 
     crypttab::repair()?;
     fstab::repair()?;
-
-    if SystemEnvironment::detect() == SystemEnvironment::Efi {
-        esp::convert_swap()?;
-    }
-    
-    swapfile::create()?;
+    repair_esp()?;
     packaging::repair(release).await?;
 
     Ok(())
 }
 
+pub fn repair_esp() -> Result<(), RepairError> {
+    if SystemEnvironment::detect() == SystemEnvironment::Efi {
+        esp::convert_swap()?;
+    }
+
+    swapfile::create()?;
+    Ok(())
+}
+
 pub fn pre_upgrade() -> Result<(), RepairError> {
-    misc::dkms_gcc9_fix().map_err(RepairError::DkmsGcc9)?;
-    misc::wipe_pulse().map_err(RepairError::WipePulse)
+    Ok(())
 }

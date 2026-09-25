@@ -1,7 +1,8 @@
-use crate::{
-    process::CommandErr, release_architecture::ReleaseArchError, repair::RepairError, ubuntu_version::VersionError,
-    release::DracutError,
-};
+use crate::process::CommandErr;
+use crate::release::DracutError;
+use crate::release_architecture::ReleaseArchError;
+use crate::repair::RepairError;
+use crate::ubuntu_version::VersionError;
 use std::io;
 
 pub type RelResult<T> = Result<T, ReleaseError>;
@@ -103,6 +104,9 @@ pub enum ReleaseError {
 
     #[error("files required for systemd upgrade are missing: {:?}", _0)]
     SystemdUpgradeFilesMissing(Vec<&'static str>),
+
+    #[error("unknown release codename for {codename}")]
+    UnknownCodename { codename: String },
 
     #[error("failed to unhold the pop-upgrade package")]
     UnholdPopUpgrade(#[source] io::Error),

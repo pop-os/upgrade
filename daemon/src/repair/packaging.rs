@@ -1,14 +1,14 @@
-use crate::{
-    release::repos::{iter_files, PPA_DIR},
-    ubuntu_version::Codename,
-};
-use apt_cmd::{lock::apt_lock_wait, AptGet, Dpkg};
+use crate::release::repos::{PPA_DIR, iter_files};
+use crate::ubuntu_version::Codename;
+use apt_cmd::lock::apt_lock_wait;
+use apt_cmd::{AptGet, Dpkg};
 use futures::StreamExt;
 use std::{fs, io};
 
-pub async fn repair(release: &str) -> Result<(), Error> {
+pub async fn repair(release: Codename) -> Result<(), Error> {
     apt_lock_wait().await;
     if let Ok(ppas) = std::fs::read_dir(PPA_DIR) {
+        let release = release.as_str();
         for file in iter_files(ppas) {
             let path = file.path();
             if let Ok(contents) = fs::read_to_string(&path) {
@@ -80,7 +80,9 @@ async fn base_requirements() -> Result<(), Error> {
     info!("ensuring prerequisites are installed");
 
     // Fetch apt-cache policies for each of the problematic packages.
-    let (mut child, policies) = apt_cmd::AptCache::new().policy(PROBLEMATIC_PACKAGES).await
+    let (mut child, policies) = apt_cmd::AptCache::new()
+        .policy(PROBLEMATIC_PACKAGES)
+        .await
         .map_err(|source| io::Error::other(source))
         .map_err(Error::FetchPolicy)?;
 
@@ -100,7 +102,10 @@ async fn base_requirements() -> Result<(), Error> {
     info!("installing required prerequisites: {:?}", to_install);
 
     // Ensure that the packages have their candidate versions installed.
-    crate::misc::apt_get().install(to_install).await.map_err(Error::InstallPrerequisites)
+    crate::misc::apt_get()
+        .install(to_install)
+        .await
+        .map_err(Error::InstallPrerequisites)
 }
 
 error_set::error_set! {
