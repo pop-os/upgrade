@@ -37,16 +37,13 @@ pub use self::{
 };
 
 use crate::{
-    misc::{self, format_error},
-    recovery::{
+    DBUS_IFACE, DBUS_NAME, DBUS_PATH, RESTART_SCHEDULED, misc::{self, format_error}, recovery::{
         self, RecoveryError, RecoveryVersion, RecoveryVersionError,
         ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
-    },
-    release::{
+    }, release::{
         self, FetchEvent, RefreshOp, ReleaseError, ReleaseStatus,
         UpgradeMethod as ReleaseUpgradeMethod,
-    },
-    sighandler, DBUS_IFACE, DBUS_NAME, DBUS_PATH, RESTART_SCHEDULED,
+    }, repair, sighandler, ubuntu_version::Version
 };
 use async_shutdown::ShutdownManager as Shutdown;
 
@@ -406,6 +403,15 @@ impl Daemon {
 
         if let Err(why) = release::systemd::restore_default() {
             warn!("failure restoring previous boot entry: {}", why);
+        }
+
+        // Apply ESP+swap fixes to existing 26.04 upgrades 
+        if let Ok(version) = Version::detect()
+            && version.major == 26
+            && version.minor == 4
+            && let Err(why) = repair::repair_esp()
+        {
+            error!("autorepair failed: {why}");
         }
 
         let (daemon, mut fg_receiver, mut receiver) = Self::new()?;

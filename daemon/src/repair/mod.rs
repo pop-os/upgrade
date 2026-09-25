@@ -125,18 +125,21 @@ pub async fn repair() -> Result<(), RepairError> {
 
     crypttab::repair()?;
     fstab::repair()?;
-
-    if SystemEnvironment::detect() == SystemEnvironment::Efi {
-        esp::convert_swap()?;
-    }
-
-    swapfile::create()?;
+    repair_esp()?;
     packaging::repair(release).await?;
 
     Ok(())
 }
 
+pub fn repair_esp() -> Result<(), RepairError> {
+    if SystemEnvironment::detect() == SystemEnvironment::Efi {
+        esp::convert_swap()?;
+    }
+
+    swapfile::create()?;
+    Ok(())
+}
+
 pub fn pre_upgrade() -> Result<(), RepairError> {
-    misc::dkms_gcc9_fix().map_err(RepairError::DkmsGcc9)?;
-    misc::wipe_pulse().map_err(RepairError::WipePulse)
+    Ok(())
 }
