@@ -1,9 +1,11 @@
-use std::os::unix::fs::PermissionsExt;
-use std::path::Path;
-use std::process::Command;
-use std::fs::Permissions;
-use super::{EspErr as Error, fstab, FSTAB_PATH};
+use super::{EspErr as Error, FSTAB_PATH, fstab};
 use crate::process::exec;
+use std::{
+    fs::Permissions,
+    os::unix::fs::PermissionsExt,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+};
 
 const CRYPTSWAP_PATH: &str = "/dev/mapper/cryptswap";
 const CRYPTTAB_PATH: &str = "/etc/crypttab";
@@ -18,10 +20,14 @@ pub type PartNumber = String;
 pub fn convert_swap() -> Result<(), Error> {
     let mount_list = proc_mounts::MountList::new().map_err(Error::ProcMounts)?;
     let swap_list = proc_mounts::SwapList::new().map_err(Error::ProcSwaps)?;
-    let old_esp_part_path = &mount_list
-        .get_mount_by_dest(EFI_PATH)
-        .ok_or(Error::EspNotFound)?
-        .source;
+    let old_esp_part_path =
+        &mount_list.get_mount_by_dest(EFI_PATH).ok_or(Error::EspNotFound)?.source;
+
+    if esp_size_valid(old_esp_part_path)? {
+        return Ok(());
+    }
+
+    info!("searching for a swap partiton to upgrade the ESP partition");
 
     let mut fstab = std::fs::read_to_string(FSTAB_PATH).map_err(Error::FstabRead)?;
     let old_esp_fstab_line =
@@ -33,8 +39,9 @@ pub fn convert_swap() -> Result<(), Error> {
     {
         partition_info_by_name(&partition_name).ok_or(Error::EspEnvNotFound)?
     } else if let Ok(cryptswap_dm_path) = cryptswap_device.canonicalize() {
-        let info = partition_info_from_dm(&cryptswap_dm_path).ok_or(Error::CryptswapPartitionNotFound)?;
-        
+        let info =
+            partition_info_from_dm(&cryptswap_dm_path).ok_or(Error::CryptswapPartitionNotFound)?;
+
         // Check if swap partition is enabled and disable it if so.
         if swap_list.get_swapped(&cryptswap_dm_path) {
             _ = exec(Command::new("swapoff").arg(&cryptswap_dm_path));
@@ -43,12 +50,8 @@ pub fn convert_swap() -> Result<(), Error> {
         udevadm_settle();
 
         if cryptswap_device.exists() {
-            exec(
-                Command::new("cryptsetup")
-                    .arg("close")
-                    .arg(cryptswap_device),
-            )
-            .map_err(Error::CryptswapClose)?;
+            exec(Command::new("cryptsetup").arg("close").arg(cryptswap_device))
+                .map_err(Error::CryptswapClose)?;
         }
 
         if fstab::remove_from_tab(&mut fstab, CRYPTSWAP_PATH) {
@@ -67,8 +70,37 @@ pub fn convert_swap() -> Result<(), Error> {
 
         info
     } else {
-        // No cryptswap device found, therefore no swap to convert.
-        return Ok(());
+        // Find a compatible unmounted swap partition
+        let mut found = None;
+        for block_device in
+            std::fs::read_dir("/sys/class/block").ok().into_iter().flatten().filter_map(Result::ok)
+        {
+            let sys_path = block_device.path();
+            if !sys_path.join("partition").exists() {
+                continue;
+            }
+
+            let Some(block_name) = sys_path.to_str() else {
+                continue;
+            };
+
+            let device_path = PathBuf::from(["/dev/", block_name].concat());
+
+            if !swap_list.get_swapped(&device_path)
+                && partition_is_swap(&device_path)
+                && esp_size_valid(&device_path).unwrap_or(false)
+            {
+                found = partition_info_by_name(block_name);
+                break;
+            }
+        }
+
+        if let Some(info) = found {
+            info
+        } else {
+            // No compatible swap device found to convert
+            return Ok(());
+        }
     };
 
     // Don't act if the new ESP is the same as the current one.
@@ -102,28 +134,16 @@ pub fn convert_swap() -> Result<(), Error> {
 
     let temp_mount = sys_mount::Mount::builder()
         .fstype("vfat")
-        .mount_autodrop(
-            &new_esp_part_path,
-            temp_dir.path(),
-            sys_mount::UnmountFlags::DETACH,
-        )
+        .mount_autodrop(&new_esp_part_path, temp_dir.path(), sys_mount::UnmountFlags::DETACH)
         .map_err(Error::EspMountNewTemp)?;
 
     _ = std::fs::set_permissions(temp_dir.path(), Permissions::from_mode(0o700));
 
-    exec(
-        Command::new("rsync")
-            .args(["-ap", EFI_PATH])
-            .arg(temp_dir.path()),
-    )
-    .map_err(Error::EspCopy)?;
+    exec(Command::new("rsync").args(["-ap", EFI_PATH]).arg(temp_dir.path()))
+        .map_err(Error::EspCopy)?;
 
-    exec(
-        Command::new("bootctl")
-            .args(["install", "--esp-path"])
-            .arg(temp_dir.path()),
-    )
-    .map_err(Error::EspBootctlInstall)?;
+    exec(Command::new("bootctl").args(["install", "--esp-path"]).arg(temp_dir.path()))
+        .map_err(Error::EspBootctlInstall)?;
 
     if let Some(line) = old_esp_fstab_line {
         fstab = fstab.replacen(
@@ -173,10 +193,52 @@ pub fn convert_swap() -> Result<(), Error> {
     Ok(())
 }
 
-/// Wait for block devices to settle before continuing.
-fn udevadm_settle() {
-    _ = Command::new("udevadm").arg("settle").status();
+/// Check if an existing EFI partition is greater than 2GB
+fn esp_size_valid(esp_path: &Path) -> Result<bool, Error> {
+    let block_name =
+        esp_path.file_name().and_then(|name| name.to_str()).ok_or(Error::EspNotFound)?;
+
+    let old_esp_size = std::fs::read_to_string(["/sys/class/block/", block_name, "/size"].concat())
+        .map_err(Error::EspSize)?
+        .trim()
+        .parse::<u64>()
+        .map_err(Error::EspSizeInvalid)?;
+
+    // If greater than 2GB
+    Ok(old_esp_size > 4_096_000)
 }
+
+/// Uses blkid to check if a partition is a swap partition.
+pub fn partition_is_swap<P: AsRef<Path>>(part: P) -> bool {
+    fn inner(path: &Path) -> Option<bool> {
+        let output = Command::new("blkid")
+            .arg(path)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output()
+            .ok()?
+            .stdout;
+
+        for field in String::from_utf8_lossy(&output).split_whitespace() {
+            if field.starts_with("TYPE=") {
+                let length = field.len();
+                return if length > 7 {
+                    let kind = &field[6..length - 1];
+                    return Some(kind == "swap");
+                } else {
+                    None
+                };
+            }
+        }
+
+        None
+    }
+
+    inner(part.as_ref()).is_some_and(|v| v)
+}
+
+/// Wait for block devices to settle before continuing.
+fn udevadm_settle() { _ = Command::new("udevadm").arg("settle").status(); }
 
 /// Get the partition number of a block device if it's a partition.
 fn partition_number(block_name: &str) -> Option<String> {
