@@ -1,14 +1,15 @@
 use crate::{
-    release::repos::{iter_files, PPA_DIR},
+    release::repos::{PPA_DIR, iter_files},
     ubuntu_version::Codename,
 };
-use apt_cmd::{lock::apt_lock_wait, AptGet, Dpkg};
+use apt_cmd::{AptGet, Dpkg, lock::apt_lock_wait};
 use futures::StreamExt;
 use std::{fs, io};
 
-pub async fn repair(release: &str) -> Result<(), Error> {
+pub async fn repair(release: Codename) -> Result<(), Error> {
     apt_lock_wait().await;
     if let Ok(ppas) = std::fs::read_dir(PPA_DIR) {
+        let release = release.as_str();
         for file in iter_files(ppas) {
             let path = file.path();
             if let Ok(contents) = fs::read_to_string(&path) {
@@ -40,11 +41,7 @@ pub async fn repair(release: &str) -> Result<(), Error> {
 
     for _ in 0..3i32 {
         apt_lock_wait().await;
-        let a = crate::misc::apt_get()
-            .fix_broken()
-            .status()
-            .await
-            .map_err(Error::FixBroken);
+        let a = crate::misc::apt_get().fix_broken().status().await.map_err(Error::FixBroken);
 
         apt_lock_wait().await;
         let b = Dpkg::new()
@@ -80,7 +77,9 @@ async fn base_requirements() -> Result<(), Error> {
     info!("ensuring prerequisites are installed");
 
     // Fetch apt-cache policies for each of the problematic packages.
-    let (mut child, policies) = apt_cmd::AptCache::new().policy(PROBLEMATIC_PACKAGES).await
+    let (mut child, policies) = apt_cmd::AptCache::new()
+        .policy(PROBLEMATIC_PACKAGES)
+        .await
         .map_err(|source| io::Error::other(source))
         .map_err(Error::FetchPolicy)?;
 

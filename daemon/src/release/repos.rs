@@ -23,7 +23,7 @@ const REMOVE_LIST: &[&str] =
     &[SYSTEM_SOURCES, PROPRIETARY_SOURCES, GROOVY_PPA, IMPISH_RELEASE, PPA_SOURCES];
 
 /// Backup the sources lists
-pub async fn backup(release: &str) -> anyhow::Result<()> {
+pub async fn backup(release: Codename) -> anyhow::Result<()> {
     // Files that have been marked for deletion.
     let mut delete = Vec::new();
 
@@ -104,7 +104,7 @@ fn delete_system76_ubuntu_ppa_list() {
 }
 
 /// For each `.list` in `sources.list.d`, add `#` to the `deb` lines.
-pub async fn disable_third_parties(release: &str) -> anyhow::Result<()> {
+pub async fn disable_third_parties(release: Codename) -> anyhow::Result<()> {
     delete_system76_ubuntu_ppa_list();
     let dir = fs::read_dir(PPA_DIR).context("cannot read PPA directory")?;
     for entry in iter_files(dir) {
@@ -148,8 +148,9 @@ pub fn is_eol(codename: Codename) -> bool {
 }
 
 // Check if the release exists on Ubuntu's old-releases archive.
-pub async fn is_old_release(codename: &str) -> bool {
-    let url = &["http://old-releases.ubuntu.com/ubuntu/dists/", codename, "/Release"].concat();
+pub async fn is_old_release(codename: Codename) -> bool {
+    let url =
+        &["http://old-releases.ubuntu.com/ubuntu/dists/", codename.as_str(), "/Release"].concat();
 
     if let Ok(client) = crate::misc::http_client() {
         if let Ok(resp) = client.head(url).send().await {
@@ -160,7 +161,7 @@ pub async fn is_old_release(codename: &str) -> bool {
     false
 }
 
-pub async fn repair(release: &str) -> anyhow::Result<()> {
+pub async fn repair(release: Codename) -> anyhow::Result<()> {
     apply_default_source_lists(release).await
 }
 
@@ -188,7 +189,7 @@ pub fn replace_with_old_releases() -> io::Result<()> {
 }
 
 /// Restore a previous backup of the sources lists
-pub async fn restore(release: &str) -> anyhow::Result<()> {
+pub async fn restore(release: Codename) -> anyhow::Result<()> {
     info!("restoring release files for {}", release);
 
     // Start by removing all of the non-.save files, if .save files exist.
@@ -260,40 +261,18 @@ pub async fn restore(release: &str) -> anyhow::Result<()> {
     let a = apply_default_source_lists(release).await;
     let b = update_preferences_script(release);
 
-    if release == "focal" {
-        let _ = fs::remove_file("/etc/apt/sources.list.d/system76-ubuntu-pop-focal.list");
-    }
-
     a.or(b)
 }
 
-pub async fn apply_default_source_lists(release: &str) -> anyhow::Result<()> {
-    match release {
-        "bionic" | "focal" => {
-            info!("creating source repository files for bionic/focal");
-            fs::write(SOURCES_LIST, sources_list_before_deb822(release))?;
-        }
-
-        "groovy" | "hirsute" => {
-            info!("creating source repository files for groovy/hirsute");
-            fs::write(SOURCES_LIST, sources_list_placeholder())?;
-            fs::write(SYSTEM_SOURCES, system_sources(release))?;
-            fs::write(PROPRIETARY_SOURCES, proprietary_sources(release))?;
-            fs::write(GROOVY_PPA, groovy_ppa(release))?;
-            delete_system76_ubuntu_ppa_list();
-        }
-
-        _ => {
-            info!("creating source repository files for impish+");
-            let _ = fs::remove_file(GROOVY_PPA);
-            let _ = fs::remove_file(PPA_SOURCES);
-            fs::write(SOURCES_LIST, sources_list_placeholder())?;
-            fs::write(SYSTEM_SOURCES, system_sources(release))?;
-            fs::write(PROPRIETARY_SOURCES, proprietary_sources(release))?;
-            fs::write(IMPISH_RELEASE, release_sources(release))?;
-            delete_system76_ubuntu_ppa_list();
-        }
-    }
+pub async fn apply_default_source_lists(release: Codename) -> anyhow::Result<()> {
+    info!("creating source repository files for impish+");
+    let _ = fs::remove_file(GROOVY_PPA);
+    let _ = fs::remove_file(PPA_SOURCES);
+    fs::write(SOURCES_LIST, sources_list_placeholder())?;
+    fs::write(SYSTEM_SOURCES, system_sources(release))?;
+    fs::write(PROPRIETARY_SOURCES, proprietary_sources(release))?;
+    fs::write(IMPISH_RELEASE, release_sources(release))?;
+    delete_system76_ubuntu_ppa_list();
 
     update_preferences_script(release)?;
 
@@ -304,16 +283,6 @@ pub async fn apply_default_source_lists(release: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Apt preferences for Bionic through Hirsute
-const PREFERENCES_BIONIC: &str = r#"Package: *
-Pin: release o=LP-PPA-system76-pop
-Pin-Priority: 1001
-
-Package: *
-Pin: release o=LP-PPA-system76-proposed
-Pin-Priority: 1001
-"#;
-
 /// Apt preferences for Impish and beyond
 const PREFERENCES_IMPISH: &str = r#"Package: *
 Pin: release o=pop-os-release
@@ -321,11 +290,8 @@ Pin-Priority: 1001
 "#;
 
 /// Overwrites Pop's apt preferences script
-fn update_preferences_script(release: &str) -> anyhow::Result<()> {
-    let data = match release {
-        "bionic" | "focal" | "hirsute" => PREFERENCES_BIONIC,
-        _ => PREFERENCES_IMPISH,
-    };
+fn update_preferences_script(_release: Codename) -> anyhow::Result<()> {
+    let data = PREFERENCES_IMPISH;
 
     fs::write("/etc/apt/preferences.d/pop-default-settings", data.as_bytes())
         .context("failed to overwrite pop-default-settings apt preferences")
@@ -339,7 +305,7 @@ fn ubuntu_uri() -> &'static str {
     }
 }
 
-fn system_sources(release: &str) -> String {
+fn system_sources(release: Codename) -> String {
     let uri = if cfg!(target_arch = "aarch64") { ubuntu_uri() } else { "apt.pop-os.org/ubuntu" };
     format!(
         r#"X-Repolib-Name: Pop_OS System Sources
@@ -362,7 +328,7 @@ fn sources_list_placeholder() -> String {
     .to_string()
 }
 
-fn proprietary_sources(release: &str) -> String {
+fn proprietary_sources(release: Codename) -> String {
     format!(
         r#"X-Repolib-Name: Pop_OS Apps
 Enabled: yes
@@ -376,7 +342,7 @@ Signed-By: /etc/apt/trusted.gpg.d/pop-keyring-2017-archive.gpg
     )
 }
 
-fn release_sources(release: &str) -> String {
+fn release_sources(release: Codename) -> String {
     format!(
         r#"X-Repolib-Name: Pop_OS Release Sources
 Enabled: yes
@@ -390,56 +356,11 @@ Signed-By: /etc/apt/trusted.gpg.d/pop-keyring-2017-archive.gpg
     )
 }
 
-fn groovy_ppa(release: &str) -> String {
-    format!(
-        r#"## This file was generated by pop-upgrade
-#
-## X-Repolib-Name: Pop_OS PPA
-deb http://ppa.launchpad.net/system76/pop/ubuntu {0} main
-deb-src http://ppa.launchpad.net/system76/pop/ubuntu {0} main
-"#,
-        release
-    )
-}
-
-fn sources_list_before_deb822(release: &str) -> String {
-    format!(
-        r#"# Ubuntu Repositories
-
-deb http://{1} {0} restricted multiverse universe main
-deb-src http://{1} {0} restricted multiverse universe main
-
-deb http://{1} {0}-updates restricted multiverse universe main
-deb-src http://{1} {0}-updates restricted multiverse universe main
-
-deb http://{1} {0}-security restricted multiverse universe main
-deb-src http://{1} {0}-security restricted multiverse universe main
-
-deb http://{1} {0}-backports restricted multiverse universe main
-deb-src http://{1} {0}-backports restricted multiverse universe main
-
-# Pop!_OS Repositories
-
-deb http://ppa.launchpad.net/system76/pop/ubuntu {0} main
-deb-src http://ppa.launchpad.net/system76/pop/ubuntu {0} main
-{2}"#,
-        release,
-        ubuntu_uri(),
-        if cfg!(target_arch = "aarch64") {
-            String::new()
-        } else {
-            format!("deb http://apt.pop-os.org/proprietary {} main", release)
-        }
-    )
-}
-
 pub fn iter_files(dir: ReadDir) -> impl Iterator<Item = DirEntry> {
     dir.filter_map(Result::ok).filter(|entry| entry.metadata().ok().map_or(false, |m| m.is_file()))
 }
 
-fn is_save_file(path: &Path) -> bool {
-    path.extension() == Some(OsStr::from_bytes(b"save"))
-}
+fn is_save_file(path: &Path) -> bool { path.extension() == Some(OsStr::from_bytes(b"save")) }
 
 #[cfg(test)]
 mod tests {

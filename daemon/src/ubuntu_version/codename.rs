@@ -26,15 +26,13 @@ pub enum Codename {
 }
 
 impl Codename {
+    pub fn as_str(self) -> &'static str { <&'static str>::from(self) }
+
     /// The date when this release is to be, or was, EOL'd.
     pub fn eol_date(self) -> (u32, u32, u32) {
         let (y, m, d) = self.release_date();
 
-        if y % 2 == 0 && m == 4 {
-            (y + 10, m, d)
-        } else {
-            (y + 1, if m == 4 { 1 } else { 7 }, d)
-        }
+        if y % 2 == 0 && m == 4 { (y + 10, m, d) } else { (y + 1, if m == 4 { 1 } else { 7 }, d) }
     }
 
     /// Returns the release date in a `(year, month, date)` format
@@ -74,9 +72,7 @@ impl Codename {
 }
 
 impl Display for Codename {
-    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        fmt.write_str(<&'static str>::from(*self))
-    }
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result { fmt.write_str(<&'static str>::from(*self)) }
 }
 
 impl FromStr for Codename {
