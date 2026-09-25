@@ -88,6 +88,10 @@ error_set::error_set! {
         EspUuid,
         #[display("failed to format new EFI partition")]
         EspFormat(CommandErr),
+        #[display("failed to get size of EFI partition")]
+        EspSize(io::Error),
+        #[display("EFI partition size is not a number")]
+        EspSizeInvalid(std::num::ParseIntError),
         #[display("failed to update initramfs")]
         InitramfsUpdate(CommandErr),
         #[display("could not get swap devices from /proc/swaps")]
@@ -125,7 +129,7 @@ pub async fn repair() -> Result<(), RepairError> {
     if SystemEnvironment::detect() == SystemEnvironment::Efi {
         esp::convert_swap()?;
     }
-    
+
     swapfile::create()?;
     packaging::repair(release).await?;
 
