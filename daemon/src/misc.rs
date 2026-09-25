@@ -1,6 +1,8 @@
 use anyhow::Context;
-use std::{fs, io, path::Path, time::Duration};
-use tokio::fs::{copy, File};
+use std::path::Path;
+use std::time::Duration;
+use std::{fs, io};
+use tokio::fs::{File, copy};
 
 pub fn http_client() -> Result<reqwest::Client, reqwest::Error> {
     reqwest::ClientBuilder::new()

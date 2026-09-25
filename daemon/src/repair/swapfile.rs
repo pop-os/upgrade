@@ -1,7 +1,9 @@
 use super::SwapfileErr as Error;
 use crate::process::exec;
 use rustix::fs::FallocateFlags;
-use std::{os::unix::fs::OpenOptionsExt, path::Path, process::Command};
+use std::os::unix::fs::OpenOptionsExt;
+use std::path::Path;
+use std::process::Command;
 
 const SWAPFILE_PATH: &str = "/swapfile";
 const MEBIBYTE: u64 = 1_048_576;
@@ -9,7 +11,9 @@ const MEBIBYTE: u64 = 1_048_576;
 pub fn create() -> Result<(), Error> {
     let fs_stats = rustix::fs::statfs("/").map_err(Error::RootFsStats)?;
     let Ok(block_size) = u64::try_from(fs_stats.f_bsize) else {
-        return Err(Error::RootBlockSizeInvalid { size: fs_stats.f_bsize })?;
+        return Err(Error::RootBlockSizeInvalid {
+            size: fs_stats.f_bsize,
+        })?;
     };
 
     let available_mib = fs_stats.f_bavail * block_size / MEBIBYTE;

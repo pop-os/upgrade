@@ -1,10 +1,8 @@
 use chrono::{Datelike, Utc};
 use os_release::OsRelease;
-use std::{
-    fmt::{self, Display, Formatter},
-    io,
-    str::FromStr,
-};
+use std::fmt::{self, Display, Formatter};
+use std::io;
+use std::str::FromStr;
 
 #[derive(Debug, thiserror::Error)]
 pub enum VersionError {
@@ -40,11 +38,16 @@ impl Version {
     /// Reads the `/etc/os-release` file and determines which version of Ubuntu is in use.
     pub fn detect() -> Result<Self, VersionError> {
         let release = OsRelease::new().map_err(VersionError::OsRelease)?;
-        release.version.parse::<Version>().map_err(VersionError::Parse)
+        release
+            .version
+            .parse::<Version>()
+            .map_err(VersionError::Parse)
     }
 
     /// Returns `true` if this is a LTS release.
-    pub fn is_lts(self) -> bool { self.major % 2 == 0 && self.minor == 4 }
+    pub fn is_lts(self) -> bool {
+        self.major % 2 == 0 && self.minor == 4
+    }
 
     /// The number of months that have passed since this version was released.
     pub fn months_since(self) -> i32 {
@@ -58,9 +61,17 @@ impl Version {
 
     /// Increments the major / minor version to the next expected release version.
     pub fn next_release(self) -> Self {
-        let (major, minor) = if self.minor == 10 { (self.major + 1, 4) } else { (self.major, 10) };
+        let (major, minor) = if self.minor == 10 {
+            (self.major + 1, 4)
+        } else {
+            (self.major, 10)
+        };
 
-        Version { major, minor, patch: 0 }
+        Version {
+            major,
+            minor,
+            patch: 0,
+        }
     }
 }
 
@@ -80,7 +91,10 @@ impl FromStr for Version {
     type Err = VersionParseError;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let version = input.split_whitespace().next().ok_or(VersionParseError::NoVersion)?;
+        let version = input
+            .split_whitespace()
+            .next()
+            .ok_or(VersionParseError::NoVersion)?;
         if version.is_empty() {
             return Err(VersionParseError::NoVersion);
         }
@@ -88,14 +102,20 @@ impl FromStr for Version {
         let mut iter = version.split('.');
 
         let major = iter.next().ok_or(VersionParseError::NoMajor)?;
-        let major =
-            major.parse::<u8>().map_err(|_| VersionParseError::VersionNaN(major.to_owned()))?;
+        let major = major
+            .parse::<u8>()
+            .map_err(|_| VersionParseError::VersionNaN(major.to_owned()))?;
         let minor = iter.next().ok_or(VersionParseError::NoMinor)?;
-        let minor =
-            minor.parse::<u8>().map_err(|_| VersionParseError::VersionNaN(minor.to_owned()))?;
+        let minor = minor
+            .parse::<u8>()
+            .map_err(|_| VersionParseError::VersionNaN(minor.to_owned()))?;
         let patch = iter.next().and_then(|p| p.parse::<u8>().ok()).unwrap_or(0);
 
-        Ok(Version { major, minor, patch })
+        Ok(Version {
+            major,
+            minor,
+            patch,
+        })
     }
 }
 
@@ -109,24 +129,96 @@ mod tests {
 
     #[test]
     fn months_since_release() {
-        assert_eq!(18, months_since(Version { major: 18, minor: 4, patch: 0 }, 19, 10));
-        assert_eq!(3, months_since(Version { major: 19, minor: 10, patch: 0 }, 20, 1));
-        assert_eq!(-3, months_since(Version { major: 18, minor: 4, patch: 0 }, 18, 1))
+        assert_eq!(
+            18,
+            months_since(
+                Version {
+                    major: 18,
+                    minor: 4,
+                    patch: 0
+                },
+                19,
+                10
+            )
+        );
+        assert_eq!(
+            3,
+            months_since(
+                Version {
+                    major: 19,
+                    minor: 10,
+                    patch: 0
+                },
+                20,
+                1
+            )
+        );
+        assert_eq!(
+            -3,
+            months_since(
+                Version {
+                    major: 18,
+                    minor: 4,
+                    patch: 0
+                },
+                18,
+                1
+            )
+        )
     }
 
     #[test]
     pub fn lts_check() {
-        assert!(Version { major: 18, minor: 4, patch: 0 }.is_lts());
-        assert!(!Version { major: 18, minor: 10, patch: 0 }.is_lts());
-        assert!(!Version { major: 19, minor: 4, patch: 0 }.is_lts());
-        assert!(!Version { major: 19, minor: 10, patch: 0 }.is_lts());
-        assert!(Version { major: 20, minor: 4, patch: 0 }.is_lts());
+        assert!(
+            Version {
+                major: 18,
+                minor: 4,
+                patch: 0
+            }
+            .is_lts()
+        );
+        assert!(
+            !Version {
+                major: 18,
+                minor: 10,
+                patch: 0
+            }
+            .is_lts()
+        );
+        assert!(
+            !Version {
+                major: 19,
+                minor: 4,
+                patch: 0
+            }
+            .is_lts()
+        );
+        assert!(
+            !Version {
+                major: 19,
+                minor: 10,
+                patch: 0
+            }
+            .is_lts()
+        );
+        assert!(
+            Version {
+                major: 20,
+                minor: 4,
+                patch: 0
+            }
+            .is_lts()
+        );
     }
 
     #[test]
     pub fn lts_parse() {
         assert_eq!(
-            Version { major: 18, minor: 4, patch: 1 },
+            Version {
+                major: 18,
+                minor: 4,
+                patch: 1
+            },
             "18.04.1 LTS".parse::<Version>().unwrap()
         )
     }
@@ -134,21 +226,46 @@ mod tests {
     #[test]
     pub fn lts_next() {
         assert_eq!(
-            Version { major: 18, minor: 10, patch: 0 },
-            Version { major: 18, minor: 4, patch: 1 }.next_release()
+            Version {
+                major: 18,
+                minor: 10,
+                patch: 0
+            },
+            Version {
+                major: 18,
+                minor: 4,
+                patch: 1
+            }
+            .next_release()
         )
     }
 
     #[test]
     pub fn non_lts_parse() {
-        assert_eq!(Version { major: 18, minor: 10, patch: 0 }, "18.10".parse::<Version>().unwrap())
+        assert_eq!(
+            Version {
+                major: 18,
+                minor: 10,
+                patch: 0
+            },
+            "18.10".parse::<Version>().unwrap()
+        )
     }
 
     #[test]
     pub fn non_lts_next() {
         assert_eq!(
-            Version { major: 19, minor: 4, patch: 0 },
-            Version { major: 18, minor: 10, patch: 0 }.next_release()
+            Version {
+                major: 19,
+                minor: 4,
+                patch: 0
+            },
+            Version {
+                major: 18,
+                minor: 10,
+                patch: 0
+            }
+            .next_release()
         )
     }
 }

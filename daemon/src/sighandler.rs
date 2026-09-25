@@ -1,7 +1,5 @@
-use std::{
-    fmt::{self, Display, Formatter},
-    sync::atomic::{AtomicU8, Ordering},
-};
+use std::fmt::{self, Display, Formatter};
+use std::sync::atomic::{AtomicU8, Ordering};
 
 static PENDING: AtomicU8 = AtomicU8::new(0);
 

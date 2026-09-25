@@ -1,5 +1,7 @@
 use anyhow::Context;
-use apt_cmd::{lock::apt_lock_wait, request::Request as AptRequest, AptGet};
+use apt_cmd::AptGet;
+use apt_cmd::lock::apt_lock_wait;
+use apt_cmd::request::Request as AptRequest;
 use async_shutdown::ShutdownManager as Shutdown;
 use std::collections::HashSet;
 
@@ -24,7 +26,11 @@ pub async fn fetch_uris(
             .context("failed to fetch package URIs from apt-get full-upgrade")?;
 
         if let Some(packages) = packages {
-            let mut args = if dependencies { vec!["install"] } else { vec!["download"] };
+            let mut args = if dependencies {
+                vec!["install"]
+            } else {
+                vec!["download"]
+            };
             match packages {
                 ExtraPackages::Static(packages) => {
                     args.extend_from_slice(packages);
@@ -44,8 +50,13 @@ pub async fn fetch_uris(
                 .noninteractive()
                 .fetch_uris(&args)
                 .await
-                .context("failed to exec `apt-get install --print-uris` or `apt-get download --print-uris`")?
-                .context("failed to fetch package URIs from `apt-get install` or `apt-get download`")?;
+                .context(
+                    "failed to exec `apt-get install --print-uris` or `apt-get download \
+                     --print-uris`",
+                )?
+                .context(
+                    "failed to fetch package URIs from `apt-get install` or `apt-get download`",
+                )?;
 
             for uri in install_uris {
                 uris.insert(uri);

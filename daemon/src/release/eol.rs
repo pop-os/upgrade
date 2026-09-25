@@ -12,13 +12,17 @@ pub enum EolStatus {
 
 pub struct EolDate {
     pub codename: Codename,
-    pub version:  Version,
-    pub ymd:      (u32, u32, u32),
+    pub version: Version,
+    pub ymd: (u32, u32, u32),
 }
 
 impl From<Codename> for EolDate {
     fn from(codename: Codename) -> Self {
-        Self { codename, version: codename.into(), ymd: codename.eol_date() }
+        Self {
+            codename,
+            version: codename.into(),
+            ymd: codename.eol_date(),
+        }
     }
 }
 
@@ -31,11 +35,17 @@ impl EolDate {
             Err(()) => return Err(anyhow!("Invalid Ubuntu version: {}", version)),
         };
 
-        Ok(Self { codename, version, ymd: codename.eol_date() })
+        Ok(Self {
+            codename,
+            version,
+            ymd: codename.eol_date(),
+        })
     }
 
     #[inline]
-    pub fn status(&self) -> EolStatus { self.status_from(Utc::now().date_naive()) }
+    pub fn status(&self) -> EolStatus {
+        self.status_from(Utc::now().date_naive())
+    }
 
     pub fn status_from(&self, date: NaiveDate) -> EolStatus {
         let (year, month, day) = self.ymd;
@@ -70,16 +80,31 @@ mod tests {
     #[test]
     fn eol_exceeded() {
         let disco = EolDate::from(Codename::Disco);
-        assert_eq!(disco.status_from(ymd_to_naive(2020, 1, 18)), EolStatus::Exceeded);
-        assert_eq!(disco.status_from(ymd_to_naive(2020, 2, 1)), EolStatus::Exceeded);
-        assert_eq!(disco.status_from(ymd_to_naive(2021, 1, 1)), EolStatus::Exceeded);
+        assert_eq!(
+            disco.status_from(ymd_to_naive(2020, 1, 18)),
+            EolStatus::Exceeded
+        );
+        assert_eq!(
+            disco.status_from(ymd_to_naive(2020, 2, 1)),
+            EolStatus::Exceeded
+        );
+        assert_eq!(
+            disco.status_from(ymd_to_naive(2021, 1, 1)),
+            EolStatus::Exceeded
+        );
     }
 
     #[test]
     fn eol_imminent() {
         let disco = EolDate::from(Codename::Disco);
-        assert_eq!(disco.status_from(ymd_to_naive(2019, 12, 30)), EolStatus::Imminent);
-        assert_eq!(disco.status_from(ymd_to_naive(2020, 1, 17)), EolStatus::Imminent);
+        assert_eq!(
+            disco.status_from(ymd_to_naive(2019, 12, 30)),
+            EolStatus::Imminent
+        );
+        assert_eq!(
+            disco.status_from(ymd_to_naive(2020, 1, 17)),
+            EolStatus::Imminent
+        );
     }
 
     #[test]

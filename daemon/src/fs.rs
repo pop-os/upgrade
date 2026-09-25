@@ -24,20 +24,24 @@ error_set::error_set! {
 pub fn atomic_overwrite(source_path: &Path, data: &[u8]) -> Result<(), Error> {
     atomic_overwrite_(source_path, data).map_err(|source| Error {
         source,
-        path: source_path.to_owned()
+        path: source_path.to_owned(),
     })
 }
 
 fn atomic_overwrite_(source_path: &Path, data: &[u8]) -> Result<(), ErrorKind> {
-    let parent_path = source_path.parent()
-        .map(|parent| if parent.as_os_str().is_empty() {
-            Path::new(".")
-        } else {
-            parent
+    let parent_path = source_path
+        .parent()
+        .map(|parent| {
+            if parent.as_os_str().is_empty() {
+                Path::new(".")
+            } else {
+                parent
+            }
         })
         .ok_or(ErrorKind::Parentless)?;
 
-    let source_name = source_path.file_name()
+    let source_name = source_path
+        .file_name()
         .ok_or(ErrorKind::NoFileName)?
         .to_owned();
 
@@ -57,12 +61,13 @@ fn atomic_overwrite_(source_path: &Path, data: &[u8]) -> Result<(), ErrorKind> {
         .open(&temp_path)
         .map_err(ErrorKind::TempFileCreate)?;
 
-    temp_file.write_all(data).map_err(ErrorKind::TempFileWrite)?;
+    temp_file
+        .write_all(data)
+        .map_err(ErrorKind::TempFileWrite)?;
 
     _ = temp_file.sync_all();
 
-    let parent_dir = std::fs::File::open(parent_path)
-        .map_err(ErrorKind::OpenParent)?;
+    let parent_dir = std::fs::File::open(parent_path).map_err(ErrorKind::OpenParent)?;
 
     rustix::fs::renameat(&parent_dir, &temp_name, &parent_dir, &source_name)
         .map_err(ErrorKind::AtomicReplace)?;

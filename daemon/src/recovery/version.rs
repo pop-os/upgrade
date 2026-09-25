@@ -1,5 +1,7 @@
 use crate::ubuntu_version;
-use std::{fs, io, path::Path, str::FromStr};
+use std::path::Path;
+use std::str::FromStr;
+use std::{fs, io};
 use thiserror::Error;
 
 pub const RECOVERY_VERSION: &str = "/recovery/version";
@@ -28,7 +30,7 @@ pub enum RecoveryVersionError {
 #[derive(Debug, Clone)]
 pub struct RecoveryVersion {
     pub version: String,
-    pub build:   i16,
+    pub build: i16,
 }
 
 impl FromStr for RecoveryVersion {
@@ -43,13 +45,18 @@ impl FromStr for RecoveryVersion {
             .parse::<i16>()
             .map_err(|_| RecoveryVersionError::BuildNaN)?;
 
-        Ok(RecoveryVersion { version: version.to_owned(), build })
+        Ok(RecoveryVersion {
+            version: version.to_owned(),
+            build,
+        })
     }
 }
 
 pub fn version() -> Result<RecoveryVersion, RecoveryVersionError> {
     if Path::new(RECOVERY_VERSION).exists() {
-        recovery_file().map_err(RecoveryVersionError::File)?.parse::<RecoveryVersion>()
+        recovery_file()
+            .map_err(RecoveryVersionError::File)?
+            .parse::<RecoveryVersion>()
     } else {
         use std::io::{BufRead, BufReader};
         use ubuntu_version::{Codename, Version};
@@ -60,7 +67,7 @@ pub fn version() -> Result<RecoveryVersion, RecoveryVersionError> {
                 if let Some(codename) = line.split_ascii_whitespace().nth(1) {
                     return Ok(RecoveryVersion {
                         version: Version::from(Codename::from_str(codename)?).to_string(),
-                        build:   0,
+                        build: 0,
                     });
                 }
             }
@@ -70,4 +77,6 @@ pub fn version() -> Result<RecoveryVersion, RecoveryVersionError> {
     }
 }
 
-pub fn recovery_file() -> io::Result<String> { fs::read_to_string(RECOVERY_VERSION) }
+pub fn recovery_file() -> io::Result<String> {
+    fs::read_to_string(RECOVERY_VERSION)
+}

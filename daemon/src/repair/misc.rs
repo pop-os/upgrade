@@ -1,9 +1,7 @@
-use std::{
-    cmp::Ordering,
-    fs::{self, File},
-    io::{self, Write},
-    path::Path,
-};
+use std::cmp::Ordering;
+use std::fs::{self, File};
+use std::io::{self, Write};
+use std::path::Path;
 
 // On the upgrade to 19.10, dkms is unable to build modules for kernels older than 5.3
 // because of incompatible options in GCC 9. This can be fixed by removing the
@@ -13,8 +11,10 @@ use std::{
 // from either 18.04 or 19.04 may still have sources for an older kernel.
 pub fn dkms_gcc9_fix() -> io::Result<()> {
     const UNAFFECTED: &str = "5.3.0";
-    const BADFLAGS: [&str; 2] =
-        [" -mindirect-branch=thunk-extern", " -mindirect-branch=thunk-inline"];
+    const BADFLAGS: [&str; 2] = [
+        " -mindirect-branch=thunk-extern",
+        " -mindirect-branch=thunk-inline",
+    ];
 
     let lib_modules_dir: &'static Path = ["/lib/modules", "/usr/lib/modules"]
         .iter()

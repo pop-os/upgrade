@@ -1,7 +1,8 @@
-use crate::{
-    process::CommandErr, release::DracutError, release_architecture::ReleaseArchError,
-    repair::RepairError, ubuntu_version::VersionError,
-};
+use crate::process::CommandErr;
+use crate::release::DracutError;
+use crate::release_architecture::ReleaseArchError;
+use crate::repair::RepairError;
+use crate::ubuntu_version::VersionError;
 use std::io;
 
 pub type RelResult<T> = Result<T, ReleaseError>;

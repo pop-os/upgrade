@@ -1,4 +1,5 @@
-use std::{io::{self, Write}, path::Path};
+use std::io::{self, Write};
+use std::path::Path;
 
 const LUKS_CONF_PATH: &str = "/etc/dracut.conf.d/luks.conf";
 
@@ -50,10 +51,13 @@ pub fn create_luks_config(luks_uuid: &str) -> io::Result<()> {
         .write(true)
         .open(LUKS_CONF_PATH)?;
 
-    writeln!(&mut file, r#"add_dracutmodules+=" crypt lvm mdraid plymouth "
+    writeln!(
+        &mut file,
+        r#"add_dracutmodules+=" crypt lvm mdraid plymouth "
 install_items+=" /etc/crypttab "
 kernel_cmdline+=" rd.luks.uuid={luks_uuid} "
-"#)
+"#
+    )
 }
 
 pub fn add_kernelstub_option(root_uuid: &str) -> io::Result<()> {

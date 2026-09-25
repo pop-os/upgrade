@@ -4,22 +4,21 @@ mod version;
 use crate::daemon::SignalEvent;
 use async_fetcher::{Checksum, FetchEvent, Fetcher, SumStr};
 use async_shutdown::ShutdownManager as Shutdown;
-use std::{
-    convert::TryFrom,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::convert::TryFrom;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use sys_mount::{Mount, MountFlags, Unmount, UnmountFlags};
-use tokio::{process::Command, sync::mpsc::UnboundedSender};
+use tokio::process::Command;
+use tokio::sync::mpsc::UnboundedSender;
 
-use crate::{
-    external::findmnt_uuid, release_api::Release, release_architecture::detect_arch,
-    system_environment::SystemEnvironment,
-};
+use crate::external::findmnt_uuid;
+use crate::release_api::Release;
+use crate::release_architecture::detect_arch;
+use crate::system_environment::SystemEnvironment;
 
-pub use self::{
-    errors::{RecResult, RecoveryError},
-    version::{RECOVERY_VERSION, RecoveryVersion, RecoveryVersionError, recovery_file, version},
+pub use self::errors::{RecResult, RecoveryError};
+pub use self::version::{
+    RECOVERY_VERSION, RecoveryVersion, RecoveryVersionError, recovery_file, version,
 };
 
 bitflags! {
@@ -54,7 +53,11 @@ impl From<RecoveryEvent> for &'static str {
 #[derive(Debug, Clone)]
 pub enum UpgradeMethod {
     FromFile(PathBuf),
-    FromRelease { version: Option<String>, arch: Option<String>, flags: ReleaseFlags },
+    FromRelease {
+        version: Option<String>,
+        arch: Option<String>,
+        flags: ReleaseFlags,
+    },
 }
 
 pub async fn recovery(
@@ -67,7 +70,9 @@ pub async fn recovery(
     }
 
     // Check the system and perform any repairs necessary for success.
-    crate::repair::repair().await.map_err(RecoveryError::Repair)?;
+    crate::repair::repair()
+        .await
+        .map_err(RecoveryError::Repair)?;
 
     shutdown_check(&cancel)?;
 
@@ -119,7 +124,10 @@ async fn fetch_iso<P: AsRef<Path>>(
     recovery_path: P,
 ) -> RecResult<Option<(Box<str>, u16)>> {
     let recovery_path = recovery_path.as_ref();
-    info!("fetching ISO to upgrade recovery partition at {}", recovery_path.display());
+    info!(
+        "fetching ISO to upgrade recovery partition at {}",
+        recovery_path.display()
+    );
     emit_recovery_event(&sender, RecoveryEvent::Fetching);
 
     if !recovery_path.exists() {
@@ -131,7 +139,10 @@ async fn fetch_iso<P: AsRef<Path>>(
         return Err(RecoveryError::EfiNotFound);
     }
 
-    let recovery_uuid = findmnt_uuid(recovery_path).await.ok().ok_or(RecoveryError::FindUuid)?;
+    let recovery_uuid = findmnt_uuid(recovery_path)
+        .await
+        .ok()
+        .ok_or(RecoveryError::FindUuid)?;
 
     let casper = ["casper-", &recovery_uuid].concat();
     let recovery = ["Recovery-", &recovery_uuid].concat();
@@ -152,7 +163,10 @@ async fn fetch_iso<P: AsRef<Path>>(
             shutdown_check(&cancel)?;
 
             if verify(&version, build) {
-                info!("recovery partition is already upgraded to {}b{}", version, build);
+                info!(
+                    "recovery partition is already upgraded to {}b{}",
+                    version, build
+                );
                 return Ok(None);
             }
 
@@ -169,9 +183,12 @@ async fn fetch_iso<P: AsRef<Path>>(
 
                 shutdown_check(&cancel)?;
 
-                let release = Release::get_release(&version, arch).await.map_err(|source| {
-                    RecoveryError::ReleaseCheck { source, version: version.as_ref().to_owned() }
-                })?;
+                let release = Release::get_release(&version, arch)
+                    .await
+                    .map_err(|source| RecoveryError::ReleaseCheck {
+                        source,
+                        version: version.as_ref().to_owned(),
+                    })?;
 
                 shutdown_check(&cancel)?;
 
@@ -242,7 +259,9 @@ async fn fetch_iso<P: AsRef<Path>>(
     let cp1 = crate::misc::cp(&casper_initrd, &efi_initrd);
     let cp2 = crate::misc::cp(&casper_vmlinuz, &efi_vmlinuz);
 
-    futures::future::try_join(cp1, cp2).await.map_err(RecoveryError::CopyKernel)?;
+    futures::future::try_join(cp1, cp2)
+        .await
+        .map_err(RecoveryError::CopyKernel)?;
 
     emit_recovery_event(&sender, RecoveryEvent::Complete);
 
@@ -269,7 +288,10 @@ async fn from_remote(
     info!("downloading ISO from remote at {} to {:?}", url, path);
 
     let checksum = Checksum::try_from(SumStr::Sha256(checksum_str)).map_err(|source| {
-        RecoveryError::ChecksumInvalid { checksum: checksum_str.to_owned(), source }
+        RecoveryError::ChecksumInvalid {
+            checksum: checksum_str.to_owned(),
+            source,
+        }
     })?;
 
     let (events_tx, mut events_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -302,7 +324,10 @@ async fn from_remote(
             // Fetch the ISO to `dest`
             .request(urls, dest, Arc::new(()))
             .await
-            .map_err(|source| RecoveryError::Fetch { url: url.into(), source })?;
+            .map_err(|source| RecoveryError::Fetch {
+                url: url.into(),
+                source,
+            })?;
 
         info!("fetched recovery ISO. Now validating checksum.");
 
@@ -312,7 +337,10 @@ async fn from_remote(
             let _ = sender.send(SignalEvent::RecoveryUpgradeEvent(RecoveryEvent::Verifying));
             let result = checksum
                 .validate(file, &mut vec![0u8; 16 * 1024])
-                .map_err(|source| RecoveryError::Checksum { path: path_.clone(), source });
+                .map_err(|source| RecoveryError::Checksum {
+                    path: path_.clone(),
+                    source,
+                });
 
             if result.is_err() {
                 let _ = std::fs::remove_file(&path_);

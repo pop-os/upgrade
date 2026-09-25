@@ -32,65 +32,71 @@ pub mod methods {
 mod error;
 mod status;
 
-pub use self::{
-    error::DaemonError, methods::DismissEvent, signals::SignalEvent, status::DaemonStatus,
-};
+pub use self::error::DaemonError;
+pub use self::methods::DismissEvent;
+pub use self::signals::SignalEvent;
+pub use self::status::DaemonStatus;
 
-use crate::{
-    DBUS_IFACE, DBUS_NAME, DBUS_PATH, RESTART_SCHEDULED, misc::{self, format_error}, recovery::{
-        self, RecoveryError, RecoveryVersion, RecoveryVersionError,
-        ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
-    }, release::{
-        self, FetchEvent, RefreshOp, ReleaseError, ReleaseStatus,
-        UpgradeMethod as ReleaseUpgradeMethod,
-    }, repair, sighandler, ubuntu_version::Version
+use crate::misc::{self, format_error};
+use crate::recovery::{
+    self, RecoveryError, RecoveryVersion, RecoveryVersionError,
+    ReleaseFlags as RecoveryReleaseFlags, UpgradeMethod as RecoveryUpgradeMethod,
 };
+use crate::release::{
+    self, FetchEvent, RefreshOp, ReleaseError, ReleaseStatus, UpgradeMethod as ReleaseUpgradeMethod,
+};
+use crate::ubuntu_version::Version;
+use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH, RESTART_SCHEDULED, repair, sighandler};
 use async_shutdown::ShutdownManager as Shutdown;
 
 use anyhow::Context as AnyhowContext;
-use apt_cmd::{request::Request as AptRequest, AptCache, AptGet, AptMark};
+use apt_cmd::request::Request as AptRequest;
+use apt_cmd::{AptCache, AptGet, AptMark};
 use as_result::MapResult;
 use atomic::Atomic;
-use dbus::{
-    blocking::Connection,
-    channel::{MatchingReceiver, Sender as DBusSender},
-    message::{MatchRule, Message},
-};
+use dbus::blocking::Connection;
+use dbus::channel::{MatchingReceiver, Sender as DBusSender};
+use dbus::message::{MatchRule, Message};
 use dbus_crossroads::{Context, Crossroads, MethodErr};
 use futures::prelude::*;
 use logind_dbus::LoginManager;
 use num_traits::FromPrimitive;
-use std::{
-    collections::{HashMap, HashSet},
-    fs,
-    path::PathBuf,
-    sync::{
-        atomic::{AtomicBool, AtomicU8, Ordering},
-        Arc,
-    },
-};
-use tokio::{
-    runtime::Handle,
-    sync::{
-        mpsc::{self, UnboundedReceiver, UnboundedSender},
-        Mutex,
-    },
-};
+use std::collections::{HashMap, HashSet};
+use std::fs;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use tokio::runtime::Handle;
+use tokio::sync::Mutex;
+use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 pub const DISMISSED: &str = "/usr/lib/pop-upgrade/dismissed";
 pub const INSTALL_DATE: &str = "/usr/lib/pop-upgrade/install_date";
 
 #[derive(Debug)]
 pub enum Event {
-    FetchUpdates { apt_uris: HashSet<AptRequest>, download_only: bool },
+    FetchUpdates {
+        apt_uris: HashSet<AptRequest>,
+        download_only: bool,
+    },
     PackageUpgrade,
     RecoveryUpgrade(RecoveryUpgradeMethod),
-    ReleaseUpgrade { how: ReleaseUpgradeMethod, from: String, to: String, await_recovery: bool },
+    ReleaseUpgrade {
+        how: ReleaseUpgradeMethod,
+        from: String,
+        to: String,
+        await_recovery: bool,
+    },
 }
 
 #[derive(Debug)]
 pub enum FgEvent {
-    SetUpgradeState(Result<(), ReleaseError>, ReleaseUpgradeMethod, Box<str>, Box<str>),
+    SetUpgradeState(
+        Result<(), ReleaseError>,
+        ReleaseUpgradeMethod,
+        Box<str>,
+        Box<str>,
+    ),
 }
 
 pub struct LastKnown {
@@ -163,9 +169,14 @@ pub struct Daemon {
 }
 
 impl Daemon {
-    pub fn new(
-    ) -> Result<(Self, UnboundedReceiver<FgEvent>, UnboundedReceiver<SignalEvent>), DaemonError>
-    {
+    pub fn new() -> Result<
+        (
+            Self,
+            UnboundedReceiver<FgEvent>,
+            UnboundedReceiver<SignalEvent>,
+        ),
+        DaemonError,
+    > {
         // Events to be handled by the background service.
         let (event_tx, mut event_rx) = mpsc::unbounded_channel();
 
@@ -395,7 +406,9 @@ impl Daemon {
     }
 
     pub async fn init() -> Result<(), DaemonError> {
-        unsafe { std::env::set_var("DEBIAN_FRONTEND", "noninteractive"); }
+        unsafe {
+            std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
+        }
 
         info!("initializing daemon");
         fs::create_dir_all(crate::VAR_LIB_DIR)
@@ -405,7 +418,7 @@ impl Daemon {
             warn!("failure restoring previous boot entry: {}", why);
         }
 
-        // Apply ESP+swap fixes to existing 26.04 upgrades 
+        // Apply ESP+swap fixes to existing 26.04 upgrades
         if let Ok(version) = Version::detect()
             && version.major == 26
             && version.minor == 4
@@ -630,7 +643,11 @@ impl Daemon {
                 ("development",),
                 ("current", "next", "build", "urgent", "is_lts"),
                 |_ctx: &mut Context, daemon: &mut Daemon, (development,): (bool,)| {
-                    if daemon.shared_state.release_upgrade_began.load(Ordering::SeqCst) {
+                    if daemon
+                        .shared_state
+                        .release_upgrade_began
+                        .load(Ordering::SeqCst)
+                    {
                         return Err(MethodErr::failed(
                             "daemon is busy performing a release upgrade",
                         ));
@@ -639,28 +656,31 @@ impl Daemon {
                     match daemon.shared_state.status.load(Ordering::SeqCst) {
                         DaemonStatus::Inactive => (),
                         DaemonStatus::PackageUpgrade => {
-                            return Err(MethodErr::failed("daemon is busy upgrading packages"))
+                            return Err(MethodErr::failed("daemon is busy upgrading packages"));
                         }
                         DaemonStatus::ReleaseUpgrade => {
                             return Err(MethodErr::failed(
                                 "daemon is busy performing a release upgrade",
-                            ))
+                            ));
                         }
                         DaemonStatus::RecoveryUpgrade => {
                             return Err(MethodErr::failed(
                                 "daemon is busy upgrading the recovery partition",
-                            ))
+                            ));
                         }
                         DaemonStatus::FetchingPackages => {
                             return Err(MethodErr::failed(
                                 "daemon is busy fetching package updates",
-                            ))
+                            ));
                         }
                     }
 
                     daemon.last_known.development = development;
                     futures::executor::block_on(async {
-                        daemon.shared_state.force_next.store(development, Ordering::SeqCst);
+                        daemon
+                            .shared_state
+                            .force_next
+                            .store(development, Ordering::SeqCst);
 
                         let status = daemon
                             .release_check(development)
@@ -722,7 +742,9 @@ impl Daemon {
                 (),
                 (),
                 |_ctx: &mut Context, daemon: &mut Daemon, _inputs: ()| {
-                    daemon.release_upgrade_finalize().map_err(|why| MethodErr::failed(&why))
+                    daemon
+                        .release_upgrade_finalize()
+                        .map_err(|why| MethodErr::failed(&why))
                 },
             );
 
@@ -907,7 +929,10 @@ impl Daemon {
                                 .append2(progress, total)
                         }
                         SignalEvent::RecoveryUpgradeEvent(event) => {
-                            daemon.shared_state.sub_status.store(event as u8, Ordering::SeqCst);
+                            daemon
+                                .shared_state
+                                .sub_status
+                                .store(event as u8, Ordering::SeqCst);
                             Self::signal_message(signals::RECOVERY_EVENT).append1(event as u8)
                         }
                         SignalEvent::RecoveryUpgradeResult(result) => {
@@ -959,7 +984,10 @@ impl Daemon {
         extra_packages: Vec<String>,
         download_only: bool,
     ) -> anyhow::Result<(bool, u32)> {
-        info!("fetching updates for the system, including {:?}", extra_packages);
+        info!(
+            "fetching updates for the system, including {:?}",
+            extra_packages
+        );
 
         let shutdown = self.shared_state.shutdown.lock().await.clone();
 
@@ -974,7 +1002,10 @@ impl Daemon {
 
         let npackages = apt_uris.len() as u32;
 
-        self.submit_event(Event::FetchUpdates { apt_uris, download_only })?;
+        self.submit_event(Event::FetchUpdates {
+            apt_uris,
+            download_only,
+        })?;
 
         Ok((true, npackages))
     }
@@ -987,7 +1018,11 @@ impl Daemon {
     }
 
     async fn cancel(&mut self) {
-        if self.shared_state.release_upgrade_began.load(Ordering::SeqCst) {
+        if self
+            .shared_state
+            .release_upgrade_began
+            .load(Ordering::SeqCst)
+        {
             info!("cannot cancel a release upgrade that's now ongoing");
             return;
         }
@@ -1028,8 +1063,16 @@ impl Daemon {
         info!("upgrading the recovery partition to {}-{}", version, arch);
 
         let event = Event::RecoveryUpgrade(RecoveryUpgradeMethod::FromRelease {
-            version: if version.is_empty() { None } else { Some(version.into()) },
-            arch: if arch.is_empty() { None } else { Some(arch.into()) },
+            version: if version.is_empty() {
+                None
+            } else {
+                Some(version.into())
+            },
+            arch: if arch.is_empty() {
+                None
+            } else {
+                Some(arch.into())
+            },
             flags: RecoveryReleaseFlags::from_bits_truncate(flags),
         });
 
@@ -1041,9 +1084,10 @@ impl Daemon {
 
         let version = match crate::recovery::version() {
             Ok(version) => version,
-            Err(RecoveryVersionError::Unknown) => {
-                RecoveryVersion { version: String::new(), build: -1 }
-            }
+            Err(RecoveryVersionError::Unknown) => RecoveryVersion {
+                version: String::new(),
+                build: -1,
+            },
             Err(ref why) => {
                 return Err(format_error(why));
             }
@@ -1060,8 +1104,9 @@ impl Daemon {
     async fn release_check(&self, development: bool) -> Result<ReleaseStatus, String> {
         info!("performing a release check");
 
-        let status =
-            release::check::next(development).await.map_err(|ref why| format_error(why))?;
+        let status = release::check::next(development)
+            .await
+            .map_err(|ref why| format_error(why))?;
 
         let mut buffer = String::new();
 
@@ -1088,7 +1133,12 @@ impl Daemon {
         let how = ReleaseUpgradeMethod::from_u8(how)
             .context("provided upgrade `how` value is out of range")?;
 
-        let event = Event::ReleaseUpgrade { how, from: from.into(), to: to.into(), await_recovery };
+        let event = Event::ReleaseUpgrade {
+            how,
+            from: from.into(),
+            to: to.into(),
+            await_recovery,
+        };
         self.submit_event(event)
     }
 
@@ -1098,9 +1148,11 @@ impl Daemon {
                 release::upgrade_finalize(*action, from, to)
                     .map_err(|why| format!("release upgrade finalization failed: {}", why))
             }
-            None => Err("release upgrade cannot be finalized, because a release upgrade was not \
+            None => Err(
+                "release upgrade cannot be finalized, because a release upgrade was not \
                          performed"
-                .into()),
+                    .into(),
+            ),
         }
     }
 
@@ -1113,9 +1165,13 @@ impl Daemon {
     async fn reset(&mut self) -> Result<(), String> {
         info!("resetting daemon");
 
-        self.shared_state.status.store(DaemonStatus::Inactive, Ordering::SeqCst);
+        self.shared_state
+            .status
+            .store(DaemonStatus::Inactive, Ordering::SeqCst);
         self.shared_state.sub_status.store(0, Ordering::SeqCst);
-        self.shared_state.fetching_state.store(FetchState::new(0, 0), Ordering::SeqCst);
+        self.shared_state
+            .fetching_state
+            .store(FetchState::new(0, 0), Ordering::SeqCst);
         self.release_upgrade = None;
 
         release::cleanup().await;
@@ -1134,7 +1190,10 @@ impl Daemon {
         F: FnOnce(&mut Self, bool) -> Result<T, E>,
     {
         debug!("setting status to {}", status);
-        func(self, self.shared_state.status.swap(status, Ordering::SeqCst) == status)
+        func(
+            self,
+            self.shared_state.status.swap(status, Ordering::SeqCst) == status,
+        )
     }
 
     fn signal_message(name: &'static str) -> Message {

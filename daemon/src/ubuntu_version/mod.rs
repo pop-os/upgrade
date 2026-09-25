@@ -1,7 +1,8 @@
 mod codename;
 mod version;
 
-pub use self::{codename::*, version::*};
+pub use self::codename::*;
+pub use self::version::*;
 use std::convert::TryFrom;
 
 impl TryFrom<Version> for Codename {
@@ -41,6 +42,10 @@ impl From<Codename> for Version {
             Codename::Resolute => (26, 4),
         };
 
-        Version { major, minor, patch: 0 }
+        Version {
+            major,
+            minor,
+            patch: 0,
+        }
     }
 }

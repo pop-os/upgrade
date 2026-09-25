@@ -1,7 +1,5 @@
-use crate::{
-    release_api::{ApiError, Release},
-    ubuntu_version::{Version, VersionError},
-};
+use crate::release_api::{ApiError, Release};
+use crate::ubuntu_version::{Version, VersionError};
 use std::future::Future;
 
 error_set::error_set! {
@@ -91,7 +89,10 @@ pub async fn current(version: Option<&str>) -> Result<(Box<str>, u16), Error> {
     if let Some(version) = version {
         let build = Release::build_exists(version, "generic")
             .await
-            .map_err(|source| Error::NoBuild { source, version: version.into() })?;
+            .map_err(|source| Error::NoBuild {
+                source,
+                version: version.into(),
+            })?;
 
         return Ok((version.into(), build));
     }
@@ -101,7 +102,10 @@ pub async fn current(version: Option<&str>) -> Result<(Box<str>, u16), Error> {
 
     let build = Release::build_exists(release_str, "generic")
         .await
-        .map_err(|source| Error::NoBuild { source, version: release_str.into() })?;
+        .map_err(|source| Error::NoBuild {
+            source,
+            version: release_str.into(),
+        })?;
 
     Ok((release_str.into(), build))
 }
@@ -138,19 +142,37 @@ async fn next_<Check: Fn(String) -> Status, Status: Future<Output = BuildStatus>
 ) -> ReleaseStatus {
     // Enables a release upgrade from current to next, if a next ISO exists
     let available = |is_lts: bool, current: &'static str, next: &'static str| async move {
-        ReleaseStatus { build: release_check(next.into()).await, current, is_lts, next }
+        ReleaseStatus {
+            build: release_check(next.into()).await,
+            current,
+            is_lts,
+            next,
+        }
     };
 
     // Disables any form of upgrades from occurring on this release
     let blocked = |is_lts: bool, current: &'static str, next: &'static str| async move {
-        ReleaseStatus { build: BuildStatus::Blacklisted, current, is_lts, next }
+        ReleaseStatus {
+            build: BuildStatus::Blacklisted,
+            current,
+            is_lts,
+            next,
+        }
     };
 
     // Only permits an upgrade if the development flag is passed
     let development_enabled = |is_lts: bool, current: &'static str, next: &'static str| async move {
-        let build =
-            if development { release_check(next.into()).await } else { BuildStatus::Blacklisted };
-        ReleaseStatus { current, next, build, is_lts }
+        let build = if development {
+            release_check(next.into()).await
+        } else {
+            BuildStatus::Blacklisted
+        };
+        ReleaseStatus {
+            current,
+            next,
+            build,
+            is_lts,
+        }
     };
 
     match (current.major, current.minor) {

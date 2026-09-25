@@ -1,7 +1,5 @@
-use crate::{
-    recovery::{RecoveryError, RecoveryEvent},
-    release::{ReleaseError, UpgradeEvent},
-};
+use crate::recovery::{RecoveryError, RecoveryEvent};
+use crate::release::{ReleaseError, UpgradeEvent};
 use apt_cmd::AptUpgradeEvent;
 use std::fmt::{self, Display, Formatter};
 
@@ -47,7 +45,12 @@ impl Display for SignalEvent {
             Fetching(package) => write!(fmt, "fetching {}", package),
             NoConnection => write!(fmt, "internet connection required, but not available"),
             RecoveryDownloadProgress(progress, total) => {
-                write!(fmt, "recovery download: {}/{} MiB", progress / 1024, total / 1024)
+                write!(
+                    fmt,
+                    "recovery download: {}/{} MiB",
+                    progress / 1024,
+                    total / 1024
+                )
             }
             RecoveryUpgradeEvent(event) => {
                 write!(fmt, "recovery upgrade: {}", <&'static str>::from(*event))

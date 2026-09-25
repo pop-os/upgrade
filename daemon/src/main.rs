@@ -22,14 +22,16 @@ mod cli;
 mod logging;
 mod notify;
 
-use crate::{cli::Client, logging::setup_logging};
-use pop_upgrade::{daemon::Daemon, sighandler};
+use crate::cli::Client;
+use crate::logging::setup_logging;
+use pop_upgrade::daemon::Daemon;
+use pop_upgrade::sighandler;
 
 pub mod error {
-    use pop_upgrade::{
-        client::Error as ClientError, daemon::DaemonError, recovery::RecoveryError,
-        release::ReleaseError,
-    };
+    use pop_upgrade::client::Error as ClientError;
+    use pop_upgrade::daemon::DaemonError;
+    use pop_upgrade::recovery::RecoveryError;
+    use pop_upgrade::release::ReleaseError;
     use std::io;
 
     #[derive(Debug, Error)]
@@ -57,7 +59,9 @@ pub mod error {
     }
 }
 
-use std::{path::Path, process::exit, time::Duration};
+use std::path::Path;
+use std::process::exit;
+use std::time::Duration;
 
 use self::error::InitError;
 

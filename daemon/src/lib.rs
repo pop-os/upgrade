@@ -85,4 +85,6 @@ pub const VAR_LIB_DIR: &str = "/var/lib/pop-upgrade";
 pub const TRANSITIONAL_SNAPS: &str = "/var/lib/pop-upgrade/transitional_snaps";
 pub const RESTART_SCHEDULED: &str = "/var/lib/pop-upgrade/restarting";
 
-pub fn development_releases_enabled() -> bool { Path::new(DEVELOPMENT_RELEASE_FILE).exists() }
+pub fn development_releases_enabled() -> bool {
+    Path::new(DEVELOPMENT_RELEASE_FILE).exists()
+}

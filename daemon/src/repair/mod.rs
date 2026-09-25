@@ -5,7 +5,9 @@ pub mod misc;
 pub mod packaging;
 pub mod swapfile;
 
-use crate::{process::CommandErr, system_environment::SystemEnvironment, ubuntu_version::Codename};
+use crate::process::CommandErr;
+use crate::system_environment::SystemEnvironment;
+use crate::ubuntu_version::Codename;
 use std::io;
 
 const FSTAB_PATH: &str = "/etc/fstab";
@@ -127,7 +129,9 @@ pub async fn repair() -> Result<(), RepairError> {
     let version_str = &os_release::OS_RELEASE.as_ref().unwrap().version_codename;
     let Ok(release) = version_str.parse::<Codename>() else {
         error!("unknown codename: {version_str}");
-        return Err(RepairError::UnknownCodename { codename: version_str.to_owned() });
+        return Err(RepairError::UnknownCodename {
+            codename: version_str.to_owned(),
+        });
     };
 
     crypttab::repair()?;
@@ -147,4 +151,6 @@ pub fn repair_esp() -> Result<(), RepairError> {
     Ok(())
 }
 
-pub fn pre_upgrade() -> Result<(), RepairError> { Ok(()) }
+pub fn pre_upgrade() -> Result<(), RepairError> {
+    Ok(())
+}

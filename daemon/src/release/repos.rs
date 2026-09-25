@@ -3,13 +3,11 @@ use crate::ubuntu_version::Codename;
 use anyhow::Context;
 use const_format::concatcp;
 use os_str_bytes::OsStrBytesExt;
-use std::{
-    ffi::OsStr,
-    fs::{self, DirEntry, ReadDir},
-    io,
-    os::unix::ffi::OsStrExt,
-    path::{Path, PathBuf},
-};
+use std::ffi::OsStr;
+use std::fs::{self, DirEntry, ReadDir};
+use std::io;
+use std::os::unix::ffi::OsStrExt;
+use std::path::{Path, PathBuf};
 
 const SOURCES_LIST: &str = "/etc/apt/sources.list";
 pub const PPA_DIR: &str = concatcp!(SOURCES_LIST, ".d/");
@@ -19,8 +17,13 @@ const GROOVY_PPA: &str = concatcp!(PPA_DIR, "pop-os-ppa.list");
 const PPA_SOURCES: &str = concatcp!(PPA_DIR, "pop-os-ppa.sources");
 const IMPISH_RELEASE: &str = concatcp!(PPA_DIR, "pop-os-release.sources");
 
-const REMOVE_LIST: &[&str] =
-    &[SYSTEM_SOURCES, PROPRIETARY_SOURCES, GROOVY_PPA, IMPISH_RELEASE, PPA_SOURCES];
+const REMOVE_LIST: &[&str] = &[
+    SYSTEM_SOURCES,
+    PROPRIETARY_SOURCES,
+    GROOVY_PPA,
+    IMPISH_RELEASE,
+    PPA_SOURCES,
+];
 
 /// Backup the sources lists
 pub async fn backup(release: Codename) -> anyhow::Result<()> {
@@ -74,7 +77,11 @@ pub async fn backup(release: Codename) -> anyhow::Result<()> {
         let dst_path_str = OsStr::from_bytes(&dst_path_buf);
         let dst_path = Path::new(&dst_path_str);
 
-        info!("creating backup of {} to {}", src.display(), dst_path.display());
+        info!(
+            "creating backup of {} to {}",
+            src.display(),
+            dst_path.display()
+        );
         fs::copy(&src, dst_path).with_context(
             || fomat!("failed to copy " (src.display()) " to " (dst_path.display())),
         )?;
@@ -82,7 +89,9 @@ pub async fn backup(release: Codename) -> anyhow::Result<()> {
 
     if sources_missing {
         info!("sources list was not found — creating a new one");
-        apply_default_source_lists(release).await.context("failed to create new sources.list")?;
+        apply_default_source_lists(release)
+            .await
+            .context("failed to create new sources.list")?;
     }
 
     Ok(())
@@ -149,8 +158,12 @@ pub fn is_eol(codename: Codename) -> bool {
 
 // Check if the release exists on Ubuntu's old-releases archive.
 pub async fn is_old_release(codename: Codename) -> bool {
-    let url =
-        &["http://old-releases.ubuntu.com/ubuntu/dists/", codename.as_str(), "/Release"].concat();
+    let url = &[
+        "http://old-releases.ubuntu.com/ubuntu/dists/",
+        codename.as_str(),
+        "/Release",
+    ]
+    .concat();
 
     if let Ok(client) = crate::misc::http_client() {
         if let Ok(resp) = client.head(url).send().await {
@@ -253,7 +266,12 @@ pub async fn restore(release: Codename) -> anyhow::Result<()> {
         }
 
         if let Err(why) = fs::rename(&path, dst) {
-            error!("failed to rename ({}) to ({}): {}", path.display(), dst.display(), why);
+            error!(
+                "failed to rename ({}) to ({}): {}",
+                path.display(),
+                dst.display(),
+                why
+            );
         }
     }
 
@@ -293,8 +311,11 @@ Pin-Priority: 1001
 fn update_preferences_script(_release: Codename) -> anyhow::Result<()> {
     let data = PREFERENCES_IMPISH;
 
-    fs::write("/etc/apt/preferences.d/pop-default-settings", data.as_bytes())
-        .context("failed to overwrite pop-default-settings apt preferences")
+    fs::write(
+        "/etc/apt/preferences.d/pop-default-settings",
+        data.as_bytes(),
+    )
+    .context("failed to overwrite pop-default-settings apt preferences")
 }
 
 fn ubuntu_uri() -> &'static str {
@@ -306,7 +327,11 @@ fn ubuntu_uri() -> &'static str {
 }
 
 fn system_sources(release: Codename) -> String {
-    let uri = if cfg!(target_arch = "aarch64") { ubuntu_uri() } else { "apt.pop-os.org/ubuntu" };
+    let uri = if cfg!(target_arch = "aarch64") {
+        ubuntu_uri()
+    } else {
+        "apt.pop-os.org/ubuntu"
+    };
     format!(
         r#"X-Repolib-Name: Pop_OS System Sources
 Enabled: yes
@@ -357,10 +382,13 @@ Signed-By: /etc/apt/trusted.gpg.d/pop-keyring-2017-archive.gpg
 }
 
 pub fn iter_files(dir: ReadDir) -> impl Iterator<Item = DirEntry> {
-    dir.filter_map(Result::ok).filter(|entry| entry.metadata().ok().map_or(false, |m| m.is_file()))
+    dir.filter_map(Result::ok)
+        .filter(|entry| entry.metadata().ok().map_or(false, |m| m.is_file()))
 }
 
-fn is_save_file(path: &Path) -> bool { path.extension() == Some(OsStr::from_bytes(b"save")) }
+fn is_save_file(path: &Path) -> bool {
+    path.extension() == Some(OsStr::from_bytes(b"save"))
+}
 
 #[cfg(test)]
 mod tests {
@@ -368,7 +396,11 @@ mod tests {
     fn is_save_file() {
         use std::path::Path;
 
-        assert!(!super::is_save_file(Path::new("/etc/apt/sources.list.d/pop-os-apps.sources")));
-        assert!(super::is_save_file(Path::new("/etc/apt/sources.list.d/pop-os-apps.sources.save")));
+        assert!(!super::is_save_file(Path::new(
+            "/etc/apt/sources.list.d/pop-os-apps.sources"
+        )));
+        assert!(super::is_save_file(Path::new(
+            "/etc/apt/sources.list.d/pop-os-apps.sources.save"
+        )));
     }
 }
