@@ -5,7 +5,7 @@ pub mod misc;
 pub mod packaging;
 pub mod swapfile;
 
-use crate::{process::CommandErr, system_environment::SystemEnvironment};
+use crate::{process::CommandErr, system_environment::SystemEnvironment, ubuntu_version::Codename};
 use std::io;
 
 const FSTAB_PATH: &str = "/etc/fstab";
@@ -32,6 +32,9 @@ error_set::error_set! {
 
         #[display("failed to update swapfile")]
         Swapfile(SwapfileErr),
+
+        #[display("unknown release codename: {codename}")]
+        UnknownCodename { codename: String },
 
         #[display("failed to wipe pulseaudio settings for users")]
         WipePulse(io::Error),
@@ -121,7 +124,11 @@ error_set::error_set! {
 pub async fn repair() -> Result<(), RepairError> {
     info!("performing release repair");
 
-    let release = &os_release::OS_RELEASE.as_ref().unwrap().version_codename;
+    let version_str = &os_release::OS_RELEASE.as_ref().unwrap().version_codename;
+    let Ok(release) = version_str.parse::<Codename>() else {
+        error!("unknown codename: {version_str}");
+        return Err(RepairError::UnknownCodename { codename: version_str.to_owned() });
+    };
 
     crypttab::repair()?;
     fstab::repair()?;
@@ -140,6 +147,4 @@ pub fn repair_esp() -> Result<(), RepairError> {
     Ok(())
 }
 
-pub fn pre_upgrade() -> Result<(), RepairError> {
-    Ok(())
-}
+pub fn pre_upgrade() -> Result<(), RepairError> { Ok(()) }
