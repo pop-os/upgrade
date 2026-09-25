@@ -211,6 +211,10 @@ pub fn convert_swap() -> Result<(), Error> {
 
     udevadm_settle();
 
+    _ = std::process::Command::new("systemctl")
+        .args(["daemon-reload"])
+        .status();
+
     exec(Command::new("update-initramfs").args(["-ck", "all"])).map_err(Error::InitramfsUpdate)?;
 
     let unused_device = old_esp_part_path.to_owned();
