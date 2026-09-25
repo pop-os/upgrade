@@ -33,6 +33,8 @@ pub fn convert_swap() -> Result<(), Error> {
     {
         partition_info_by_name(&partition_name).ok_or(Error::EspEnvNotFound)?
     } else if let Ok(cryptswap_dm_path) = cryptswap_device.canonicalize() {
+        let info = partition_info_from_dm(&cryptswap_dm_path).ok_or(Error::CryptswapPartitionNotFound)?;
+        
         // Check if swap partition is enabled and disable it if so.
         if swap_list.get_swapped(&cryptswap_dm_path) {
             _ = exec(Command::new("swapoff").arg(&cryptswap_dm_path));
@@ -63,7 +65,7 @@ pub fn convert_swap() -> Result<(), Error> {
             }
         }
 
-        partition_info_from_dm(&cryptswap_dm_path).ok_or(Error::CryptswapPartitionNotFound)?
+        info
     } else {
         // No cryptswap device found, therefore no swap to convert.
         return Ok(());
