@@ -51,7 +51,9 @@ pub fn setup_logging(filter: LevelFilter) -> Result<(), InitError> {
     Ok(())
 }
 
-fn strip_src(input: &str) -> &str { input.split("src/").nth(1).unwrap_or_default() }
+fn strip_src(input: &str) -> &str {
+    input.split("src/").nth(1).unwrap_or_default()
+}
 
 #[cfg(test)]
 mod tests {

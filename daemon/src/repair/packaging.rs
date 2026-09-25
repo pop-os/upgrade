@@ -1,8 +1,7 @@
-use crate::{
-    release::repos::{PPA_DIR, iter_files},
-    ubuntu_version::Codename,
-};
-use apt_cmd::{AptGet, Dpkg, lock::apt_lock_wait};
+use crate::release::repos::{PPA_DIR, iter_files};
+use crate::ubuntu_version::Codename;
+use apt_cmd::lock::apt_lock_wait;
+use apt_cmd::{AptGet, Dpkg};
 use futures::StreamExt;
 use std::{fs, io};
 
@@ -41,7 +40,11 @@ pub async fn repair(release: Codename) -> Result<(), Error> {
 
     for _ in 0..3i32 {
         apt_lock_wait().await;
-        let a = crate::misc::apt_get().fix_broken().status().await.map_err(Error::FixBroken);
+        let a = crate::misc::apt_get()
+            .fix_broken()
+            .status()
+            .await
+            .map_err(Error::FixBroken);
 
         apt_lock_wait().await;
         let b = Dpkg::new()
@@ -99,7 +102,10 @@ async fn base_requirements() -> Result<(), Error> {
     info!("installing required prerequisites: {:?}", to_install);
 
     // Ensure that the packages have their candidate versions installed.
-    crate::misc::apt_get().install(to_install).await.map_err(Error::InstallPrerequisites)
+    crate::misc::apt_get()
+        .install(to_install)
+        .await
+        .map_err(Error::InstallPrerequisites)
 }
 
 error_set::error_set! {

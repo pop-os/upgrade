@@ -1,5 +1,6 @@
 use super::CrypttabErr as Error;
-use std::{fs, path::Path};
+use std::fs;
+use std::path::Path;
 
 const CRYPTTAB: &str = "/etc/crypttab";
 
@@ -12,7 +13,8 @@ pub fn repair() -> Result<(), Error> {
     let contents = fs::read_to_string(crypttab_path).map_err(Error::CrypttabRead)?;
 
     if let Some(new_contents) = cryptswap_plain_warning(&contents) {
-        crate::fs::atomic_overwrite(crypttab_path, new_contents.as_bytes()).map_err(Error::CrypttabWrite)?;
+        crate::fs::atomic_overwrite(crypttab_path, new_contents.as_bytes())
+            .map_err(Error::CrypttabWrite)?;
     }
 
     Ok(())
@@ -44,11 +46,7 @@ fn cryptswap_plain_warning(input: &str) -> Option<String> {
         new.push('\n');
     }
 
-    if correction_needed {
-        Some(new)
-    } else {
-        None
-    }
+    if correction_needed { Some(new) } else { None }
 }
 
 #[cfg(test)]

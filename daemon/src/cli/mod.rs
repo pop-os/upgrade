@@ -7,24 +7,17 @@ use apt_cmd::AptUpgradeEvent;
 use chrono::NaiveDate;
 use clap::ArgMatches;
 use num_traits::FromPrimitive;
-use pop_upgrade::{
-    client,
-    daemon::*,
-    misc,
-    recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags},
-    release::{
-        eol::{EolDate, EolStatus},
-        systemd::{self, LoaderEntry},
-        RefreshOp, UpgradeEvent, UpgradeMethod,
-    },
-    ubuntu_version::{Codename, Version as UbuntuVersion},
-};
-use std::{
-    convert::TryFrom,
-    fs,
-    io::{self, IsTerminal, Write},
-    path::Path,
-};
+use pop_upgrade::daemon::*;
+use pop_upgrade::recovery::{RecoveryEvent, ReleaseFlags as RecoveryReleaseFlags};
+use pop_upgrade::release::eol::{EolDate, EolStatus};
+use pop_upgrade::release::systemd::{self, LoaderEntry};
+use pop_upgrade::release::{RefreshOp, UpgradeEvent, UpgradeMethod};
+use pop_upgrade::ubuntu_version::{Codename, Version as UbuntuVersion};
+use pop_upgrade::{client, misc};
+use std::convert::TryFrom;
+use std::fs;
+use std::io::{self, IsTerminal, Write};
+use std::path::Path;
 use yansi::Paint;
 
 const FETCH_RESULT_STR: &str = "Package fetch status";
@@ -121,8 +114,9 @@ impl Client {
 
                     let (summary, body) = notification_message(&current, &next);
                     notify(&summary, &body, || {
-                        let _ =
-                            exec::Command::new("cosmic-settings").arg("os-upgrade").exec();
+                        let _ = exec::Command::new("cosmic-settings")
+                            .arg("os-upgrade")
+                            .exec();
                     });
                 }
             }
@@ -130,12 +124,19 @@ impl Client {
             Some(("update", matches)) => {
                 let updates = self.fetch_updates(Vec::new(), matches.get_flag("download-only"))?;
 
-                let client::Fetched { updates_available, completed, total } = updates;
+                let client::Fetched {
+                    updates_available,
+                    completed,
+                    total,
+                } = updates;
 
                 if !updates_available || total == 0 {
                     println!("no updates available to fetch");
                 } else {
-                    println!("fetching updates: {} of {} updates fetched", completed, total);
+                    println!(
+                        "fetching updates: {} of {} updates fetched",
+                        completed, total
+                    );
                     self.event_listen_fetch_updates()?;
                 }
             }
@@ -538,12 +539,19 @@ fn installed_after_release(next: &str) -> bool {
                 minor = &minor[1..];
 
                 if let (Ok(major), Ok(minor)) = (major.parse::<u8>(), minor.parse::<u8>()) {
-                    match Codename::try_from(UbuntuVersion { major, minor, patch: 0 }) {
+                    match Codename::try_from(UbuntuVersion {
+                        major,
+                        minor,
+                        patch: 0,
+                    }) {
                         Ok(codename) => return codename.release_timestamp() < install_time as u64,
                         Err(()) => error!("version {} is invalid", next),
                     }
                 } else {
-                    error!("major ({}) and minor({}) version failed to parse as u8", major, minor);
+                    error!(
+                        "major ({}) and minor({}) version failed to parse as u8",
+                        major, minor
+                    );
                 }
             } else {
                 error!("version {} is invalid", next);
@@ -587,21 +595,36 @@ fn notification_message(current: &str, next: &str) -> (String, String) {
         Err(why) => error!("failed to fetch EOL date: {}", why),
     }
 
-    ("Upgrade Available".into(), fomat!("Pop!_OS " (next) " is available to download"))
+    (
+        "Upgrade Available".into(),
+        fomat!("Pop!_OS " (next) " is available to download"),
+    )
 }
 
 fn write_apt_event(event: AptUpgradeEvent) {
     match event {
         AptUpgradeEvent::Processing { package } => {
-            println!("{} for {}", color_primary("Processing triggers"), color_secondary(package));
+            println!(
+                "{} for {}",
+                color_primary("Processing triggers"),
+                color_secondary(package)
+            );
         }
         AptUpgradeEvent::Progress { percent } => {
             println!("{}: {}%", color_primary("Progress"), color_info(percent));
         }
         AptUpgradeEvent::SettingUp { package } => {
-            println!("{} {}", color_primary("Setting up"), color_secondary(package));
+            println!(
+                "{} {}",
+                color_primary("Setting up"),
+                color_secondary(package)
+            );
         }
-        AptUpgradeEvent::Unpacking { package, version, over } => {
+        AptUpgradeEvent::Unpacking {
+            package,
+            version,
+            over,
+        } => {
             println!(
                 "{} {} ({}) over ({})",
                 color_primary("Unpacking"),

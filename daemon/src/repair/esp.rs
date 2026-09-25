@@ -1,11 +1,9 @@
 use super::{EspErr as Error, FSTAB_PATH, fstab};
 use crate::process::exec;
-use std::{
-    fs::Permissions,
-    os::unix::fs::PermissionsExt,
-    path::{Path, PathBuf},
-    process::{Command, Stdio},
-};
+use std::fs::Permissions;
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 /// Contains only parent block devices, with partitions .
 const BLOCK_DEVICES_PATH: &str = "/sys/block/";
@@ -28,8 +26,10 @@ pub type PartNumber = String;
 pub fn convert_swap() -> Result<(), Error> {
     let mount_list = proc_mounts::MountList::new().map_err(Error::ProcMounts)?;
     let swap_list = proc_mounts::SwapList::new().map_err(Error::ProcSwaps)?;
-    let old_esp_part_path =
-        &mount_list.get_mount_by_dest(EFI_PATH).ok_or(Error::EspNotFound)?.source;
+    let old_esp_part_path = &mount_list
+        .get_mount_by_dest(EFI_PATH)
+        .ok_or(Error::EspNotFound)?
+        .source;
 
     if esp_size_valid(old_esp_part_path)? {
         return Ok(());
@@ -58,8 +58,12 @@ pub fn convert_swap() -> Result<(), Error> {
         udevadm_settle();
 
         if cryptswap_device.exists() {
-            exec(Command::new("cryptsetup").arg("close").arg(cryptswap_device))
-                .map_err(Error::CryptswapClose)?;
+            exec(
+                Command::new("cryptsetup")
+                    .arg("close")
+                    .arg(cryptswap_device),
+            )
+            .map_err(Error::CryptswapClose)?;
         }
 
         if fstab::remove_from_tab(&mut fstab, CRYPTSWAP_PATH) {
@@ -146,16 +150,28 @@ pub fn convert_swap() -> Result<(), Error> {
 
     let temp_mount = sys_mount::Mount::builder()
         .fstype("vfat")
-        .mount_autodrop(&new_esp_part_path, temp_dir.path(), sys_mount::UnmountFlags::DETACH)
+        .mount_autodrop(
+            &new_esp_part_path,
+            temp_dir.path(),
+            sys_mount::UnmountFlags::DETACH,
+        )
         .map_err(Error::EspMountNewTemp)?;
 
     _ = std::fs::set_permissions(temp_dir.path(), Permissions::from_mode(0o700));
 
-    exec(Command::new("rsync").args(["-ap", EFI_PATH]).arg(temp_dir.path()))
-        .map_err(Error::EspCopy)?;
+    exec(
+        Command::new("rsync")
+            .args(["-ap", EFI_PATH])
+            .arg(temp_dir.path()),
+    )
+    .map_err(Error::EspCopy)?;
 
-    exec(Command::new("bootctl").args(["install", "--esp-path"]).arg(temp_dir.path()))
-        .map_err(Error::EspBootctlInstall)?;
+    exec(
+        Command::new("bootctl")
+            .args(["install", "--esp-path"])
+            .arg(temp_dir.path()),
+    )
+    .map_err(Error::EspBootctlInstall)?;
 
     if let Some(line) = old_esp_fstab_line {
         fstab = fstab.replacen(
@@ -207,8 +223,10 @@ pub fn convert_swap() -> Result<(), Error> {
 
 /// Check if an existing EFI partition is greater than 2GB
 fn esp_size_valid(esp_path: &Path) -> Result<bool, Error> {
-    let block_name =
-        esp_path.file_name().and_then(|name| name.to_str()).ok_or(Error::EspNotFound)?;
+    let block_name = esp_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or(Error::EspNotFound)?;
 
     let old_esp_size =
         std::fs::read_to_string([BLOCK_AND_PARTITION_DEVICES_PATH, block_name, "/size"].concat())
@@ -226,8 +244,11 @@ fn same_parent_block(part_a: &Path, part_b: &Path) -> bool {
     fn inner(part_a: &Path, part_b: &Path) -> Option<bool> {
         let block_a = part_a.file_name().and_then(|name| name.to_str())?;
         let block_b = part_b.file_name().and_then(|name| name.to_str())?;
-        for block in
-            std::fs::read_dir(BLOCK_DEVICES_PATH).ok().into_iter().flatten().filter_map(Result::ok)
+        for block in std::fs::read_dir(BLOCK_DEVICES_PATH)
+            .ok()
+            .into_iter()
+            .flatten()
+            .filter_map(Result::ok)
         {
             let block_path = block.path();
             if block_path.join(block_a).exists() && block_path.join(block_b).exists() {
@@ -271,7 +292,9 @@ pub fn partition_is_swap<P: AsRef<Path>>(part: P) -> bool {
 }
 
 /// Wait for block devices to settle before continuing.
-fn udevadm_settle() { _ = Command::new("udevadm").arg("settle").status(); }
+fn udevadm_settle() {
+    _ = Command::new("udevadm").arg("settle").status();
+}
 
 /// Get the partition number of a block device if it's a partition.
 fn partition_number(block_name: &str) -> Option<String> {
@@ -306,7 +329,10 @@ fn partition_id(block_path: &Path, by_path: &str) -> Option<String> {
 ///
 /// Identifies `nvme0n1p4` as a partition of `/dev/nvme0n1`.
 fn block_device_parent(name: &str) -> Option<BlockPath> {
-    for block in std::fs::read_dir(BLOCK_DEVICES_PATH).ok()?.filter_map(Result::ok) {
+    for block in std::fs::read_dir(BLOCK_DEVICES_PATH)
+        .ok()?
+        .filter_map(Result::ok)
+    {
         let block_name = block.file_name();
         let Some(block_name) = block_name.to_str() else {
             continue;

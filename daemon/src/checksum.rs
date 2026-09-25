@@ -1,8 +1,10 @@
 use hex::FromHex;
-use sha2::{digest::generic_array::GenericArray, Digest, Sha256};
+use sha2::digest::generic_array::GenericArray;
+use sha2::{Digest, Sha256};
 use std::io;
 use thiserror::Error;
-use tokio::{fs::File, io::AsyncReadExt};
+use tokio::fs::File;
+use tokio::io::AsyncReadExt;
 
 #[derive(Debug, Error)]
 pub enum ValidateError {
@@ -36,7 +38,7 @@ pub async fn validate_checksum(file: &mut File, checksum: &str) -> Result<(), Va
     if *found != *expected {
         return Err(ValidateError::Checksum {
             expected: checksum.into(),
-            found:    format!("{:x}", found),
+            found: format!("{:x}", found),
         });
     }
 

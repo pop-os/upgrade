@@ -1,5 +1,6 @@
 use anyhow::Context;
-use std::{fs, path::Path};
+use std::fs;
+use std::path::Path;
 
 pub fn disable() -> anyhow::Result<()> {
     info!("attempting to disable gnome-shell extensions");
@@ -42,6 +43,9 @@ fn disable_for(user: &str) {
     })();
 
     if let Err(why) = result {
-        error!("failed to disable gnome-shell extensions for {}: {}", user, why);
+        error!(
+            "failed to disable gnome-shell extensions for {}: {}",
+            user, why
+        );
     };
 }

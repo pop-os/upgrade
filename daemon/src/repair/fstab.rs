@@ -1,9 +1,9 @@
 //! All code responsible for validating and repair the /etc/fstab file.
 
+use super::FstabErr;
 use crate::system_environment::SystemEnvironment;
 use std::path::Path;
 use std::process::Command;
-use super::FstabErr;
 
 /// Performs the following Pop-specific actions:
 ///
@@ -37,7 +37,7 @@ fn mount_required_partitions() -> Result<(), FstabErr> {
                 // 32 means it was already mounted.
                 match status.code() {
                     Some(0) | Some(32) => Ok(()),
-                    _ => Err(FstabErr::Mount { mount_point })
+                    _ => Err(FstabErr::Mount { mount_point }),
                 }
             })?;
     }
@@ -45,7 +45,15 @@ fn mount_required_partitions() -> Result<(), FstabErr> {
     Ok(())
 }
 
-pub fn append(fstab: &mut String, file_system: &str, mount: &str, fs_type: &str, options: &str, dump: &str, pass: &str) -> bool {
+pub fn append(
+    fstab: &mut String,
+    file_system: &str,
+    mount: &str,
+    fs_type: &str,
+    options: &str,
+    dump: &str,
+    pass: &str,
+) -> bool {
     let new_line = format!("{file_system}  {mount}  {fs_type}  {options}  {dump}  {pass}");
     let mut prev_line = None;
     for line in fstab.lines() {
@@ -167,7 +175,8 @@ mod tests {
     #[test]
     pub fn remove_cryptswap_from_crypttab() {
         let mut sample = String::from(
-            "cryptswap UUID=c6c8fd31-4f34-488e-bdad-2079c9dff4a8 /dev/urandom swap,plain,offset=1024,cipher=aes-xts-plain64,size=512",
+            "cryptswap UUID=c6c8fd31-4f34-488e-bdad-2079c9dff4a8 /dev/urandom \
+             swap,plain,offset=1024,cipher=aes-xts-plain64,size=512",
         );
         assert!(super::remove_from_tab(&mut sample, "cryptswap"));
         assert_eq!(sample.as_str(), "");

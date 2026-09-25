@@ -23,7 +23,11 @@ impl BootConf {
             .default
             .as_ref()
             .map(Box::as_ref)
-            .unwrap_or_else(|| self.0.current_entry().map_or(Self::DEFAULT_BOOT, |e| e.id.as_ref()))
+            .unwrap_or_else(|| {
+                self.0
+                    .current_entry()
+                    .map_or(Self::DEFAULT_BOOT, |e| e.id.as_ref())
+            })
     }
 
     /// Modified the default boot entry
@@ -43,7 +47,9 @@ impl BootConf {
 
         modify(&mut self.0)?;
 
-        self.0.overwrite_loader_conf().context("failed to overwrite systemd-boot configuration")
+        self.0
+            .overwrite_loader_conf()
+            .context("failed to overwrite systemd-boot configuration")
     }
 
     /// Defines the specified entry as the default boot entry
