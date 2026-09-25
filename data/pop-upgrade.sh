@@ -156,6 +156,8 @@ install_packages () {
 }
 
 upgrade () {
+    # Remove "/lib32" if it is dangling
+    test -h "/lib32" && (test -e "/lib32" || rm "/lib32")
     apt_install_fix
     apt_full_upgrade
 }
