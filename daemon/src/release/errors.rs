@@ -99,6 +99,9 @@ pub enum ReleaseError {
     #[error("failed to apply system repair before upgrade")]
     Repair(#[from] RepairError),
 
+    #[error("failed to set default boot entry to current: {why}")]
+    SetDefaultBoot { why: anyhow::Error },
+
     #[error("failure to simulate upgrade")]
     Simulation(#[source] io::Error),
 

@@ -101,6 +101,8 @@ error_set::error_set! {
         InitramfsUpdate(CommandErr),
         #[display("could not get swap devices from /proc/swaps")]
         ProcSwaps(io::Error),
+        #[display("failed to set default boot entry to current: {why}")]
+        SetDefaultBoot { why: anyhow::Error },
         #[display("failed to wipe file system from swap partition")]
         SwapWipe(CommandErr),
         #[display("could not create a temporary directory for mounting")]
