@@ -186,7 +186,7 @@ attempt_upgrade () {
     if (upgrade || attempt_repair); then
         # Ensure that fwupd-unsigned and pop-server are upgraded to the latest version
         apt-get install -y --allow-downgrades --no-download --ignore-missing fwupd-unsigned pop-server
-        
+
         rm -rf  /system-update "$1"
 
         if test "$(grep VERSION_ID= /etc/os-release | cut -d '"' -f 2)" = "24.04"; then
@@ -199,7 +199,7 @@ attempt_upgrade () {
         apt remove linux-image-*hwe*
 
         message -i "Upgrade complete. Autoremoving old packages..."
-        apt-get autoremove -y
+        apt-get remove '~o' -y --autoremove
 
         apt-mark minimize-manual -y
         if test "$(grep VERSION_ID= /etc/os-release | cut -d '"' -f 2)" = "24.04"; then

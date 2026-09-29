@@ -903,7 +903,13 @@ async fn fetch_new_release_packages<'b>(
                 &Shutdown::new(),
                 logger,
                 fetch,
-                &["dracut", "dracut-core", "fwupd-unsigned", "pop-server"],
+                &[
+                    "dracut",
+                    "dracut-core",
+                    "fwupd-unsigned",
+                    "libcanberra0",
+                    "pop-server",
+                ],
             )
             .await?;
         }
