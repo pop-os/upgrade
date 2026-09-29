@@ -520,6 +520,11 @@ pub async fn upgrade<'a>(
     // Update lists and fetch packages for the new release.
     fetch_new_release_packages(logger, fetch, from, to).await?;
 
+    systemd::BootConf::load()
+        .map_err(|why| ReleaseError::SetDefaultBoot { why })?
+        .set_default_boot_variant(&systemd::LoaderEntry::Current)
+        .map_err(|why| ReleaseError::SetDefaultBoot { why })?;
+
     // Reset system76-power modprobe configurations to the system defaults.
     _ = switchable_graphics::reset_to_default();
 

@@ -1,5 +1,6 @@
 use super::{EspErr as Error, FSTAB_PATH, fstab};
 use crate::process::exec;
+use crate::release::systemd::{BootConf, LoaderEntry};
 use std::fs::Permissions;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -221,6 +222,11 @@ pub fn convert_swap() -> Result<(), Error> {
     std::thread::spawn(move || {
         _ = Command::new("wipefs").arg("-a").arg(unused_device).status();
     });
+
+    BootConf::load()
+        .map_err(|why| Error::SetDefaultBoot { why })?
+        .set_default_boot_variant(&LoaderEntry::Current)
+        .map_err(|why| Error::SetDefaultBoot { why })?;
 
     Ok(())
 }
