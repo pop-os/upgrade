@@ -1,5 +1,5 @@
 use crate::process::CommandErr;
-use crate::release::DracutError;
+use crate::release::{DracutError, systemd};
 use crate::release_architecture::ReleaseArchError;
 use crate::repair::RepairError;
 use crate::ubuntu_version::VersionError;
@@ -7,6 +7,16 @@ use std::io;
 
 pub type RelResult<T> = Result<T, ReleaseError>;
 use thiserror::Error;
+
+error_set::error_set! {
+    RecoveryConfError := {
+        #[display("failed to open the recovery configuration file")]
+        ConfOpen(io::Error),
+
+        #[display("failed to update the recovery configuration file")]
+        ConfUpdate(io::Error),
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum ReleaseError {
@@ -73,13 +83,7 @@ pub enum ReleaseError {
     ReadingPartitions(#[source] io::Error),
 
     #[error("error updating recovery configuration file")]
-    RecoveryConf(#[source] anyhow::Error),
-
-    #[error("failed to open the recovery configuration file")]
-    RecoveryConfOpen(#[source] io::Error),
-
-    #[error("failed to update the recovery configuration file")]
-    RecoveryUpdate(#[source] io::Error),
+    RecoveryConf(#[source] RecoveryConfError),
 
     #[error("recovery parttiion was not found")]
     RecoveryNotFound,
@@ -100,7 +104,7 @@ pub enum ReleaseError {
     Repair(#[from] RepairError),
 
     #[error("failed to set default boot entry to current: {why}")]
-    SetDefaultBoot { why: anyhow::Error },
+    SetDefaultBoot { why: systemd::Error },
 
     #[error("failure to simulate upgrade")]
     Simulation(#[source] io::Error),
@@ -130,7 +134,7 @@ pub enum ReleaseError {
     StartupFileCreation(#[source] io::Error),
 
     #[error("failed to modify systemd-boot configuration: {}", _0)]
-    SystemdBoot(anyhow::Error),
+    SystemdBoot(systemd::Error),
 
     #[error(
         "attempted recovery-based upgrade method, but the systemd efi loader path was not found"
