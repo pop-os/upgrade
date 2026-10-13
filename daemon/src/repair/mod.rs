@@ -152,9 +152,9 @@ pub async fn repair() -> Result<(), RepairError> {
 pub fn repair_esp() -> Result<(), RepairError> {
     if SystemEnvironment::detect() == SystemEnvironment::Efi {
         esp::convert_swap()?;
+        swapfile::create()?;
     }
 
-    swapfile::create()?;
     Ok(())
 }
 
