@@ -554,8 +554,8 @@ async fn autorepair(version: Codename) -> Result<(), ReleaseError> {
             .map_err(RepairError::from)?;
         if SystemEnvironment::detect() == SystemEnvironment::Efi {
             repair::esp::convert_swap().map_err(RepairError::from)?;
+            repair::swapfile::create().map_err(RepairError::from)?;
         }
-        repair::swapfile::create().map_err(RepairError::from)?;
 
         Ok(())
     })
