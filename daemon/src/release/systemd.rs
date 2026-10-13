@@ -1,19 +1,33 @@
 use super::*;
 
 use crate::ubuntu_version::{Codename, Version};
-use anyhow::Context;
-use std::fs;
+use std::{fs, io};
 
 pub const PREVIOUS_DEFAULT: &str = "/var/lib/pop-upgrade/previous_default";
 
-pub struct BootConf(SystemdBootConf);
+error_set::error_set! {
+    Error := {
+        #[display("failed to overwite default boot entry")]
+        DefaultBootSet(systemd_boot_conf::Error),
+        #[display("failed to load systemd-boot loader config")]
+        Load(systemd_boot_conf::Error),
+        #[display("recovery entry not found in systemd-boot loader config")]
+        MissingRecoveryEntry,
+        #[display("failed to read previous default boot entry")]
+        PreviousBootRead(io::Error),
+        #[display("failed to remove {}", PREVIOUS_DEFAULT)]
+        RemovePreviousDefault(io::Error),
+    }
+}
+
+pub struct BootConf(pub SystemdBootConf);
 
 impl BootConf {
     const DEFAULT_BOOT: &'static str = "Pop_OS-current";
 
-    pub fn load() -> anyhow::Result<Self> {
+    pub fn load() -> Result<Self, Error> {
         SystemdBootConf::new("/boot/efi")
-            .context("failed to load systemd-boot configuration")
+            .map_err(Error::Load)
             .map(Self)
     }
 
@@ -31,10 +45,10 @@ impl BootConf {
     }
 
     /// Modified the default boot entry
-    pub fn set_default_boot<F: Fn(&mut SystemdBootConf) -> anyhow::Result<()>>(
+    pub fn set_default_boot<F: Fn(&mut SystemdBootConf) -> Result<(), Error>>(
         &mut self,
         modify: F,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), Error> {
         info!("gathering systemd-boot configuration information");
 
         let mut previous = self.default_boot();
@@ -49,11 +63,11 @@ impl BootConf {
 
         self.0
             .overwrite_loader_conf()
-            .context("failed to overwrite systemd-boot configuration")
+            .map_err(Error::DefaultBootSet)
     }
 
     /// Defines the specified entry as the default boot entry
-    pub fn set_default_boot_id(&mut self, id: &str) -> anyhow::Result<()> {
+    pub fn set_default_boot_id(&mut self, id: &str) -> Result<(), Error> {
         self.set_default_boot(|conf| {
             conf.loader_conf.default = Some(id.into());
             Ok(())
@@ -61,7 +75,7 @@ impl BootConf {
     }
 
     /// Defines the specified entry as the default boot entry
-    pub fn set_default_boot_variant(&mut self, variant: &LoaderEntry) -> anyhow::Result<()> {
+    pub fn set_default_boot_variant(&mut self, variant: &LoaderEntry) -> Result<(), Error> {
         self.set_default_boot(|conf| {
             let comparison: fn(filename: &str) -> bool = match variant {
                 LoaderEntry::Current => |e| e.to_lowercase().ends_with("current"),
@@ -72,7 +86,7 @@ impl BootConf {
                 .entries
                 .iter()
                 .find(|e| comparison(&e.id))
-                .ok_or(ReleaseError::MissingRecoveryEntry)?;
+                .ok_or(Error::MissingRecoveryEntry)?;
 
             conf.loader_conf.default = Some(recovery_entry.id.clone());
             Ok(())
@@ -86,7 +100,7 @@ pub enum LoaderEntry {
 }
 
 /// Restores the previous default boot entry
-pub fn restore_default() -> anyhow::Result<()> {
+pub fn restore_default() -> Result<(), Error> {
     if !Path::new(PREVIOUS_DEFAULT).exists() {
         return Ok(());
     }
@@ -94,7 +108,7 @@ pub fn restore_default() -> anyhow::Result<()> {
     let mut conf = BootConf::load()?;
 
     fs::read_to_string(PREVIOUS_DEFAULT)
-        .context("failed to read previous default boot entry")
+        .map_err(Error::PreviousBootRead)
         .and_then(|entry| conf.set_default_boot_id(&entry))
         .and_then(|_| remove_previous())
 }
@@ -141,6 +155,6 @@ pub fn upgrade_prereq() -> RelResult<()> {
     Ok(())
 }
 
-fn remove_previous() -> anyhow::Result<()> {
-    fs::remove_file(PREVIOUS_DEFAULT).with_context(|| fomat!("failed to remove "(PREVIOUS_DEFAULT)))
+fn remove_previous() -> Result<(), Error> {
+    fs::remove_file(PREVIOUS_DEFAULT).map_err(Error::RemovePreviousDefault)
 }
