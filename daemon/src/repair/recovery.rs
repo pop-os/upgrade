@@ -1,4 +1,4 @@
-use crate::ubuntu_version::Codename;
+use crate::{system_environment::SystemEnvironment, ubuntu_version::Codename};
 
 error_set::error_set! {
     Error := {
@@ -20,6 +20,11 @@ pub fn repair(codename: Codename) -> Result<(), Error> {
 
 /// Apply 26.04 dracut migrations for the recovery partition
 pub fn apply_dracut_boot_options() -> Result<(), Error> {
+    // Only for EFI installs using systemd-boot.
+    if SystemEnvironment::detect() != SystemEnvironment::Efi {
+        return Ok(());
+    }
+
     let mut boot_conf = crate::release::systemd::BootConf::load()
         .map_err(Error::BootConfLoad)?
         .0;
