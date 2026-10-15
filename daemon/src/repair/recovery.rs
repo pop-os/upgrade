@@ -1,4 +1,10 @@
-use crate::{system_environment::SystemEnvironment, ubuntu_version::Codename};
+use std::path::Path;
+
+use crate::system_environment::SystemEnvironment;
+use crate::ubuntu_version::Codename;
+
+/// Path to check if recovery image is a 26.04 image.
+const RESOLUTE_DIST_PATH: &str = "/recovery/dists/resolute";
 
 error_set::error_set! {
     Error := {
@@ -10,6 +16,11 @@ error_set::error_set! {
 }
 
 pub fn repair(codename: Codename) -> Result<(), Error> {
+    // Only for EFI installs using systemd-boot.
+    if SystemEnvironment::detect() != SystemEnvironment::Efi {
+        return Ok(());
+    }
+
     // Resolute requires updating kernel boot options for dracut
     if let Codename::Resolute = codename {
         return apply_dracut_boot_options();
@@ -20,8 +31,7 @@ pub fn repair(codename: Codename) -> Result<(), Error> {
 
 /// Apply 26.04 dracut migrations for the recovery partition
 pub fn apply_dracut_boot_options() -> Result<(), Error> {
-    // Only for EFI installs using systemd-boot.
-    if SystemEnvironment::detect() != SystemEnvironment::Efi {
+    if !Path::new(RESOLUTE_DIST_PATH).exists() {
         return Ok(());
     }
 
