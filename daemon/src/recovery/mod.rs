@@ -263,6 +263,8 @@ async fn fetch_iso<P: AsRef<Path>>(
         .await
         .map_err(RecoveryError::CopyKernel)?;
 
+    _ = crate::repair::recovery::apply_dracut_boot_options();
+
     emit_recovery_event(&sender, RecoveryEvent::Complete);
 
     drop(iso_mount);
