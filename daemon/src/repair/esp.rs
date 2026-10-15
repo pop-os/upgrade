@@ -162,7 +162,7 @@ pub fn convert_swap() -> Result<(), Error> {
 
     exec(
         Command::new("rsync")
-            .args(["-ap", EFI_PATH])
+            .args(["-ap", &[EFI_PATH, "/"].concat()])
             .arg(temp_dir.path()),
     )
     .map_err(Error::EspCopy)?;

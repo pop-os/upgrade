@@ -90,7 +90,7 @@ pub enum RefreshOp {
 pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
     recovery::upgrade_prereq()?;
 
-    let mut conf = systemd::BootConf::load().map_err(ReleaseError::RecoveryConf)?;
+    let mut conf = systemd::BootConf::load().map_err(ReleaseError::SystemdBoot)?;
 
     match op {
         RefreshOp::Disable => {
@@ -107,7 +107,7 @@ pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
             info!("Enabling refresh OS");
 
             recovery::mode_set("refresh", conf.default_boot())
-                .map_err(|why| ReleaseError::RecoveryConf(why.into()))?;
+                .map_err(|why| ReleaseError::RecoveryConf(why))?;
 
             conf.set_default_boot_variant(&LoaderEntry::Recovery)
                 .map_err(ReleaseError::SystemdBoot)?;
@@ -117,7 +117,7 @@ pub fn refresh_os(op: RefreshOp) -> Result<bool, ReleaseError> {
         RefreshOp::Status => {
             info!("Checking status of refresh OS");
 
-            recovery::mode_is("refresh")
+            recovery::mode_is("refresh").map_err(ReleaseError::RecoveryConf)
         }
     }
 }
@@ -450,6 +450,9 @@ pub async fn upgrade<'a>(
     let current_codename =
         Codename::try_from(current_version).expect("release doesn't have a codename");
 
+    let to_version = to.parse::<Version>().expect("invalid version");
+    let to_codename = Codename::try_from(to_version).expect("release doesn't have a codename");
+
     // Ensure that prerequest files and mounts are available.
     systemd::upgrade_prereq()?;
 
@@ -498,7 +501,7 @@ pub async fn upgrade<'a>(
     install_essential_packages().await?;
 
     // Apply any fixes necessary before the upgrade.
-    repair::pre_upgrade().map_err(ReleaseError::PreUpgrade)?;
+    repair::pre_upgrade(to_codename).map_err(ReleaseError::PreUpgrade)?;
 
     // Apply dracut configuration for encrypted installs.
     dracut::apply_luks_config().map_err(ReleaseError::DracutConfig)?;
@@ -551,8 +554,8 @@ async fn autorepair(version: Codename) -> Result<(), ReleaseError> {
             .map_err(RepairError::from)?;
         if SystemEnvironment::detect() == SystemEnvironment::Efi {
             repair::esp::convert_swap().map_err(RepairError::from)?;
+            repair::swapfile::create().map_err(RepairError::from)?;
         }
-        repair::swapfile::create().map_err(RepairError::from)?;
 
         Ok(())
     })
@@ -916,7 +919,7 @@ async fn fetch_new_release_packages<'b>(
 
         snapd::hold_transitional_packages().await?;
         info!("packages fetched successfully");
-        Ok(())
+        Ok::<(), ReleaseError>(())
     };
 
     // On any error, roll back the source lists.
@@ -924,7 +927,6 @@ async fn fetch_new_release_packages<'b>(
         Ok(_) => Ok(()),
         Err(why) => {
             rollback(current, &why).await;
-
             Err(why)
         }
     }

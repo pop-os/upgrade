@@ -220,10 +220,10 @@ async fn fetch_iso<P: AsRef<Path>>(
 
     emit_recovery_event(&sender, RecoveryEvent::Syncing);
     let tempdir = tempfile::tempdir().map_err(RecoveryError::TempDir)?;
-    let _iso_mount = Mount::builder()
+    let iso_mount = Mount::builder()
         .fstype("iso9660")
         .flags(MountFlags::RDONLY)
-        .mount(iso, tempdir.path())
+        .mount(&iso, tempdir.path())
         .map_err(RecoveryError::MountIso)?
         .into_unmount_drop(UnmountFlags::DETACH);
 
@@ -263,7 +263,12 @@ async fn fetch_iso<P: AsRef<Path>>(
         .await
         .map_err(RecoveryError::CopyKernel)?;
 
+    _ = crate::repair::recovery::apply_dracut_boot_options();
+
     emit_recovery_event(&sender, RecoveryEvent::Complete);
+
+    drop(iso_mount);
+    _ = std::fs::remove_file(&iso);
 
     Ok(Some((version, build)))
 }

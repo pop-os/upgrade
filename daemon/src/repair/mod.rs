@@ -3,6 +3,7 @@ pub mod esp;
 pub mod fstab;
 pub mod misc;
 pub mod packaging;
+pub mod recovery;
 pub mod swapfile;
 
 use crate::process::CommandErr;
@@ -31,6 +32,9 @@ error_set::error_set! {
 
         #[display("packaging error")]
         Packaging(packaging::Error),
+
+        #[display("unable to apply recovery partition update")]
+        Recovery(recovery::Error),
 
         #[display("failed to update swapfile")]
         Swapfile(SwapfileErr),
@@ -102,7 +106,7 @@ error_set::error_set! {
         #[display("could not get swap devices from /proc/swaps")]
         ProcSwaps(io::Error),
         #[display("failed to set default boot entry to current: {why}")]
-        SetDefaultBoot { why: anyhow::Error },
+        SetDefaultBoot { why: crate::release::systemd::Error },
         #[display("failed to wipe file system from swap partition")]
         SwapWipe(CommandErr),
         #[display("could not create a temporary directory for mounting")]
@@ -139,6 +143,7 @@ pub async fn repair() -> Result<(), RepairError> {
     crypttab::repair()?;
     fstab::repair()?;
     repair_esp()?;
+    recovery::repair(release)?;
     packaging::repair(release).await?;
 
     Ok(())
@@ -147,12 +152,14 @@ pub async fn repair() -> Result<(), RepairError> {
 pub fn repair_esp() -> Result<(), RepairError> {
     if SystemEnvironment::detect() == SystemEnvironment::Efi {
         esp::convert_swap()?;
+        swapfile::create()?;
     }
 
-    swapfile::create()?;
     Ok(())
 }
 
-pub fn pre_upgrade() -> Result<(), RepairError> {
+pub fn pre_upgrade(upgrading_to: Codename) -> Result<(), RepairError> {
+    recovery::repair(upgrading_to)?;
+
     Ok(())
 }
