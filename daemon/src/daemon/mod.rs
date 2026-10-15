@@ -240,6 +240,7 @@ impl Daemon {
                 };
 
                 while let Some(event) = event_rx.recv().await {
+                    tokio::task::yield_now().await;
                     let _suspend_lock = logind.as_mut().and_then(|logind| {
                         match logind
                             .connect()
@@ -285,6 +286,7 @@ impl Daemon {
 
                                             while let Some(event) = events.next().await {
                                                 let _ = dbus_tx.send(SignalEvent::Upgrade(event));
+                                                tokio::task::yield_now().await;
                                             }
 
                                             child.wait().await.map_result().map_err(ReleaseError::Upgrade)
@@ -825,6 +827,7 @@ impl Daemon {
         let mut shutdown_triggered = false;
 
         loop {
+            tokio::task::yield_now().await;
             let _ = connection.process(std::time::Duration::from_millis(500));
             let mut lock = cr.lock().unwrap();
             let daemon: &mut Daemon = lock.data_mut(&path).unwrap();
