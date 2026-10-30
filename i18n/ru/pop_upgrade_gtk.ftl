@@ -3,15 +3,14 @@
 battery-notice = <b>Подключитесь к источнику питания</b> перед тем, как начать.
 
 button-cancel = Отменить
-button-dismiss = Отклонить
-button-download = Загрузить
-button-perform-refresh = Перезагрузить & восстановить
-button-perform-upgrade = Перезагрузить & обновить
+button-dismiss = Отключить
+button-perform-refresh = Перезагрузить и восстановить
+button-perform-upgrade = Перезагрузить и установить
 button-refresh = Восстановить
-button-update = Проверить обновления
-button-upgrade = Обновить
+button-update = Проверить
+button-upgrade = Начать обновление
 
-checking-for-updates = Проверка обновлений ...
+checking-for-updates = Проверка наличия обновлений…
 
 dialog-refresh-title = Восстановить ОС
 dialog-refresh-description =
@@ -25,39 +24,39 @@ dialog-refresh-description =
      - Системного часового пояса
      - Системного языка
      - Системной раскладки клавиатуры
-     - Сетевых соединений, управляемых NetworkManager'ом
+     - Сетевых соединений, управляемых NetworkManager
 
- Пожалуйста, убедитесь, что вы всё сохранили до нажатия перезагрузки.
+ Перед нажатием кнопки перезагрузки убедитесь, что вы сохранили все важные данные.
 
-daemon-checking = Проверка обновлений демона
-daemon-updating = Обновление демона обновлений
+daemon-checking = Проверка обновлений службы
+daemon-updating = Обновление службы обновлений
 
 download-os = Загрузка {-os} {$version}
 download-os-complete = {-os} {$version} загружена
 
-eol-exceeded = Поддержка {-os} {$current} прекращена. Обновления безопасности и приложений недоступны для {-os} {$current}. Обновитесь на {-os} {$next}, чтобы обезопасить свой компьютер.
-eol-imminent = Поддержка {-os} {$current} заканчивается {$date}. Обновитесь для получения обновлений безопасности и приложений
+eol-exceeded = Поддержка {-os} {$current} прекращена. {-os} {$current} больше не будет получать обновления безопасности и приложений. Обновитесь до {-os} {$next}, чтобы обезопасить свой компьютер.
+eol-imminent = Поддержка {-os} {$current} завершится {$date}. Обновитесь, чтобы получать обновления безопасности и приложений.
 eol-error = не удалось получить дату окончания поддержки
 
 error-build-status = Не удалось получить статус сборки из-за внутренней ошибки
 error-collect-logs = Если вы клиент System76, пожалуйста, запустите утилиту System76 Driver, чтобы собрать логи и связаться с поддержкой.
 error-connection = Не удалось соединиться. Возможно, нет сети
 error-header = Кажется, у нас проблема! Не переживайте, вот список файлов, которые могли измениться:
-error-no-changelog-found = Не найден список изменений
+error-no-changelog-found = Список изменений не найден
 error-originating-cause = Причина возникновения ошибки
 error-package-manager = Если у вас проблемы с пакетным менеджером, пожалуйста, выполните следующие команды и приложите их к вашему обращению в поддержку:
-error-recovery-check = Не удалось проверить обновления для восстановления
+error-recovery-check = Не удалось проверить наличие обновления для восстановления
 error-recovery-download = Не удалось скачать обновление для восстановления
 error-recovery-update = Не удалось выполнить обновление для восстановления
 error-try-again = Попробуйте позже
 error-unknown-status = Получен неизвестный статус.
-error-update-check = Не удалось проверить обновления
+error-update-check = Не удалось проверить наличие обновлений
 error-upgrade-status = Не удалось проверить статус обновления
 
-new-features-include = Новые возможности включают в себя:
+new-features-include = Новые возможности включают:
 
 notification-dismiss-label = Уведомления
-notification-dismiss-description = Отключить уведомления об обновлении {-os} {$version} до следующего доступного обновления.
+notification-dismiss-description = Отключить уведомления об обновлении {-os} {$version} до выхода следующего обновления.
 
 notification-title = Обновление готово
 notification-description = {-os} готова к обновлению до {$version}
@@ -70,7 +69,7 @@ os-updates = Обновления системы и приложений
 
 permission-denied = Требуется разрешение
 
- Только администраторы могут обновить ОС.
+ Только администраторы могут выполнять обновление ОС.
 
 recovery-downloading = Загрузка обновления для раздела восстановления
 recovery-header = Раздел восстановления
@@ -79,14 +78,17 @@ recovery-sync = Синхронизация образа восстановлен
 recovery-update-found = Доступно обновление для образа восстановления
 recovery-verify = Проверка загруженного образа восстановления
 
-refresh-description = Переустановить с сохранением аккаунта и файлов пользователя
+refresh-description = Переустановить с сохранением учётной записи и файлов пользователя.
 refresh-header = Восстановить ОС
 
 release-current = У вас установлена последняя версия {-os}
 
-upgrade-available = {-os} {$version} доступна!
+upgrade-available = {-os} {$version} уже доступна
+upgrade-cosmic = Включает среду рабочего стола COSMIC.
 upgrade-canceling = Отмена обновления
 upgrade-downloading = {-os} загружается
+upgrade-finalize = Система будет обновлена до {-os} { $version }.
 upgrade-from-to = Доступно обновление с {$current} до {$next}
 upgrade-preparing = Подготовка обновления
 upgrade-ready = {-os} готова к обновлению до {$version}
+upgrade-to = Обновить до {-os} { $version }
