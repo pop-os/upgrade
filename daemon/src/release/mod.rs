@@ -65,7 +65,8 @@ const REMOVE_PACKAGES: &[&str] = &[
 const CORE_PACKAGES: &[&str] = &["linux-generic", "pop-desktop", "sessioninstaller"];
 
 #[cfg(target_arch = "aarch64")]
-const CORE_PACKAGES: &[&str] = &["pop-desktop-raspi"];
+//const CORE_PACKAGES: &[&str] = &["pop-desktop-raspi"];
+const CORE_PACKAGES: &[&str] = &["linux-generic", "pop-desktop", "sessioninstaller"];
 
 const DPKG_LOCK: &str = "/var/lib/dpkg/lock";
 const LISTS_LOCK: &str = "/var/lib/apt/lists/lock";
