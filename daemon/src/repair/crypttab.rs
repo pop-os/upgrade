@@ -52,23 +52,35 @@ fn crypttab_update(input: &str) -> Option<String> {
                 }
             }
 
-            let mut new_options = "";
-            if flags & (HAS_SWAP | HAS_PLAIN) == HAS_SWAP {
-                new_options = "plain,";
-            } else if flags & (HAS_LUKS | HAS_DISCARD) == HAS_LUKS {
-                new_options = "discard,";
-            }
-
-            if !new_options.is_empty() {
+            let add_plain_to_swap = flags & (HAS_SWAP | HAS_PLAIN) == HAS_SWAP;
+            let add_discard_to_luks = flags & (HAS_LUKS | HAS_DISCARD) == HAS_LUKS;
+            if add_plain_to_swap || add_discard_to_luks {
                 modified = true;
+                let mut add_comma = false;
                 new.push_str(cmd);
                 new.push(' ');
                 new.push_str(source);
                 new.push(' ');
                 new.push_str(keyfile);
                 new.push(' ');
-                new.push_str(new_options);
-                new.push_str(options);
+
+                for field in options.split(',') {
+                    if add_comma {
+                        new.push(',');
+                    }
+
+                    add_comma = true;
+                    match field {
+                        "swap" if add_plain_to_swap => {
+                            new.push_str("swap,plain");
+                        }
+                        "luks" if add_discard_to_luks => {
+                            new.push_str("luks,discard");
+                        }
+                        _ => new.push_str(field),
+                    }
+                }
+
                 new.push('\n');
                 continue;
             }
@@ -87,12 +99,12 @@ mod tests {
 cryptswap UUID=ed9e7007-b02b-48a6-b4ce-2207ee5fefd6  /dev/urandom swap,offset=1024,cipher=aes-xts-plain64,size=512
 "#;
 
-    const GOOD: &str = r#"cryptdata UUID=ed9e7007-b02b-48a6-b4ce-2207ee5fefd6 none discard,luks
-cryptswap UUID=ed9e7007-b02b-48a6-b4ce-2207ee5fefd6 /dev/urandom plain,swap,offset=1024,cipher=aes-xts-plain64,size=512
+    const GOOD: &str = r#"cryptdata UUID=ed9e7007-b02b-48a6-b4ce-2207ee5fefd6 none luks,discard
+cryptswap UUID=ed9e7007-b02b-48a6-b4ce-2207ee5fefd6 /dev/urandom swap,plain,offset=1024,cipher=aes-xts-plain64,size=512
 "#;
 
     #[test]
-    fn cryptswap() {
+    fn craypttab_updates() {
         assert_eq!(None, super::crypttab_update(GOOD));
         assert_eq!(Some(GOOD.to_owned()), super::crypttab_update(BAD));
     }
