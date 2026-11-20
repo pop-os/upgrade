@@ -107,6 +107,6 @@ impl Release {
 
 #[tokio::test]
 async fn release_exists() {
-    let result = Release::get_release("20.04", "intel").await;
+    let result = Release::get_release("26.04", "generic").await;
     assert!(result.is_ok());
 }
